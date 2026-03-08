@@ -375,27 +375,35 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
 
   const identifier = playerIdentifier?.trim() || null
   if (identifier) {
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('cards')
       .select('id')
       .eq('game_id', game.id)
       .eq('player_identifier', identifier)
       .single()
-    if (existing) {
+    if (!existingError && existing) {
       return { cardId: existing.id, gameId: game.id, alreadyJoined: true }
     }
   }
 
   const layout = generateCardLayout(songIds, gridSize)
-  const { data: card, error: cardError } = await supabase
+  const insertPayload: { game_id: string; player_name: string; player_identifier?: string | null } = {
+    game_id: game.id,
+    player_name: playerName,
+    player_identifier: identifier,
+  }
+  let { data: card, error: cardError } = await supabase
     .from('cards')
-    .insert({
-      game_id: game.id,
-      player_name: playerName,
-      player_identifier: identifier,
-    })
+    .insert(insertPayload)
     .select('id')
     .single()
+
+  if (cardError && /player_identifier|schema cache|column.*cards/i.test(cardError.message)) {
+    delete insertPayload.player_identifier
+    const retry = await supabase.from('cards').insert(insertPayload).select('id').single()
+    card = retry.data
+    cardError = retry.error
+  }
 
   if (cardError || !card) {
     return { error: cardError?.message ?? 'Failed to create card' }

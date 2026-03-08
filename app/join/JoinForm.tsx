@@ -68,7 +68,16 @@ export function JoinForm({ initialGameCode = '' }: { initialGameCode?: string })
           className="w-full p-4 rounded-2xl bg-slate-800/60 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:border-emerald-500/50"
         />
       </div>
-      {error && <p className="text-red-300">{error}</p>}
+      {error && (
+        <div className="space-y-1">
+          <p className="text-red-300">{error}</p>
+          {(error.includes('player_identifier') || error.includes('schema cache') || error.includes('column')) && (
+            <p className="text-slate-400 text-sm">
+              Try again without filling &quot;Platform username&quot;, or ask the host to run the schema update in Supabase.
+            </p>
+          )}
+        </div>
+      )}
       <button
         type="submit"
         disabled={loading}
