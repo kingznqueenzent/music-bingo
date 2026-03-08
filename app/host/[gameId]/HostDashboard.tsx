@@ -66,6 +66,7 @@ export function HostDashboard({
   const [resetPlayedLoading, setResetPlayedLoading] = useState(false)
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
+  const playRowTouchHandledRef = useRef(false)
   const playChannelRef = useRef<{ send: (msg: { type: 'broadcast'; event: string; payload: object }) => void } | null>(null)
 
   useEffect(() => {
@@ -730,27 +731,31 @@ export function HostDashboard({
                 const label = playlistSongLabel(song)
                 const isPlaying = playingSongId === song.id
                 return (
-                  <li
-                    key={song.id}
-                    className="flex items-center gap-2 py-1.5 px-2 -mx-2 rounded-lg hover:bg-slate-800/80 transition-colors group"
-                  >
+                  <li key={song.id}>
                     <button
                       type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleNextSong(song) }}
-                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 font-semibold py-1.5 px-3 text-xs shrink-0 min-w-[4rem] cursor-pointer transition-transform"
+                      onClick={() => {
+                        if (playRowTouchHandledRef.current) {
+                          playRowTouchHandledRef.current = false
+                          return
+                        }
+                        handleNextSong(song)
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault()
+                        playRowTouchHandledRef.current = true
+                        handleNextSong(song)
+                        setTimeout(() => { playRowTouchHandledRef.current = false }, 400)
+                      }}
+                      className="w-full flex items-center gap-2 py-3 px-3 rounded-lg hover:bg-slate-800/80 active:bg-slate-700/80 transition-colors cursor-pointer touch-manipulation select-none text-left min-h-[48px] border-0"
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
                     >
-                      {isPlaying ? 'Playing…' : 'Play'}
+                      <span className="rounded-full bg-emerald-500 text-white font-semibold py-1.5 px-3 text-xs shrink-0 min-w-[4rem] text-center pointer-events-none">
+                        {isPlaying ? 'Playing…' : 'Play'}
+                      </span>
+                      <span className="text-slate-500 w-6 text-sm shrink-0 pointer-events-none">{idx + 1}</span>
+                      <span className="flex-1 truncate text-slate-200 text-sm pointer-events-none">{label}</span>
                     </button>
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleNextSong(song)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNextSong(song) } }}
-                      className="flex-1 flex items-center gap-2 min-w-0 cursor-pointer select-none"
-                    >
-                      <span className="text-slate-500 w-6 text-sm shrink-0">{idx + 1}</span>
-                      <span className="truncate text-slate-200 text-sm">{label}</span>
-                    </span>
                   </li>
                 )
               })}
