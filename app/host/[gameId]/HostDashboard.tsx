@@ -22,16 +22,33 @@ import { SourceIndicator } from '@/components/SourceIndicator'
 import { playlistSongLabel } from '@/lib/media-display'
 import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
 
-export function HostDashboard({ gameId }: { gameId: string }) {
+type HostDashboardProps = {
+  gameId: string
+  initialGame?: Game | null
+  initialSongs?: PlaylistSong[]
+  initialPlayed?: PlayedSong[]
+  initialPlayerCount?: number
+  serverError?: string
+}
+
+export function HostDashboard({
+  gameId,
+  initialGame = null,
+  initialSongs = [],
+  initialPlayed = [],
+  initialPlayerCount = 0,
+  serverError: initialServerError,
+}: HostDashboardProps) {
   const searchParams = useSearchParams()
   const code = searchParams.get('code') ?? ''
   const supabase = useMemo(() => createClient(), [])
-  const [game, setGame] = useState<Game | null>(null)
-  const [songs, setSongs] = useState<PlaylistSong[]>([])
-  const [played, setPlayed] = useState<PlayedSong[]>([])
-  const [playerCount, setPlayerCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
+  const [game, setGame] = useState<Game | null>(initialGame ?? null)
+  const [songs, setSongs] = useState<PlaylistSong[]>(initialSongs)
+  const [played, setPlayed] = useState<PlayedSong[]>(initialPlayed)
+  const [playerCount, setPlayerCount] = useState(initialPlayerCount)
+  const [loading, setLoading] = useState(!initialGame && !initialServerError)
+  const [loadError, setLoadError] = useState(initialServerError ?? '')
+  const [retryTrigger, setRetryTrigger] = useState(0)
   const [actionError, setActionError] = useState('')
   const [currentSong, setCurrentSong] = useState<PlaylistSong | null>(null)
   const [verificationCardId, setVerificationCardId] = useState('')
@@ -41,13 +58,17 @@ export function HostDashboard({ gameId }: { gameId: string }) {
   const [verificationError, setVerificationError] = useState('')
   const [pdfExporting, setPdfExporting] = useState(false)
   const [pdfPerPage, setPdfPerPage] = useState<2 | 4>(4)
-  const [logoUrlInput, setLogoUrlInput] = useState('')
+  const [logoUrlInput, setLogoUrlInput] = useState(initialGame?.logo_url ?? '')
   const [logoSaving, setLogoSaving] = useState(false)
   const [verifyBingoLoading, setVerifyBingoLoading] = useState(false)
   const [verifyBingoSuccess, setVerifyBingoSuccess] = useState('')
   const playChannelRef = useRef<{ send: (msg: { type: 'broadcast'; event: string; payload: object }) => void } | null>(null)
 
   useEffect(() => {
+    if (initialGame && retryTrigger === 0) {
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setLoadError('')
     const timeoutMs = 15000
@@ -56,7 +77,10 @@ export function HostDashboard({ gameId }: { gameId: string }) {
     )
     const loadPromise = (async () => {
       const { data: g, error: gameError } = await supabase.from('games').select('*').eq('id', gameId).single()
-      if (gameError) throw new Error(gameError.message || 'Could not load game.')
+      if (gameError) {
+        const msg = [gameError.message, gameError.details, gameError.hint].filter(Boolean).join(' ') || 'Could not load game.'
+        throw new Error(msg)
+      }
       if (!g || cancelled) return
       setGame(g)
       setLogoUrlInput((g as Game).logo_url ?? '')
@@ -75,13 +99,13 @@ export function HostDashboard({ gameId }: { gameId: string }) {
     })()
     Promise.race([loadPromise, timeoutPromise])
       .catch((e) => {
-        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load game.')
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : String(e))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
     return () => { cancelled = true }
-  }, [gameId, supabase])
+  }, [gameId, supabase, retryTrigger, initialGame])
 
   useEffect(() => {
     const channel = supabase
@@ -236,15 +260,34 @@ export function HostDashboard({ gameId }: { gameId: string }) {
     return <div className="text-xl text-slate-300">Loading…</div>
   }
   if (loadError) {
+    const isSchemaError = /playlist_id|current_song_id|player_identifier|schema cache|column.*games|column.*cards/i.test(loadError)
+    const isTimeout = /timed out|timeout/i.test(loadError)
     return (
-      <div className="space-y-2">
+      <div className="space-y-4 max-w-xl">
         <p className="text-xl text-red-300">Could not load game.</p>
-        <p className="text-slate-400 text-sm">{loadError}</p>
-        {loadError.includes('playlist_id') && (
-          <p className="text-slate-400 text-sm mt-2">
-            Run the schema reload in Supabase SQL Editor (see docs/FIX-PLAYLIST-ID-SCHEMA-CACHE.md), then try again.
+        <p className="text-slate-300 text-sm font-mono break-all bg-slate-800/80 px-3 py-2 rounded">{loadError}</p>
+        {isSchemaError && (
+          <p className="text-slate-400 text-sm">
+            Supabase’s schema cache is stale. Run <strong>supabase/reload-schema-cache.sql</strong> in Supabase SQL Editor, wait 20 seconds, then <strong>Restart project</strong> (Project Settings → General). Then click Retry below.
           </p>
         )}
+        {isTimeout && (
+          <p className="text-slate-400 text-sm">
+            The request took too long. Check your connection and that Supabase env vars are set on Vercel. Then click Retry.
+          </p>
+        )}
+        {!isSchemaError && !isTimeout && (
+          <p className="text-slate-400 text-sm">
+            Try running <strong>supabase/reload-schema-cache.sql</strong> in Supabase SQL Editor, then <strong>Restart project</strong>, then Retry. If it still fails, check Vercel env vars (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY).
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => { setLoadError(''); setLoading(true); setRetryTrigger((n) => n + 1) }}
+          className="rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold px-6 py-3"
+        >
+          Retry
+        </button>
       </div>
     )
   }

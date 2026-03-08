@@ -55,6 +55,7 @@ export function PlayerCard({
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
+  const [justMarkedIds, setJustMarkedIds] = useState<Set<string>>(new Set())
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -140,6 +141,12 @@ export function PlayerCard({
         { event: 'INSERT', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
         (payload) => {
           const newId = (payload.new as PlayedSong).playlist_song_id
+          setJustMarkedIds((prev) => new Set([...prev, newId]))
+          setTimeout(() => setJustMarkedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(newId)
+            return next
+          }), 500)
           setPlayedSongIds((prev) => {
             const next = new Set([...prev, newId])
             persistMarks(next)
@@ -206,6 +213,7 @@ export function PlayerCard({
           {grid.map((row) =>
             row.map((cell) => {
               const isMarked = playedSongIds.has(cell.playlist_song_id)
+              const justMarked = justMarkedIds.has(cell.playlist_song_id)
               return (
                 <div
                   key={cell.id}
@@ -213,7 +221,7 @@ export function PlayerCard({
                     aspect-square rounded-xl flex flex-col items-center justify-center p-1 text-center text-xs font-medium
                     border transition-all duration-300 overflow-hidden
                     ${isMarked
-                      ? 'bg-[#1E1E1E] border-[#00FFFF] text-[#00FFFF] animate-pulse-glow'
+                      ? `bg-[#1E1E1E] border-[#00FFFF] text-[#00FFFF] ${justMarked ? 'animate-bingo-mark' : 'animate-pulse-glow'}`
                       : 'bg-[#1E1E1E] border-white/20 text-slate-300'}
                   `}
                 >
@@ -238,7 +246,7 @@ export function PlayerCard({
 
       {showWinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full shadow-xl">
+          <div className="bg-slate-800 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full shadow-xl animate-win-modal-in">
             <h2 className="text-2xl font-bold text-emerald-400 mb-2">BINGO VERIFIED!</h2>
             <p className="text-slate-300 mb-4">Enter your name to join the Leaderboard.</p>
             <input

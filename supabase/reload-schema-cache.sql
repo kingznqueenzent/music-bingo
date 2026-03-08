@@ -1,6 +1,7 @@
--- Fix: "Could not find the '...' column of 'games' or 'cards' in the schema cache"
--- Run in Supabase SQL Editor (New query → paste → Run).
--- If the error persists: Dashboard → Project Settings → General → Restart project.
+-- Fix: "Could not find the 'player_identifier' (or other) column of 'cards'/'games' in the schema cache"
+-- Run this ENTIRE script in Supabase SQL Editor: New query → paste all → Run.
+-- Then wait 20 seconds and try the app again.
+-- If the error STILL appears: Dashboard → Project Settings → General → Restart project (required for stubborn caches).
 
 -- 1. Ensure expected columns exist on games (no-op if already there)
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS playlist_id uuid REFERENCES public.playlists(id) ON DELETE RESTRICT;
@@ -14,5 +15,6 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.games TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.cards TO anon, authenticated;
 
--- 4. Reload PostgREST schema cache
+-- 4. Reload PostgREST schema cache (run twice; sometimes first NOTIFY is missed)
+NOTIFY pgrst, 'reload schema';
 NOTIFY pgrst, 'reload schema';

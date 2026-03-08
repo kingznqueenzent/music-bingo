@@ -126,7 +126,7 @@ export function StageView({ gameId }: { gameId: string }) {
           </div>
         )}
 
-        <div className="flex-1 w-full flex flex-col items-center justify-center p-4 pt-24">
+        <div key={currentSong?.id ?? 'idle'} className="flex-1 w-full flex flex-col items-center justify-center p-4 pt-24 animate-stage-song-in">
           {currentSong && currentSong.album_art_url && (
             <img
               src={currentSong.album_art_url}
