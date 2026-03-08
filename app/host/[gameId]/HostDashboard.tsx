@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
 import {
   startGame,
-  playNextSong,
   updateGameSettings,
   getCardForVerification,
   getCardsForPdf,
@@ -175,12 +174,28 @@ export function HostDashboard({
   async function handleNextSong(song: PlaylistSong) {
     setActionError('')
     setPlayingSongId(song.id)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
     try {
-      const res = await playNextSong(gameId, song.id)
-      if (res.error) {
-        setActionError(res.error)
-      } else {
+      const res = await fetch('/api/play-next', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, playlistSongId: song.id }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (data.ok) {
         setCurrentSong(song)
+      } else {
+        setActionError(data.error ?? 'Could not play song.')
+      }
+    } catch (e) {
+      clearTimeout(timeoutId)
+      if ((e as Error).name === 'AbortError') {
+        setActionError('Request timed out. Try again.')
+      } else {
+        setActionError(e instanceof Error ? e.message : 'Something went wrong.')
       }
     } finally {
       setPlayingSongId(null)
@@ -623,8 +638,7 @@ export function HostDashboard({
                     <button
                       type="button"
                       onClick={() => handleNextSong(song)}
-                      disabled={playingSongId != null}
-                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 font-semibold py-1.5 px-3 text-xs shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 font-semibold py-1.5 px-3 text-xs shrink-0 min-w-[4rem]"
                     >
                       {isPlaying ? 'Playing…' : 'Play'}
                     </button>
