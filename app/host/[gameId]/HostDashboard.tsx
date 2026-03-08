@@ -9,6 +9,7 @@ import {
   getCardForVerification,
   getCardsForPdf,
   playNextSong,
+  startGame,
   type CardCellVerification,
   type WinPattern,
 } from '@/app/actions/game'
@@ -163,6 +164,7 @@ export function HostDashboard({
   async function handleStart() {
     setActionError('')
     setGame((prev) => (prev ? { ...prev, status: 'playing' as const } : null))
+    let success = false
     try {
       const res = await fetch('/api/start-game', {
         method: 'POST',
@@ -170,14 +172,19 @@ export function HostDashboard({
         body: JSON.stringify({ gameId }),
       })
       const data = (await res.json()) as { ok?: boolean; error?: string }
-      if (!res.ok || !data.ok) {
-        setGame((prev) => (prev ? { ...prev, status: 'lobby' as const } : null))
-        setActionError(data.error ?? `Error ${res.status}. Could not start game.`)
-      }
+      if (res.ok && data?.ok) success = true
+      else setActionError((data?.error ?? `Error ${res.status}`) + ' Trying fallback…')
     } catch (e) {
-      setGame((prev) => (prev ? { ...prev, status: 'lobby' as const } : null))
-      setActionError(e instanceof Error ? e.message : 'Could not start game.')
+      setActionError((e instanceof Error ? e.message : 'Could not start game') + ' Trying fallback…')
     }
+    if (!success) {
+      const fallback = await startGame(gameId)
+      if (fallback.ok) {
+        success = true
+        setActionError('')
+      } else setActionError(fallback.error ?? 'Could not start game.')
+    }
+    if (!success) setGame((prev) => (prev ? { ...prev, status: 'lobby' as const } : null))
   }
 
   async function handleNextSong(song: PlaylistSong) {

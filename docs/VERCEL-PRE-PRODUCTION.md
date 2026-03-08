@@ -30,9 +30,9 @@ git push -u origin staging
 
 **Option A – Use the branch URL**
 
-- Push to `staging` (or `preview`). Vercel assigns a **fixed URL** for that branch, e.g.:
-  - `https://music-bingo-git-staging-kingzandqueenzentertainment-1662s-projects.vercel.app`
-- That URL stays the same for every new deploy from `staging`. Use it as your pre-production link.
+- Push to `staging` (or `preview`). Vercel assigns a **fixed URL** for that branch.
+- Find it: **Vercel** → your project → **Deployments** → click the latest deployment from branch **staging** → copy the URL.
+- Pattern is usually: `https://<project>-git-staging-<team>.vercel.app` or similar. That URL stays the same for every new deploy from `staging`.
 
 **Option B – Custom domain (optional)**
 

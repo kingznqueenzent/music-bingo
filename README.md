@@ -2,7 +2,14 @@
 
 Interactive music bingo for livestreams and parties. Host games, players join with a code or QR, cards update in real time.
 
-**Live app:** [music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app)
+## Environments
+
+| Environment       | Branch   | URL |
+|-------------------|----------|-----|
+| **Production**    | `main`   | [music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app) |
+| **Pre-production** | `staging` | [music-bingo-git-staging-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-git-staging-kingzandqueenzentertainment-1662s-projects.vercel.app) |
+
+Pre-production deploys from the `staging` branch. Test there, then merge to `main` to release. See [docs/VERCEL-PRE-PRODUCTION.md](docs/VERCEL-PRE-PRODUCTION.md) for setup.
 
 ---
 
