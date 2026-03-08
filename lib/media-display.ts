@@ -24,13 +24,11 @@ export function playlistSongLabel(song: {
   title?: string | null
   youtube_id?: string | null
   file_url?: string | null
-  spotify_track_id?: string | null
 }): string {
   const raw =
     song.title?.trim() ||
     song.youtube_id?.trim() ||
     song.file_url?.trim() ||
-    song.spotify_track_id?.trim() ||
     ''
   if (!raw) return 'Track'
   // If it already looks like a short title (no URL, no long path), use it

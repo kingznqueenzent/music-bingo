@@ -311,7 +311,7 @@ export function PlayerCard({
                       className="w-6 h-6 rounded object-cover shrink-0 mb-0.5"
                     />
                   )}
-                  <span className="line-clamp-3">{cell.song?.title || cell.song?.youtube_id || cell.song?.spotify_track_id || '—'}</span>
+                  <span className="line-clamp-3">{cell.song?.title || cell.song?.youtube_id || '—'}</span>
                 </button>
               )
             })

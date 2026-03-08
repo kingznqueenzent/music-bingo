@@ -3,15 +3,13 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
-import { SpotifyEmbed } from '@/components/SpotifyEmbed'
 import { SourceIndicator } from '@/components/SourceIndicator'
 import type { Game, PlaylistSong, LeaderboardEntry } from '@/lib/supabase/types'
 
-type Source = 'youtube' | 'spotify' | 'local'
+type Source = 'youtube' | 'local'
 
 function getSource(song: PlaylistSong | null): Source {
   if (!song) return 'youtube'
-  if (song.source === 'spotify' && song.spotify_track_id) return 'spotify'
   if (song.source === 'local' && song.file_url) return 'local'
   return 'youtube'
 }
@@ -95,10 +93,9 @@ export function StageView({ gameId }: { gameId: string }) {
 
   const clipSeconds = game?.clip_seconds ?? 20
   const crossfadeSeconds = game?.crossfade_seconds ?? 0
-  const isYouTube = currentSong?.source !== 'local' && currentSong?.source !== 'spotify' && currentSong?.youtube_id
-  const isSpotify = currentSong?.source === 'spotify' && currentSong?.spotify_track_id
+  const isYouTube = currentSong?.source !== 'local' && currentSong?.youtube_id
   const isLocal = currentSong?.source === 'local' && currentSong?.file_url
-  const nowPlayingLabel = currentSong?.title || currentSong?.youtube_id || currentSong?.spotify_track_id || 'Music Bingo'
+  const nowPlayingLabel = currentSong?.title || currentSong?.youtube_id || 'Music Bingo'
   const source = getSource(currentSong)
 
   /* Full-bleed stage: media layer fills screen; title/artist overlay with Inter; leaderboard as glassmorphism overlay when toggled */
@@ -116,11 +113,6 @@ export function StageView({ gameId }: { gameId: string }) {
               >
                 {nowPlayingLabel}
               </h1>
-              {currentSong.source === 'spotify' && (
-                <p className="text-lg md:text-xl text-cyan-300/90 mt-1" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-                  Spotify
-                </p>
-              )}
             </div>
             <div className="w-8" aria-hidden />
           </div>
@@ -146,15 +138,6 @@ export function StageView({ gameId }: { gameId: string }) {
               />
             </div>
           )}
-          {isSpotify && currentSong && (
-            <div className="w-full max-w-2xl">
-              <SpotifyEmbed
-                trackId={currentSong.spotify_track_id!}
-                albumArtUrl={currentSong.album_art_url ?? undefined}
-                title={currentSong.title ?? undefined}
-              />
-            </div>
-          )}
           {isLocal && currentSong && (
             <div className="w-full max-w-6xl aspect-video rounded-xl overflow-hidden bg-black">
               {currentSong.file_url!.match(/\.(mp4|webm)$/i) ? (
@@ -170,6 +153,12 @@ export function StageView({ gameId }: { gameId: string }) {
                   <audio key={currentSong.id} src={currentSong.file_url!} autoPlay controls className="w-full max-w-xl" />
                 </div>
               )}
+            </div>
+          )}
+          {currentSong && !isYouTube && !isLocal && (
+            <div className="w-full max-w-6xl aspect-video rounded-xl bg-[#1E1E1E] flex flex-col items-center justify-center border border-white/10 p-8">
+              <p className="text-slate-400 text-lg mb-2" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>Now playing</p>
+              <p className="text-white text-xl md:text-2xl font-bold text-center" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>{nowPlayingLabel}</p>
             </div>
           )}
           {!currentSong && (

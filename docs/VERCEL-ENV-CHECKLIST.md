@@ -92,7 +92,7 @@ That’s the **Supabase** key on Vercel. Do this:
 - `ADMIN_SECRET` – same as in .env.local
 - `DATABASE_URL` – only if you use themes with direct Postgres
 - `YOUTUBE_API_KEY` – only for Import playlist
-- `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` – we disabled Spotify; can leave empty
+- `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` – not used (Spotify removed from app)
 
 ---
 

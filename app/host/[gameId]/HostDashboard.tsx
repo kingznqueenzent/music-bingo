@@ -15,7 +15,6 @@ import {
 import { getMaxPlayersForTier } from '@/lib/tiers'
 import { generateBingoCardsPdf } from '@/lib/pdf-export'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
-import { SpotifyEmbed } from '@/components/SpotifyEmbed'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { SourceIndicator } from '@/components/SourceIndicator'
 import { playlistSongLabel } from '@/lib/media-display'
@@ -63,6 +62,9 @@ export function HostDashboard({
   const [verifyBingoLoading, setVerifyBingoLoading] = useState(false)
   const [verifyBingoSuccess, setVerifyBingoSuccess] = useState('')
   const [winnerAlert, setWinnerAlert] = useState<{ playerName: string; cardId: string } | null>(null)
+  const [resetPlayedLoading, setResetPlayedLoading] = useState(false)
+  const nowPlayingRef = useRef<HTMLDivElement>(null)
+  const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
   const playChannelRef = useRef<{ send: (msg: { type: 'broadcast'; event: string; payload: object }) => void } | null>(null)
 
   useEffect(() => {
@@ -173,6 +175,9 @@ export function HostDashboard({
 
   async function handleNextSong(song: PlaylistSong) {
     setActionError('')
+    previousCurrentSongRef.current = currentSong
+    setCurrentSong(song)
+    setTimeout(() => nowPlayingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
     setPlayingSongId(song.id)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
@@ -184,14 +189,23 @@ export function HostDashboard({
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
-      const data = (await res.json()) as { ok?: boolean; error?: string }
-      if (data.ok) {
-        setCurrentSong(song)
+      let data: { ok?: boolean; error?: string }
+      try {
+        data = (await res.json()) as { ok?: boolean; error?: string }
+      } catch {
+        setCurrentSong(previousCurrentSongRef.current)
+        setActionError(res.ok ? 'Invalid response.' : `Error ${res.status}. Try again.`)
+        return
+      }
+      if (res.ok && data.ok) {
+        // Keep currentSong (already set optimistically)
       } else {
-        setActionError(data.error ?? 'Could not play song.')
+        setCurrentSong(previousCurrentSongRef.current)
+        setActionError(data.error ?? `Error ${res.status}. Could not play song.`)
       }
     } catch (e) {
       clearTimeout(timeoutId)
+      setCurrentSong(previousCurrentSongRef.current)
       if ((e as Error).name === 'AbortError') {
         setActionError('Request timed out. Try again.')
       } else {
@@ -199,6 +213,34 @@ export function HostDashboard({
       }
     } finally {
       setPlayingSongId(null)
+    }
+  }
+
+  async function handleResetPlayed() {
+    setActionError('')
+    setResetPlayedLoading(true)
+    try {
+      const res = await fetch('/api/reset-played', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (res.ok && data.ok) {
+        const { data: playedData } = await supabase
+          .from('played_songs')
+          .select('*')
+          .eq('game_id', gameId)
+          .order('played_at')
+        setPlayed(playedData ?? [])
+        setCurrentSong(null)
+      } else {
+        setActionError(data.error ?? 'Could not reset played list.')
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Something went wrong.')
+    } finally {
+      setResetPlayedLoading(false)
     }
   }
 
@@ -552,8 +594,8 @@ export function HostDashboard({
         {actionError && <p className="text-red-300 mt-2">{actionError}</p>}
       </div>
 
-      {currentSong && currentSong.source !== 'local' && currentSong.source !== 'spotify' && currentSong.youtube_id && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+      {currentSong && currentSong.source === 'local' ? null : currentSong?.youtube_id ? (
+        <div ref={nowPlayingRef} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
           <div className="flex items-center gap-3 mb-4">
             <SourceIndicator source="youtube" />
             <h3 className="text-xl font-bold text-slate-50">
@@ -561,6 +603,7 @@ export function HostDashboard({
             </h3>
           </div>
           <YouTubeClipPlayer
+            key={currentSong.id}
             videoId={currentSong.youtube_id}
             startSeconds={0}
             endSeconds={clipSeconds}
@@ -569,22 +612,13 @@ export function HostDashboard({
             className="max-w-2xl mx-auto"
           />
         </div>
-      )}
-
-      {currentSong?.source === 'spotify' && currentSong?.spotify_track_id && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-          <div className="flex items-center gap-3 mb-4">
-            <SourceIndicator source="spotify" />
-            <h3 className="text-xl font-bold text-slate-50">Now playing (Spotify)</h3>
-          </div>
-          <SpotifyEmbed
-            trackId={currentSong.spotify_track_id}
-            albumArtUrl={currentSong.album_art_url ?? undefined}
-            title={currentSong.title ?? undefined}
-            className="max-w-2xl mx-auto"
-          />
+      ) : null}
+      {currentSong && !currentSong.youtube_id && !currentSong?.file_url ? (
+        <div ref={nowPlayingRef} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+          <h3 className="text-xl font-bold text-slate-50">Now playing</h3>
+          <p className="text-slate-300 mt-2">{playlistSongLabel(currentSong)}</p>
         </div>
-      )}
+      ) : null}
 
       {currentSong?.source === 'local' && currentSong?.file_url && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
@@ -613,7 +647,17 @@ export function HostDashboard({
       )}
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
-        <h3 className="text-2xl font-bold mb-4 text-slate-50">Playlist</h3>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <h3 className="text-2xl font-bold text-slate-50">Playlist</h3>
+          <button
+            type="button"
+            onClick={handleResetPlayed}
+            disabled={resetPlayedLoading || played.length === 0}
+            className="rounded-full border border-slate-500 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold py-2 px-4 text-sm text-slate-200"
+          >
+            {resetPlayedLoading ? 'Resetting…' : 'Reset played list'}
+          </button>
+        </div>
         {actionError && (
           <div className="mb-4 p-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-300 text-sm space-y-1">
             <p>{actionError}</p>
@@ -632,16 +676,27 @@ export function HostDashboard({
                 const label = playlistSongLabel(song)
                 const isPlaying = playingSongId === song.id
                 return (
-                  <li key={song.id} className="flex items-center gap-2">
-                    <span className="text-slate-500 w-6 text-sm">{idx + 1}</span>
-                    <span className="flex-1 truncate text-slate-200 text-sm">{label}</span>
+                  <li
+                    key={song.id}
+                    className="flex items-center gap-2 py-1.5 px-2 -mx-2 rounded-lg hover:bg-slate-800/80 transition-colors group"
+                  >
                     <button
                       type="button"
-                      onClick={() => handleNextSong(song)}
-                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 font-semibold py-1.5 px-3 text-xs shrink-0 min-w-[4rem]"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleNextSong(song) }}
+                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 active:scale-95 font-semibold py-1.5 px-3 text-xs shrink-0 min-w-[4rem] cursor-pointer transition-transform"
                     >
                       {isPlaying ? 'Playing…' : 'Play'}
                     </button>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleNextSong(song)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleNextSong(song) } }}
+                      className="flex-1 flex items-center gap-2 min-w-0 cursor-pointer select-none"
+                    >
+                      <span className="text-slate-500 w-6 text-sm shrink-0">{idx + 1}</span>
+                      <span className="truncate text-slate-200 text-sm">{label}</span>
+                    </span>
                   </li>
                 )
               })}

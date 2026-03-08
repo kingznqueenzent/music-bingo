@@ -29,10 +29,9 @@ Quick reference for the **player flow**, **bingo cards**, **stage view**, and **
 ## 3. Stage View (`/stage/[gameId]`)
 
 - **Full-screen** dark `#121212`. For **host/stream** – what players see on stream.
-- **Top bar**: Source badge (YouTube / Spotify / Local), **Now Playing** title (large, Inter), “Spotify” subtitle when applicable.
+- **Top bar**: Source badge (YouTube / Local), **Now Playing** title (large, Inter).
 - **Center**: Optional **album art** (rounded), then:
   - **YouTube**: `YouTubeClipPlayer` in a 16:9 area (clip plays with clip length + crossfade).
-  - **Spotify**: `SpotifyEmbed` (track widget).
   - **Local**: `<video>` or `<audio>` for MP4/MP3.
 - **Idle**: “No track selected” in a dark box.
 - **Leaderboard overlay**: If host toggles “Show Leaderboard on Stage”, a **glassmorphism** overlay (blur + dark tint) shows “LyricGrid – LEADERBOARD” and top 10 (rank, name, points, wins). Last updated time at bottom.
@@ -69,7 +68,7 @@ Quick reference for the **player flow**, **bingo cards**, **stage view**, and **
 
 1. **Host** creates game from Media Library or YouTube links → gets game code and host URL.
 2. **Players** go to `/join`, enter code + name → “Get My Bingo Card” → land on `/play` with a unique card.
-3. **Host** opens Stage View (e.g. OBS browser source), starts game, clicks “Play next” for each song. Clips play (YouTube/Spotify/local) with configurable clip length and crossfade.
+3. **Host** opens Stage View (e.g. OBS browser source), starts game, clicks “Play next” for each song. Clips play (YouTube or Media Library) with configurable clip length and crossfade.
 4. **Players** see squares **mark automatically** when that song is played (realtime via Supabase). Marked cells get cyan border + pulse-glow.
 5. When a player has a full line (or required pattern), they type **BINGO** in chat. Host enters their card ID/identifier and clicks **Verify BINGO**.
 6. **Verified** → player’s device shows “BINGO VERIFIED!” modal; they can add name to leaderboard or skip. Leaderboard is visible in-app (trophy drawer) and optionally on Stage View.

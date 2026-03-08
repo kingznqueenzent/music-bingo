@@ -136,7 +136,7 @@ export async function createGameFromMediaLibrary(
 
   const { data: mediaRows, error: mediaError } = await supabase
     .from('media_library')
-    .select('id, name, file_url, file_path, file_type, spotify_track_id, album_art_url')
+    .select('id, name, file_url, file_path, file_type')
     .in('id', uniqueIds)
 
   if (mediaError || !mediaRows?.length) {
@@ -161,7 +161,13 @@ export async function createGameFromMediaLibrary(
       error: `After removing duplicates, only ${deduped.length} unique tracks; need ${minSongs}.`,
     }
   }
-  const songsToInsert = deduped
+  // Only include YouTube and local (MP3/MP4); Spotify is not used in this app
+  const songsToInsert = deduped.filter((m) => m.file_type !== 'spotify')
+  if (songsToInsert.length < minSongs) {
+    return {
+      error: `Need ${minSongs} playable tracks (YouTube or uploaded files). Spotify is not supported.`,
+    }
+  }
 
   const { data: playlist, error: playlistError } = await supabase
     .from('playlists')
@@ -173,29 +179,14 @@ export async function createGameFromMediaLibrary(
     return { error: playlistError?.message ?? 'Failed to create playlist' }
   }
 
-  const songs = songsToInsert.map((m, index) => {
-    const isSpotify = m.file_type === 'spotify' && (m as { spotify_track_id?: string }).spotify_track_id
-    if (isSpotify) {
-      return {
-        playlist_id: playlist.id,
-        source: 'spotify' as const,
-        youtube_id: null,
-        file_url: null,
-        spotify_track_id: (m as { spotify_track_id?: string }).spotify_track_id ?? null,
-        album_art_url: (m as { album_art_url?: string }).album_art_url ?? null,
-        title: m.name,
-        position: index,
-      }
-    }
-    return {
-      playlist_id: playlist.id,
-      source: 'local' as const,
-      youtube_id: null,
-      file_url: m.file_url ?? null,
-      title: m.name,
-      position: index,
-    }
-  })
+  const songs = songsToInsert.map((m, index) => ({
+    playlist_id: playlist.id,
+    source: 'local' as const,
+    youtube_id: null,
+    file_url: m.file_url ?? null,
+    title: m.name,
+    position: index,
+  }))
 
   const { error: songsError } = await supabase.from('playlist_songs').insert(songs)
   if (songsError) {
@@ -530,14 +521,9 @@ export async function getCardForVerification(
   const songIds = [...new Set(cells.map((c) => c.playlist_song_id))]
   const { data: songs } = await supabase
     .from('playlist_songs')
-    .select('id, title, youtube_id, spotify_track_id')
+    .select('id, title, youtube_id')
     .in('id', songIds)
-  const songMap = new Map(
-    (songs ?? []).map((s) => [
-      s.id,
-      s.title || s.youtube_id || (s as { spotify_track_id?: string }).spotify_track_id || '',
-    ])
-  )
+  const songMap = new Map((songs ?? []).map((s) => [s.id, s.title || s.youtube_id || '']))
 
   const cellList: CardCellVerification[] = cells.map((c) => ({
     position: c.position,
@@ -586,13 +572,10 @@ export async function getCardsForPdf(
     const songIds = [...new Set((cells ?? []).map((c) => c.playlist_song_id))]
     const { data: songs } = await supabase
       .from('playlist_songs')
-      .select('id, title, youtube_id, spotify_track_id')
+      .select('id, title, youtube_id')
       .in('id', songIds)
     const songMap = new Map(
-      (songs ?? []).map((s) => [
-        s.id,
-        (s.title || s.youtube_id || (s as { spotify_track_id?: string }).spotify_track_id || '—').slice(0, 30),
-      ])
+      (songs ?? []).map((s) => [s.id, (s.title || s.youtube_id || '—').slice(0, 30)])
     )
     result.push({
       cardId: card.id,

@@ -20,16 +20,16 @@ To restrict **Host** and **Media Manager** to a single admin email:
 
 ---
 
-## 2. Spotify (disabled)
+## 2. Spotify (removed)
 
-Spotify is **not used** in this app. Media Manager only supports **Upload file** (MP3/MP4) and **Indexed media**. The database still has `spotify_track_id` and `album_art_url` columns so existing Spotify library entries can be played if any were added earlier; no new Spotify tracks can be added.
+Spotify is **not used** in this app. The UI, API routes, and playlist creation only support **YouTube** and **Media Library** (MP3/MP4). The database may still have `spotify_track_id` columns from older migrations; they are unused. No Spotify search or embed is available.
 
 ---
 
-## 3. Database migration (Spotify columns)
+## 3. Database migration (admin + optional columns)
 
 Run in Supabase SQL Editor (after your main schema):
 
 - **File:** `supabase/migrations/spotify-and-admin.sql`
 
-This adds `spotify_track_id` and `album_art_url` to `media_library` and `playlist_songs`, and allows `source = 'spotify'` and `file_type = 'spotify'`.
+This adds admin-related options and, if present, `spotify_track_id` / `album_art_url` columns. The app does not use Spotify; those columns are legacy.

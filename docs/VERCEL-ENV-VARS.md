@@ -79,7 +79,7 @@ When prompted, choose your team and the **music-bingo** project.
 
 **2. Add each variable (you’ll be prompted to paste the value)**
 
-Run each command. When it asks for the value, paste from Supabase (or Spotify for the last two), then press Enter.
+Run each command. When it asks for the value, paste from Supabase, then press Enter.
 
 ```bash
 vercel env add NEXT_PUBLIC_SUPABASE_URL production
