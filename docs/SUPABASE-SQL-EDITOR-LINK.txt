@@ -1,0 +1,5 @@
+Use this URL for a NEW blank SQL query (paste RUN-FULL-SETUP.sql there and click Run):
+
+https://supabase.com/dashboard/project/dmcjpkrdivafkqoovyvn/sql/new
+
+Do NOT use a link that ends with /sql/ followed by a long id (e.g. .../sql/7552b4e8-...) — that opens a saved query. Use the link above with /sql/new for a fresh editor.

@@ -1,12 +1,10 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createGameFromTheme } from '@/app/actions/game'
-import { getThemesDirect } from '@/lib/db'
-import type { Theme } from '@/lib/supabase/types'
+import { getThemesDirect, getGenresDirect, getErasDirect } from '@/lib/db'
+import { ThemeFilterBar } from './ThemeFilterBar'
+import type { Theme, Genre, Era } from '@/lib/supabase/types'
 
 async function getThemes(): Promise<{ themes: Theme[]; error?: { message: string; code?: string } }> {
-  // When DATABASE_URL is set, use direct Postgres first (avoids broken Supabase API schema cache).
   if (process.env.DATABASE_URL) {
     const { themes, error: directError } = await getThemesDirect()
     if (themes.length > 0) return { themes }
@@ -19,14 +17,12 @@ async function getThemes(): Promise<{ themes: Theme[]; error?: { message: string
       },
     }
   }
-
   try {
     const supabase = createClient()
     const { data, error } = await supabase
       .from('themes')
-      .select('id, name, category, description, artwork_url')
+      .select('id, name, category, description, artwork_url, genre_id, era_id')
       .order('name')
-
     if (!error) return { themes: (data ?? []) as Theme[] }
     const code = (error as { code?: string }).code
     return { themes: [], error: { message: error.message, code } }
@@ -36,20 +32,62 @@ async function getThemes(): Promise<{ themes: Theme[]; error?: { message: string
   }
 }
 
-type PlaylistsPageProps = { searchParams: Promise<{ hostError?: string }> }
+async function getGenres(): Promise<Genre[]> {
+  if (process.env.DATABASE_URL) {
+    const { genres } = await getGenresDirect()
+    return genres
+  }
+  try {
+    const supabase = createClient()
+    const { data } = await supabase.from('genres').select('id, name, slug, sort_order').order('sort_order')
+    return (data ?? []) as Genre[]
+  } catch {
+    return []
+  }
+}
+
+async function getEras(): Promise<Era[]> {
+  if (process.env.DATABASE_URL) {
+    const { eras } = await getErasDirect()
+    return eras
+  }
+  try {
+    const supabase = createClient()
+    const { data } = await supabase.from('eras').select('id, name, start_year, end_year, sort_order').order('sort_order')
+    return (data ?? []) as Era[]
+  } catch {
+    return []
+  }
+}
+
+type PlaylistsPageProps = { searchParams: Promise<{ hostError?: string; genre?: string; era?: string }> }
 
 export default async function PlaylistsPage({ searchParams }: PlaylistsPageProps) {
   const params = await searchParams
   const hostError = params?.hostError
+  const genreSlug = params?.genre ?? ''
+  const eraId = params?.era ?? ''
 
   let themes: Theme[] = []
   let error: { message: string; code?: string } | undefined
+  let genres: Genre[] = []
+  let eras: Era[] = []
   try {
-    const result = await getThemes()
+    const [result, genresRes, erasRes] = await Promise.all([getThemes(), getGenres(), getEras()])
     themes = result.themes
     error = result.error
+    genres = genresRes
+    eras = erasRes
   } catch (e) {
     error = { message: e instanceof Error ? e.message : String(e) }
+  }
+
+  if (genreSlug && genres.length > 0) {
+    const genreId = genres.find((g) => g.slug === genreSlug)?.id
+    if (genreId) themes = themes.filter((t) => t.genre_id === genreId)
+  }
+  if (eraId) {
+    themes = themes.filter((t) => t.era_id === eraId)
   }
 
   const grouped: Record<string, Theme[]> = {
@@ -81,6 +119,7 @@ export default async function PlaylistsPage({ searchParams }: PlaylistsPageProps
       </section>
 
       <section className="max-w-5xl mx-auto px-6 pb-20 space-y-12">
+        <ThemeFilterBar genres={genres} eras={eras} />
         {hostError && (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5 text-amber-100">
             <p className="font-semibold">Could not host game</p>
@@ -171,37 +210,20 @@ function ThemeCard({ theme }: { theme: Theme }) {
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div>
           <h3 className="text-lg font-semibold text-slate-50">{theme.name}</h3>
+          {(theme.genre_name || theme.era_name) && (
+            <p className="text-xs text-slate-500 mt-0.5">
+              {[theme.genre_name, theme.era_name].filter(Boolean).join(' · ')}
+            </p>
+          )}
           {theme.description && (
             <p className="text-xs text-slate-300 mt-1 line-clamp-3">{theme.description}</p>
           )}
         </div>
-        <form action={hostTheme} className="mt-auto">
-          <input type="hidden" name="themeId" value={theme.id} />
-          <button
-            type="submit"
-            className="w-full rounded-full bg-emerald-500 hover:bg-emerald-400 px-4 py-2 text-sm font-semibold text-white shadow-emerald-500/40 shadow-lg transition-transform hover:scale-[1.02]"
-          >
-            Host this theme
-          </button>
-        </form>
+        <p className="mt-auto text-center text-slate-500 text-sm py-2">
+          Hosting by invite only — get a game code from your host to join.
+        </p>
       </div>
     </div>
   )
-}
-
-async function hostTheme(formData: FormData) {
-  'use server'
-  const themeId = formData.get('themeId')
-  if (!themeId || typeof themeId !== 'string') {
-    redirect('/playlists')
-  }
-
-  const result = await createGameFromTheme(themeId)
-  if (!result || result.error || !result.game) {
-    const message = result?.error ?? 'Could not start game'
-    redirect(`/playlists?hostError=${encodeURIComponent(message)}`)
-  }
-
-  redirect(`/host/${result.game.id}?code=${encodeURIComponent(result.code ?? '')}`)
 }
 

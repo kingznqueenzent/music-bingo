@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import type { CardCell, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
+import { LyricGridLogo } from '@/components/LyricGridLogo'
+import type { CardCell, PlaylistSong, PlayedSong, LeaderboardEntry } from '@/lib/supabase/types'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
 
@@ -41,12 +42,19 @@ export function PlayerCard({
   gameId: string
   logoUrl?: string | null
 }) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [cells, setCells] = useState<CellWithSong[]>([])
   const [playerName, setPlayerName] = useState('')
   const [playedSongIds, setPlayedSongIds] = useState<Set<string>>(() => getStoredMarks(gameId, cardId))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [showWinModal, setShowWinModal] = useState(false)
+  const [claimName, setClaimName] = useState('')
+  const [claimSubmitting, setClaimSubmitting] = useState(false)
+  const [claimError, setClaimError] = useState('')
+  const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
+  const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -54,6 +62,34 @@ export function PlayerCard({
     },
     [gameId, cardId]
   )
+
+  async function handleClaimLeaderboard() {
+    const name = (claimName || playerName || '').trim()
+    if (!name) {
+      setClaimError('Enter your name.')
+      return
+    }
+    setClaimError('')
+    setClaimSubmitting(true)
+    try {
+      const res = await fetch('/api/leaderboard/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cardId, gameId, playerName: name }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (data.ok) {
+        setShowWinModal(false)
+        setClaimName('')
+      } else {
+        setClaimError(data.error ?? 'Failed to claim')
+      }
+    } catch (e) {
+      setClaimError(String(e))
+    } finally {
+      setClaimSubmitting(false)
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -84,6 +120,19 @@ export function PlayerCard({
   }, [cardId, gameId, persistMarks])
 
   useEffect(() => {
+    if (!leaderboardDrawerOpen) return
+    setLeaderboardLoading(true)
+    const promise = supabase
+      .from('leaderboard')
+      .select('id, player_name, identifier, wins, points, last_played, updated_at')
+      .order('points', { ascending: false })
+      .limit(10)
+    promise.then(({ data }) => {
+      setLeaderboardList((data ?? []) as LeaderboardEntry[])
+    }).then(() => setLeaderboardLoading(false), () => setLeaderboardLoading(false))
+  }, [leaderboardDrawerOpen, supabase])
+
+  useEffect(() => {
     const channel = supabase
       .channel(`play-${gameId}`)
       .on(
@@ -98,11 +147,18 @@ export function PlayerCard({
           })
         }
       )
+      .on(
+        'broadcast',
+        { event: 'bingo_verified' },
+        (payload: { payload?: { cardId?: string } }) => {
+          if (payload?.payload?.cardId === cardId) setShowWinModal(true)
+        }
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [gameId, persistMarks, supabase])
+  }, [gameId, cardId, persistMarks, supabase])
 
   if (loading) {
     return <div className="text-xl">Loading your card…</div>
@@ -127,19 +183,22 @@ export function PlayerCard({
     )
 
   return (
-    <div className="w-full max-w-lg mx-auto">
+    <div className="w-full max-w-lg mx-auto relative pb-20">
       <div className="flex items-center justify-between gap-4 mb-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 to-sky-400 bg-clip-text text-transparent">
-          🎵 Your Bingo Card
-        </h1>
+        <div className="flex items-center gap-3">
+          <LyricGridLogo size={48} className="shrink-0" />
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#00FFFF] to-cyan-300 bg-clip-text text-transparent">
+            Your Bingo Card
+          </h1>
+        </div>
         {logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Game logo" className="h-10 w-10 rounded object-contain shrink-0" />
         )}
       </div>
-      <p className="text-slate-300 mb-6">{playerName}</p>
+      <p className="text-slate-400 mb-6">{playerName}</p>
 
-      <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-4 border border-white/20">
+      <div className="bg-[#1E1E1E] rounded-2xl p-4 border border-white/10">
         <div
           className="grid gap-2"
           style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
@@ -151,12 +210,21 @@ export function PlayerCard({
                 <div
                   key={cell.id}
                   className={`
-                    aspect-square rounded-xl flex items-center justify-center p-1 text-center text-xs font-medium
-                    border-2 transition-all
-                    ${isMarked ? 'bg-green-500/80 border-green-300 text-white' : 'bg-white/10 border-white/30 text-white'}
+                    aspect-square rounded-xl flex flex-col items-center justify-center p-1 text-center text-xs font-medium
+                    border transition-all duration-300 overflow-hidden
+                    ${isMarked
+                      ? 'bg-[#1E1E1E] border-[#00FFFF] text-[#00FFFF] animate-pulse-glow'
+                      : 'bg-[#1E1E1E] border-white/20 text-slate-300'}
                   `}
                 >
-                  <span className="line-clamp-3">{cell.song?.title || cell.song?.youtube_id || '—'}</span>
+                  {cell.song?.album_art_url && (
+                    <img
+                      src={cell.song.album_art_url}
+                      alt=""
+                      className="w-6 h-6 rounded object-cover shrink-0 mb-0.5"
+                    />
+                  )}
+                  <span className="line-clamp-3">{cell.song?.title || cell.song?.youtube_id || cell.song?.spotify_track_id || '—'}</span>
                 </div>
               )
             })
@@ -168,9 +236,100 @@ export function PlayerCard({
         When you get {size} in a row (horizontal, vertical, or diagonal), type <strong>BINGO</strong> in chat!
       </p>
 
+      {showWinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h2 className="text-2xl font-bold text-emerald-400 mb-2">BINGO VERIFIED!</h2>
+            <p className="text-slate-300 mb-4">Enter your name to join the Leaderboard.</p>
+            <input
+              type="text"
+              value={claimName || playerName}
+              onChange={(e) => setClaimName(e.target.value)}
+              placeholder="Your name"
+              className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 mb-4"
+            />
+            {claimError && <p className="text-red-400 text-sm mb-2">{claimError}</p>}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleClaimLeaderboard}
+                disabled={claimSubmitting}
+                className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-semibold py-3 text-white"
+              >
+                {claimSubmitting ? 'Submitting…' : 'Join Leaderboard'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowWinModal(false); setClaimError('') }}
+                className="rounded-xl bg-slate-600 hover:bg-slate-500 font-semibold py-3 px-4 text-slate-200"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Link href="/" className="mt-8 block text-center text-xl text-slate-400 hover:text-white transition-colors">
         ← Back to Home
       </Link>
+
+      <button
+        type="button"
+        onClick={() => setLeaderboardDrawerOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105"
+        aria-label="View leaderboard"
+      >
+        🏆
+      </button>
+
+      {leaderboardDrawerOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+            onClick={() => setLeaderboardDrawerOpen(false)}
+            aria-hidden
+          />
+          <div
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-slate-900 border-t border-slate-700 shadow-2xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out"
+            role="dialog"
+            aria-label="Top 10 leaderboard"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+              <h2 className="text-xl font-bold text-white">🏆 Top 10 All-Time</h2>
+              <button
+                type="button"
+                onClick={() => setLeaderboardDrawerOpen(false)}
+                className="rounded-full p-2 text-slate-400 hover:text-white hover:bg-slate-700"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              {leaderboardLoading ? (
+                <p className="text-slate-400 text-center py-8">Loading…</p>
+              ) : leaderboardList.length === 0 ? (
+                <p className="text-slate-400 text-center py-8">No scores yet. Win a game and claim your spot!</p>
+              ) : (
+                <ul className="space-y-2">
+                  {leaderboardList.map((p, i) => (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-slate-800/60 px-4 py-3 border border-slate-700/50"
+                    >
+                      <span className="text-lg font-bold text-amber-400 w-8 shrink-0">#{i + 1}</span>
+                      <span className="flex-1 truncate text-slate-100 font-medium">{p.player_name}</span>
+                      <span className="text-amber-300 font-semibold shrink-0">{p.points} pts</span>
+                      <span className="text-slate-400 text-sm shrink-0">{p.wins} win{p.wins !== 1 ? 's' : ''}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

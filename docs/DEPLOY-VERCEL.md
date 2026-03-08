@@ -56,6 +56,8 @@ In Vercel: **Project → Settings → Environment Variables**. Add these **names
 2. Wait for the build to finish. Vercel will show a URL like:
    `https://music-bingo-xxxx.vercel.app`
 
+**Live app:** [https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app)
+
 That URL is your app. Share it with your family.
 
 ---
@@ -65,9 +67,9 @@ That URL is your app. Share it with your family.
 1. Open your Vercel URL → **Host a Game** → create a game and copy the **game code**.
 2. Send your family the **join link**:
    ```
-   https://YOUR-VERCEL-URL.vercel.app/join?code=GAMECODE
+   https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app/join?code=GAMECODE
    ```
-   Replace `YOUR-VERCEL-URL` and `GAMECODE` with your real URL and code.
+   Replace `GAMECODE` with the code shown on the host dashboard.
 3. They open the link, enter their name, and get their card.
 
 ---

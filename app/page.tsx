@@ -1,32 +1,31 @@
+import { LyricGridLogo } from '@/components/LyricGridLogo'
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 flex flex-col items-center text-center gap-8">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300/80">
-          ✨ Interactive Music Entertainment
-        </p>
+        <div className="flex flex-col items-center gap-4">
+          <LyricGridLogo size={72} className="shrink-0 text-[#00FFFF]" />
+          <p className="text-sm uppercase tracking-[0.2em] text-[#00FFFF]/90">
+            ✨ Interactive Music Entertainment
+          </p>
+        </div>
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight">
-          <span className="block text-slate-100">Music Bingo</span>
-          <span className="block bg-gradient-to-r from-emerald-300 via-sky-300 to-violet-300 bg-clip-text text-transparent mt-1">
-            Reimagined for Livestreams
+          <span className="block text-slate-100">LyricGrid</span>
+          <span className="block bg-gradient-to-r from-[#00FFFF] via-cyan-300 to-teal-300 bg-clip-text text-transparent mt-1">
+            Music Bingo for Livestreams
           </span>
         </h1>
         <p className="max-w-2xl text-slate-300 text-base md:text-lg">
           Turn your favorite songs into an unforgettable bingo experience.
-          Host games, play with friends, and compete on the global leaderboard.
+          Join with a game code, play with friends, and compete on the global leaderboard.
         </p>
 
         <div className="flex flex-wrap justify-center gap-4 mt-2">
           <a
-            href="/host"
-            className="inline-flex items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-8 py-3 text-lg font-semibold shadow-xl shadow-emerald-500/40 transition-transform hover:scale-105"
-          >
-            Host a Game
-          </a>
-          <a
             href="/join"
-            className="inline-flex items-center justify-center rounded-full border border-slate-600/80 px-8 py-3 text-lg font-semibold text-slate-100 hover:border-slate-300 hover:bg-slate-900/60 transition-colors"
+            className="inline-flex items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-8 py-3 text-lg font-semibold shadow-xl shadow-emerald-500/40 transition-transform hover:scale-105"
           >
             Join a Game
           </a>
@@ -37,10 +36,10 @@ export default function Home() {
             Browse Playlists
           </a>
           <a
-            href="/media"
-            className="inline-flex items-center justify-center rounded-full border border-slate-600/80 px-8 py-3 text-lg font-semibold text-slate-100 hover:border-slate-300 hover:bg-slate-900/60 transition-colors"
+            href="/leaderboard"
+            className="inline-flex items-center justify-center rounded-full border border-amber-500/60 px-8 py-3 text-lg font-semibold text-amber-200 hover:border-amber-400 hover:bg-amber-500/20 transition-colors"
           >
-            Media Manager
+            Leaderboard
           </a>
         </div>
 
@@ -108,25 +107,25 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-6 py-12 flex flex-col md:flex-row items-center justify-between gap-6">
           <div>
             <h3 className="text-2xl font-bold text-slate-50">
-              Ready to Host Your First Game?
+              Ready to Play?
             </h3>
             <p className="text-slate-300 mt-2 max-w-xl">
-              Create your first themed playlist, share the room code, and watch
-              your chat light up with BINGO.
+              Get the game code from your host or stream, then join and play
+              along with your bingo card.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <a
-              href="/host"
+              href="/join"
               className="inline-flex items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-6 py-3 font-semibold shadow-lg shadow-emerald-500/40 transition-transform hover:scale-105"
             >
-              Start Hosting Now
+              Join a Game
             </a>
             <a
-              href="/join"
+              href="/leaderboard"
               className="inline-flex items-center justify-center rounded-full border border-slate-600 px-6 py-3 font-semibold text-slate-100 hover:border-slate-300 hover:bg-slate-900/60 transition-colors"
             >
-              Join a Game
+              Leaderboard
             </a>
           </div>
         </div>

@@ -48,7 +48,7 @@ export async function createGame(
     return { error: playlistError?.message ?? 'Failed to create playlist' }
   }
 
-  const songs = youtubeUrls
+  const raw = youtubeUrls
     .map((url) => {
       const id = extractYoutubeId(url)
       return id
@@ -58,18 +58,12 @@ export async function createGame(
             youtube_id: id,
             file_url: null,
             title: null,
-            position: youtubeUrls.indexOf(url),
           }
         : null
     })
-    .filter(Boolean) as {
-    playlist_id: string
-    source: 'youtube'
-    youtube_id: string
-    file_url: null
-    title: string | null
-    position: number
-  }[]
+    .filter(Boolean) as { playlist_id: string; source: 'youtube'; youtube_id: string; file_url: null; title: string | null }[]
+
+  const songs = raw.map((s, i) => ({ ...s, position: i }))
 
   if (songs.length < minSongs) {
     await supabase.from('playlists').delete().eq('id', playlist.id)
@@ -78,11 +72,16 @@ export async function createGame(
     }
   }
 
-  const { error: songsError } = await supabase.from('playlist_songs').insert(songs)
-  if (songsError) {
+  const { data: insertedSongs, error: songsError } = await supabase
+    .from('playlist_songs')
+    .insert(songs)
+    .select('id, youtube_id')
+  if (songsError || !insertedSongs?.length) {
     await supabase.from('playlists').delete().eq('id', playlist.id)
-    return { error: songsError.message }
+    return { error: songsError?.message ?? 'Failed to insert songs' }
   }
+
+  await fillYoutubeTitles(supabase, insertedSongs)
 
   let code = generateCode()
   let attempts = 0
@@ -128,26 +127,41 @@ export async function createGameFromMediaLibrary(
   const tier = options.tier ?? 'pro'
   const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
 
-  if (mediaIds.length < minSongs) {
+  const uniqueIds = [...new Set(mediaIds)]
+  if (uniqueIds.length < minSongs) {
     return {
-      error: `Select at least ${minSongs} tracks for a ${gridSize}×${gridSize} grid (selected ${mediaIds.length}).`,
+      error: `Select at least ${minSongs} tracks for a ${gridSize}×${gridSize} grid (selected ${uniqueIds.length} unique).`,
     }
   }
 
   const { data: mediaRows, error: mediaError } = await supabase
     .from('media_library')
-    .select('id, name, file_url, file_type')
-    .in('id', mediaIds)
+    .select('id, name, file_url, file_path, file_type, spotify_track_id, album_art_url')
+    .in('id', uniqueIds)
 
   if (mediaError || !mediaRows?.length) {
     return { error: mediaError?.message ?? 'Could not load media files.' }
   }
 
   const byId = new Map(mediaRows.map((m) => [m.id, m]))
-  const ordered = mediaIds.map((id) => byId.get(id)).filter(Boolean) as typeof mediaRows
+  const ordered = uniqueIds.map((id) => byId.get(id)).filter(Boolean) as typeof mediaRows
   if (ordered.length < minSongs) {
     return { error: `Only ${ordered.length} valid files found; need ${minSongs}.` }
   }
+
+  const seenPaths = new Set<string>()
+  const deduped = ordered.filter((m) => {
+    const path = m.file_path ?? m.file_url ?? m.id
+    if (seenPaths.has(path)) return false
+    seenPaths.add(path)
+    return true
+  })
+  if (deduped.length < minSongs) {
+    return {
+      error: `After removing duplicates, only ${deduped.length} unique tracks; need ${minSongs}.`,
+    }
+  }
+  const songsToInsert = deduped
 
   const { data: playlist, error: playlistError } = await supabase
     .from('playlists')
@@ -159,14 +173,29 @@ export async function createGameFromMediaLibrary(
     return { error: playlistError?.message ?? 'Failed to create playlist' }
   }
 
-  const songs = ordered.map((m, index) => ({
-    playlist_id: playlist.id,
-    source: 'local' as const,
-    youtube_id: null,
-    file_url: m.file_url ?? null,
-    title: m.name,
-    position: index,
-  }))
+  const songs = songsToInsert.map((m, index) => {
+    const isSpotify = m.file_type === 'spotify' && (m as { spotify_track_id?: string }).spotify_track_id
+    if (isSpotify) {
+      return {
+        playlist_id: playlist.id,
+        source: 'spotify' as const,
+        youtube_id: null,
+        file_url: null,
+        spotify_track_id: (m as { spotify_track_id?: string }).spotify_track_id ?? null,
+        album_art_url: (m as { album_art_url?: string }).album_art_url ?? null,
+        title: m.name,
+        position: index,
+      }
+    }
+    return {
+      playlist_id: playlist.id,
+      source: 'local' as const,
+      youtube_id: null,
+      file_url: m.file_url ?? null,
+      title: m.name,
+      position: index,
+    }
+  })
 
   const { error: songsError } = await supabase.from('playlist_songs').insert(songs)
   if (songsError) {
@@ -413,7 +442,7 @@ export async function startGame(gameId: string) {
 
 export type WinPattern = 'line' | 'x' | 'blackout'
 
-/** Host: update clip length, crossfade, logo (Enterprise), and winning pattern */
+/** Host: update clip length, crossfade, logo (Enterprise), winning pattern, and stage leaderboard toggle */
 export async function updateGameSettings(
   gameId: string,
   settings: {
@@ -421,6 +450,7 @@ export async function updateGameSettings(
     crossfadeSeconds?: number
     logoUrl?: string | null
     winPattern?: WinPattern
+    stageShowLeaderboard?: boolean
   }
 ) {
   const supabase = createClient()
@@ -429,6 +459,7 @@ export async function updateGameSettings(
     crossfade_seconds?: number
     logo_url?: string | null
     mode?: string
+    stage_show_leaderboard?: boolean
   } = {}
   if (settings.clipSeconds != null)
     updates.clip_seconds = Math.min(120, Math.max(10, settings.clipSeconds))
@@ -437,6 +468,8 @@ export async function updateGameSettings(
   if (settings.logoUrl !== undefined) updates.logo_url = settings.logoUrl || null
   if (settings.winPattern != null && ['line', 'x', 'blackout'].includes(settings.winPattern))
     updates.mode = settings.winPattern
+  if (settings.stageShowLeaderboard !== undefined)
+    updates.stage_show_leaderboard = settings.stageShowLeaderboard
   if (Object.keys(updates).length === 0) return { ok: true }
   const { error } = await supabase.from('games').update(updates).eq('id', gameId)
   if (error) return { error: error.message }
@@ -483,9 +516,14 @@ export async function getCardForVerification(
   const songIds = [...new Set(cells.map((c) => c.playlist_song_id))]
   const { data: songs } = await supabase
     .from('playlist_songs')
-    .select('id, title, youtube_id')
+    .select('id, title, youtube_id, spotify_track_id')
     .in('id', songIds)
-  const songMap = new Map((songs ?? []).map((s) => [s.id, s.title || s.youtube_id || '']))
+  const songMap = new Map(
+    (songs ?? []).map((s) => [
+      s.id,
+      s.title || s.youtube_id || (s as { spotify_track_id?: string }).spotify_track_id || '',
+    ])
+  )
 
   const cellList: CardCellVerification[] = cells.map((c) => ({
     position: c.position,
@@ -534,9 +572,14 @@ export async function getCardsForPdf(
     const songIds = [...new Set((cells ?? []).map((c) => c.playlist_song_id))]
     const { data: songs } = await supabase
       .from('playlist_songs')
-      .select('id, title, youtube_id')
+      .select('id, title, youtube_id, spotify_track_id')
       .in('id', songIds)
-    const songMap = new Map((songs ?? []).map((s) => [s.id, (s.title || s.youtube_id || '—').slice(0, 30)]))
+    const songMap = new Map(
+      (songs ?? []).map((s) => [
+        s.id,
+        (s.title || s.youtube_id || (s as { spotify_track_id?: string }).spotify_track_id || '—').slice(0, 30),
+      ])
+    )
     result.push({
       cardId: card.id,
       playerName: card.player_name,
@@ -560,4 +603,32 @@ function extractYoutubeId(url: string): string | null {
     if (m) return m[1]
   }
   return null
+}
+
+/** Fetch YouTube video titles via noembed (no API key) and update playlist_songs */
+async function fillYoutubeTitles(
+  supabase: ReturnType<typeof createClient>,
+  rows: { id: string; youtube_id: string }[]
+) {
+  const BATCH = 8
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH)
+    const results = await Promise.all(
+      batch.map(async (row) => {
+        try {
+          const res = await fetch(
+            `https://noembed.com/embed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${row.youtube_id}`)}`,
+            { signal: AbortSignal.timeout(5000) }
+          )
+          const data = (await res.json()) as { title?: string }
+          return { id: row.id, title: data?.title ?? null }
+        } catch {
+          return { id: row.id, title: null }
+        }
+      })
+    )
+    for (const { id, title } of results) {
+      if (title) await supabase.from('playlist_songs').update({ title }).eq('id', id)
+    }
+  }
 }

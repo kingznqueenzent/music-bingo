@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { CreateFromMediaForm } from './CreateFromMediaForm'
 
+export const dynamic = 'force-dynamic'
+
 export default function CreateFromMediaPage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">

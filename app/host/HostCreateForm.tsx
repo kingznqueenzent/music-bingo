@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createGame } from '@/app/actions/game'
 import { type GameTier } from '@/lib/tiers'
+import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 
 const MIN_5X5 = 45
 const MIN_4X4 = 32
+
+function parseYoutubeId(url: string): string | null {
+  const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  return m ? m[1] : null
+}
 
 const TIER_LABELS: Record<GameTier, string> = {
   free: 'Free (10 players – great for testing)',
@@ -25,6 +31,14 @@ export function HostCreateForm() {
 
   const minSongs = gridSize === 5 ? MIN_5X5 : MIN_4X4
 
+  const parsedSongs = useMemo(() => {
+    return urlsText
+      .split(/[\n\r]+/)
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .map((url, i) => ({ index: i + 1, url, id: parseYoutubeId(url) }))
+  }, [urlsText])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -40,7 +54,7 @@ export function HostCreateForm() {
     const result = await createGame(name || 'Music Bingo', urls, { gridSize, tier })
     setLoading(false)
     if (result.error) {
-      setError(result.error)
+      setError(withSupabaseKeyHint(result.error))
       return
     }
     if (result.game?.id) {
@@ -105,9 +119,31 @@ export function HostCreateForm() {
           value={urlsText}
           onChange={(e) => setUrlsText(e.target.value)}
           placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/..."
-          rows={12}
+          rows={10}
           className="w-full p-4 rounded-2xl bg-slate-800/60 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 focus:border-emerald-500/50 resize-y font-mono text-sm"
         />
+        {parsedSongs.length > 0 && (
+          <div className="mt-2 rounded-xl bg-slate-800/50 border border-slate-700 p-3">
+            <p className="text-slate-300 text-sm font-medium mb-2">
+              Songs you’re adding ({parsedSongs.length}) — names will show after the game is created
+            </p>
+            <ul className="max-h-40 overflow-y-auto space-y-1 text-sm font-mono">
+              {parsedSongs.slice(0, 50).map(({ index, id }) => (
+                <li key={`${index}-${id}`} className="text-slate-400">
+                  <span className="text-slate-500">{index}.</span>{' '}
+                  {id ? (
+                    <span className="text-emerald-400/90">Video ID: {id}</span>
+                  ) : (
+                    <span className="text-amber-400/90">Invalid link (skipped)</span>
+                  )}
+                </li>
+              ))}
+              {parsedSongs.length > 50 && (
+                <li className="text-slate-500">… and {parsedSongs.length - 50} more</li>
+              )}
+            </ul>
+          </div>
+        )}
       </div>
       {error && <p className="text-red-300">{error}</p>}
       <button

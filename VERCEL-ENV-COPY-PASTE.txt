@@ -1,0 +1,10 @@
+Copy these 3 NAMES into Vercel (Settings → Environment Variables → Add New):
+
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+
+For each one: paste the NAME above, then paste the VALUE from your .env.local (same line).
+Check "Production" (and Preview if you want). Save.
+
+Then: Deployments → ⋯ on latest deployment → Redeploy.

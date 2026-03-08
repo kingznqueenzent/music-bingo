@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "verify-env": "node scripts/verify-and-vercel-checklist.js",
+    "vercel:env-push": "node scripts/push-supabase-env-to-vercel.js",
+    "db:seed-themes": "node scripts/run-seed-themes.js",
+    "db:seed-genre-era": "node scripts/run-seed-genre-era.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
@@ -23,6 +27,7 @@
     "@types/pg": "^8.11.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",

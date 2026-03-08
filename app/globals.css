@@ -3,11 +3,18 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* LyricGrid brand */
+  --color-brand-dark: #121212;
+  --color-brand-neon: #00FFFF;
+  --color-brand-surface: #1E1E1E;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-brand-dark: #121212;
+  --color-brand-neon: #00FFFF;
+  --color-brand-surface: #1E1E1E;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -23,4 +30,22 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* LyricGrid: breathing neon glow (use when Tailwind animate-pulse-glow not available) */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 15px rgba(0, 255, 255, 0.5); }
+  50% { box-shadow: 0 0 28px rgba(0, 255, 255, 0.75); }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* LyricGrid logo: middle row wave */
+@keyframes lyricgrid-wave {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(-15%); opacity: 0.85; }
+}
+.lyricgrid-grid-wave {
+  animation: lyricgrid-wave 1.2s ease-in-out infinite;
 }

@@ -2,7 +2,7 @@
  * Direct PostgreSQL access when Supabase REST (PostgREST) schema cache
  * is broken (PGRST205). Uses DATABASE_URL from env.
  */
-import type { Theme } from '@/lib/supabase/types'
+import type { Theme, Genre, Era } from '@/lib/supabase/types'
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 6
@@ -13,6 +13,38 @@ function generateCode(): string {
     code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
   }
   return code
+}
+
+export async function getGenresDirect(): Promise<{ genres: Genre[]; error?: string }> {
+  const url = process.env.DATABASE_URL?.trim()
+  if (!url) return { genres: [] }
+  const { Client } = await import('pg')
+  const client = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+  try {
+    await client.connect()
+    const res = await client.query<Genre>(`SELECT id, name, slug, sort_order FROM public.genres ORDER BY sort_order, name`)
+    return { genres: res.rows ?? [] }
+  } catch (e) {
+    return { genres: [], error: e instanceof Error ? e.message : String(e) }
+  } finally {
+    try { await client.end() } catch { /* ignore */ }
+  }
+}
+
+export async function getErasDirect(): Promise<{ eras: Era[]; error?: string }> {
+  const url = process.env.DATABASE_URL?.trim()
+  if (!url) return { eras: [] }
+  const { Client } = await import('pg')
+  const client = new Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
+  try {
+    await client.connect()
+    const res = await client.query<Era>(`SELECT id, name, start_year, end_year, sort_order FROM public.eras ORDER BY sort_order, start_year`)
+    return { eras: res.rows ?? [] }
+  } catch (e) {
+    return { eras: [], error: e instanceof Error ? e.message : String(e) }
+  } finally {
+    try { await client.end() } catch { /* ignore */ }
+  }
 }
 
 export async function getThemesDirect(): Promise<{ themes: Theme[]; error?: string }> {
@@ -26,12 +58,24 @@ export async function getThemesDirect(): Promise<{ themes: Theme[]; error?: stri
   })
   try {
     await client.connect()
-    const res = await client.query<Theme>(
-      `SELECT id, name, category, description, artwork_url
-       FROM public.themes
-       ORDER BY name`
-    )
-    return { themes: res.rows ?? [] }
+    try {
+      const res = await client.query<Theme & { genre_name?: string; era_name?: string }>(
+        `SELECT t.id, t.name, t.category, t.description, t.artwork_url, t.genre_id, t.era_id,
+                g.name AS genre_name, e.name AS era_name
+         FROM public.themes t
+         LEFT JOIN public.genres g ON g.id = t.genre_id
+         LEFT JOIN public.eras e ON e.id = t.era_id
+         ORDER BY g.sort_order NULLS LAST, e.sort_order NULLS LAST, t.name`
+      )
+      return { themes: (res.rows ?? []) as Theme[] }
+    } catch (joinErr) {
+      const msg = joinErr instanceof Error ? joinErr.message : String(joinErr)
+      if (msg.includes('genres') || msg.includes('eras') || msg.includes('does not exist')) {
+        const fallback = await client.query<Theme>(`SELECT id, name, category, description, artwork_url FROM public.themes ORDER BY name`)
+        return { themes: fallback.rows ?? [] }
+      }
+      throw joinErr
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return { themes: [], error: msg }

@@ -23,6 +23,48 @@ VALUES
     'https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400'
   ),
   (
+    'a1000000-0000-0000-0000-000000000014',
+    '90''s Pop',
+    'decade',
+    '90s pop music — boy bands, pop princesses, and chart-topping hits from the decade.',
+    'https://images.unsplash.com/photo-1614680376573-df3480f0c6ff?w=400'
+  ),
+  (
+    'a1000000-0000-0000-0000-000000000015',
+    '90''s Reggae',
+    'decade',
+    '90s reggae through 2026 — roots, lovers rock, dancehall, and reggae vibes.',
+    'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400'
+  ),
+  (
+    'a1000000-0000-0000-0000-000000000016',
+    '90''s Hip-Hop',
+    'decade',
+    '90s hip-hop through 2026 — golden era, East Coast, West Coast, Southern rap.',
+    'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400'
+  ),
+  (
+    'a1000000-0000-0000-0000-000000000017',
+    '80''s Rock',
+    'decade',
+    '80s rock through 2026 — hair metal, arena rock, and 80s anthems.',
+    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400'
+  ),
+  (
+    'a1000000-0000-0000-0000-000000000018',
+    '2000''s Dancehall',
+    'decade',
+    '2000s dancehall through 2026 — riddims, bashment, and modern dancehall.',
+    'https://images.unsplash.com/photo-1571266028243-d220e8d4a2a3?w=400'
+  ),
+  (
+    'a1000000-0000-0000-0000-000000000019',
+    'Afrobeats (2010–2026)',
+    'genre',
+    'Afrobeats from 2010 through 2026 — Afropop, Afrobeats, and African pop.',
+    'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400'
+  ),
+  (
     'a1000000-0000-0000-0000-000000000002',
     '2000s Hits',
     'decade',

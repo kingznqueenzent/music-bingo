@@ -1,7 +1,12 @@
 import Link from 'next/link'
 import { MediaManager } from './MediaManager'
 
-export default function MediaPage() {
+export const dynamic = 'force-dynamic'
+
+type Props = { searchParams: Promise<{ theme?: string }> }
+
+export default async function MediaPage({ searchParams }: Props) {
+  const { theme } = await searchParams
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-4xl mx-auto px-6 pt-6">
@@ -16,7 +21,7 @@ export default function MediaPage() {
         <p className="text-slate-300 mb-8">
           Upload and index MP3 or MP4 files from your computer. Use them in playlists for local-only games or mix with YouTube.
         </p>
-        <MediaManager />
+        <MediaManager initialThemeId={theme ?? null} />
       </section>
     </main>
   )

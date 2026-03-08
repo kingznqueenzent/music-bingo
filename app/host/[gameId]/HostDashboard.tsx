@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
@@ -16,17 +16,22 @@ import {
 import { getMaxPlayersForTier } from '@/lib/tiers'
 import { generateBingoCardsPdf } from '@/lib/pdf-export'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
+import { SpotifyEmbed } from '@/components/SpotifyEmbed'
+import { LyricGridLogo } from '@/components/LyricGridLogo'
+import { SourceIndicator } from '@/components/SourceIndicator'
+import { playlistSongLabel } from '@/lib/media-display'
 import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
 
 export function HostDashboard({ gameId }: { gameId: string }) {
   const searchParams = useSearchParams()
   const code = searchParams.get('code') ?? ''
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const [game, setGame] = useState<Game | null>(null)
   const [songs, setSongs] = useState<PlaylistSong[]>([])
   const [played, setPlayed] = useState<PlayedSong[]>([])
   const [playerCount, setPlayerCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
   const [currentSong, setCurrentSong] = useState<PlaylistSong | null>(null)
   const [verificationCardId, setVerificationCardId] = useState('')
@@ -38,29 +43,44 @@ export function HostDashboard({ gameId }: { gameId: string }) {
   const [pdfPerPage, setPdfPerPage] = useState<2 | 4>(4)
   const [logoUrlInput, setLogoUrlInput] = useState('')
   const [logoSaving, setLogoSaving] = useState(false)
+  const [verifyBingoLoading, setVerifyBingoLoading] = useState(false)
+  const [verifyBingoSuccess, setVerifyBingoSuccess] = useState('')
+  const playChannelRef = useRef<{ send: (msg: { type: 'broadcast'; event: string; payload: object }) => void } | null>(null)
 
   useEffect(() => {
-    async function load() {
-      const { data: g } = await supabase.from('games').select('*').eq('id', gameId).single()
-      if (g) {
-        setGame(g)
-        setLogoUrlInput((g as Game).logo_url ?? '')
-      }
-      if (g?.playlist_id) {
+    let cancelled = false
+    setLoadError('')
+    const timeoutMs = 15000
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timed out. Check your connection or try again.')), timeoutMs)
+    )
+    const loadPromise = (async () => {
+      const { data: g, error: gameError } = await supabase.from('games').select('*').eq('id', gameId).single()
+      if (gameError) throw new Error(gameError.message || 'Could not load game.')
+      if (!g || cancelled) return
+      setGame(g)
+      setLogoUrlInput((g as Game).logo_url ?? '')
+      if (g.playlist_id) {
         const { data: s } = await supabase
           .from('playlist_songs')
           .select('*')
           .eq('playlist_id', g.playlist_id)
           .order('position')
-        setSongs(s ?? [])
+        if (!cancelled) setSongs(s ?? [])
       }
       const { count } = await supabase.from('cards').select('*', { count: 'exact', head: true }).eq('game_id', gameId)
-      setPlayerCount(count ?? 0)
-      const { data: p } = await supabase.from('played_songs').select('*').eq('game_id', gameId).order('played_at')
-      setPlayed(p ?? [])
-      setLoading(false)
-    }
-    load()
+      if (!cancelled) setPlayerCount(count ?? 0)
+      const { data: playedData } = await supabase.from('played_songs').select('*').eq('game_id', gameId).order('played_at')
+      if (!cancelled) setPlayed(playedData ?? [])
+    })()
+    Promise.race([loadPromise, timeoutPromise])
+      .catch((e) => {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : 'Could not load game.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
   }, [gameId, supabase])
 
   useEffect(() => {
@@ -92,6 +112,16 @@ export function HostDashboard({ gameId }: { gameId: string }) {
   }, [gameId, supabase])
 
   useEffect(() => {
+    const ch = supabase.channel(`play-${gameId}`)
+    ch.subscribe(() => {})
+    playChannelRef.current = ch as unknown as { send: (msg: { type: 'broadcast'; event: string; payload: object }) => void }
+    return () => {
+      supabase.removeChannel(ch)
+      playChannelRef.current = null
+    }
+  }, [gameId, supabase])
+
+  useEffect(() => {
     if (!game?.current_song_id) {
       setCurrentSong(null)
       return
@@ -116,6 +146,7 @@ export function HostDashboard({ gameId }: { gameId: string }) {
   async function handleVerifyCard() {
     setVerificationError('')
     setVerificationResult(null)
+    setVerifyBingoSuccess('')
     const id = verificationCardId.trim()
     if (!id) {
       setVerificationError('Enter a card ID.')
@@ -127,6 +158,36 @@ export function HostDashboard({ gameId }: { gameId: string }) {
       return
     }
     setVerificationResult(result)
+  }
+
+  async function handleConfirmBingo() {
+    setVerificationError('')
+    setVerifyBingoSuccess('')
+    const cardId = verificationCardId.trim()
+    if (!cardId || !verificationResult) return
+    setVerifyBingoLoading(true)
+    try {
+      const res = await fetch('/api/verify-bingo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, cardId }),
+      })
+      const data = (await res.json()) as { valid?: boolean; error?: string }
+      if (data.valid) {
+        playChannelRef.current?.send({
+          type: 'broadcast',
+          event: 'bingo_verified',
+          payload: { cardId },
+        })
+        setVerifyBingoSuccess('Bingo verified! Winner notified — they can claim on the leaderboard.')
+      } else {
+        setVerificationError(data.error ?? 'Verification failed')
+      }
+    } catch (e) {
+      setVerificationError(String(e))
+    } finally {
+      setVerifyBingoLoading(false)
+    }
   }
 
   async function handleClipChange(seconds: number) {
@@ -174,6 +235,19 @@ export function HostDashboard({ gameId }: { gameId: string }) {
   if (loading) {
     return <div className="text-xl text-slate-300">Loading…</div>
   }
+  if (loadError) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xl text-red-300">Could not load game.</p>
+        <p className="text-slate-400 text-sm">{loadError}</p>
+        {loadError.includes('playlist_id') && (
+          <p className="text-slate-400 text-sm mt-2">
+            Run the schema reload in Supabase SQL Editor (see docs/FIX-PLAYLIST-ID-SCHEMA-CACHE.md), then try again.
+          </p>
+        )}
+      </div>
+    )
+  }
   if (!game) {
     return <div className="text-xl text-red-300">Game not found.</div>
   }
@@ -190,6 +264,13 @@ export function HostDashboard({ gameId }: { gameId: string }) {
   return (
     <div className="w-full max-w-4xl space-y-8">
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
+        <div className="flex flex-wrap items-center gap-4 mb-6">
+          <LyricGridLogo size={52} className="shrink-0" />
+          <div>
+            <h2 className="text-2xl font-bold text-[#00FFFF]/90">LyricGrid</h2>
+            <p className="text-slate-400 text-sm">Host Control</p>
+          </div>
+        </div>
         <div className="flex flex-wrap items-start justify-between gap-6 mb-4">
           <div>
             <h2 className="text-3xl font-bold mb-2 text-slate-50">
@@ -220,6 +301,41 @@ export function HostDashboard({ gameId }: { gameId: string }) {
               🖥️ Open Stage View
             </a>
           )}
+          <a
+            href="/leaderboard"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full border-2 border-[#00FFFF]/70 bg-transparent px-6 py-4 text-lg font-semibold text-[#00FFFF] hover:bg-[#00FFFF]/10 hover:border-[#00FFFF] transition-all duration-300"
+          >
+            🏆 View Leaderboard
+          </a>
+        </div>
+        <div className="flex flex-wrap items-center gap-4 mt-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <span className="text-slate-300 text-sm font-medium">Show Leaderboard on Stage View</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={game.stage_show_leaderboard ?? false}
+              onClick={async () => {
+                const next = !(game.stage_show_leaderboard ?? false)
+                const res = await updateGameSettings(gameId, { stageShowLeaderboard: next })
+                if (res.error) setActionError(res.error)
+              }}
+              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
+                game.stage_show_leaderboard ? 'bg-amber-500' : 'bg-slate-600'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition translate-x-0.5 ${
+                  game.stage_show_leaderboard ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+          </label>
+          <span className="text-slate-500 text-sm">
+            When ON, Stage View shows the leaderboard instead of the media player.
+          </span>
         </div>
         <p className="text-lg text-slate-300">
           📊 {playerCount} players joined
@@ -343,11 +459,14 @@ export function HostDashboard({ gameId }: { gameId: string }) {
         {actionError && <p className="text-red-300 mt-2">{actionError}</p>}
       </div>
 
-      {currentSong && currentSong.source !== 'local' && currentSong.youtube_id && (
+      {currentSong && currentSong.source !== 'local' && currentSong.source !== 'spotify' && currentSong.youtube_id && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-          <h3 className="text-xl font-bold mb-4 text-slate-50">
-            Now playing ({clipSeconds}s hook{crossfadeSeconds ? `, ${crossfadeSeconds}s crossfade` : ''})
-          </h3>
+          <div className="flex items-center gap-3 mb-4">
+            <SourceIndicator source="youtube" />
+            <h3 className="text-xl font-bold text-slate-50">
+              Now playing ({clipSeconds}s hook{crossfadeSeconds ? `, ${crossfadeSeconds}s crossfade` : ''})
+            </h3>
+          </div>
           <YouTubeClipPlayer
             videoId={currentSong.youtube_id}
             startSeconds={0}
@@ -359,9 +478,27 @@ export function HostDashboard({ gameId }: { gameId: string }) {
         </div>
       )}
 
+      {currentSong?.source === 'spotify' && currentSong?.spotify_track_id && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <SourceIndicator source="spotify" />
+            <h3 className="text-xl font-bold text-slate-50">Now playing (Spotify)</h3>
+          </div>
+          <SpotifyEmbed
+            trackId={currentSong.spotify_track_id}
+            albumArtUrl={currentSong.album_art_url ?? undefined}
+            title={currentSong.title ?? undefined}
+            className="max-w-2xl mx-auto"
+          />
+        </div>
+      )}
+
       {currentSong?.source === 'local' && currentSong?.file_url && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
-          <h3 className="text-xl font-bold mb-4 text-slate-50">Now playing (Media Library)</h3>
+          <div className="flex items-center gap-3 mb-4">
+            <SourceIndicator source="local" />
+            <h3 className="text-xl font-bold text-slate-50">Now playing (Media Library)</h3>
+          </div>
           {currentSong.file_url.match(/\.(mp4|webm)$/i) ? (
             <video
               key={currentSong.id}
@@ -391,7 +528,7 @@ export function HostDashboard({ gameId }: { gameId: string }) {
             </h4>
             <ul className="space-y-1.5 max-h-72 overflow-y-auto">
               {upNext.map((song, idx) => {
-                const label = song.title || song.youtube_id || song.file_url || 'Track'
+                const label = playlistSongLabel(song)
                 return (
                   <li key={song.id} className="flex items-center gap-2">
                     <span className="text-slate-500 w-6 text-sm">{idx + 1}</span>
@@ -417,7 +554,7 @@ export function HostDashboard({ gameId }: { gameId: string }) {
             </h4>
             <ul className="space-y-1.5 max-h-72 overflow-y-auto">
               {playedSongs.map((song) => {
-                const label = song.title || song.youtube_id || song.file_url || 'Track'
+                const label = playlistSongLabel(song)
                 return (
                   <li key={song.id} className="flex items-center gap-2 opacity-70">
                     <span className="text-slate-500 text-sm line-through flex-1 truncate">{label}</span>
@@ -455,6 +592,7 @@ export function HostDashboard({ gameId }: { gameId: string }) {
           </button>
         </div>
         {verificationError && <p className="text-red-300 text-sm mb-2">{verificationError}</p>}
+        {verifyBingoSuccess && <p className="text-emerald-400 text-sm mb-2">{verifyBingoSuccess}</p>}
         {verificationResult && (
           <div className="mt-4">
             <p className="text-slate-300 mb-2">
@@ -485,6 +623,17 @@ export function HostDashboard({ gameId }: { gameId: string }) {
                     {cell.title ? (cell.title.length > 12 ? cell.title.slice(0, 11) + '…' : cell.title) : '—'}
                   </div>
                 ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleConfirmBingo}
+                disabled={verifyBingoLoading}
+                className="rounded-full bg-amber-500 hover:bg-amber-400 disabled:opacity-50 font-semibold py-2 px-6 text-slate-900"
+              >
+                {verifyBingoLoading ? 'Verifying…' : 'Verify BINGO'}
+              </button>
+              <span className="text-slate-500 text-sm">If the card has a valid line, this notifies the player to claim on the leaderboard.</span>
             </div>
           </div>
         )}

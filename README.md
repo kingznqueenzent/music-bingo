@@ -1,4 +1,10 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Music Bingo
+
+Interactive music bingo for livestreams and parties. Host games, players join with a code or QR, cards update in real time.
+
+**Live app:** [music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app)
+
+---
 
 ## Getting Started
 

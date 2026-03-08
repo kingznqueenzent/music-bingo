@@ -1,0 +1,160 @@
+-- =============================================================================
+-- RUN THIS ONCE in Supabase SQL Editor: Schema + full genre/era hierarchy seed.
+-- (Paste this entire file into SQL Editor → New query → Run.)
+-- Requires: public.themes table already exists (from RUN-FULL-SETUP or schema).
+-- =============================================================================
+select 1 as _genre_era_setup;
+
+-- ========== SCHEMA: genres, eras, theme columns ==========
+create table if not exists public.genres (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  slug text not null unique,
+  sort_order int not null default 0,
+  created_at timestamptz default now()
+);
+create index if not exists idx_genres_slug on public.genres(slug);
+create index if not exists idx_genres_sort on public.genres(sort_order);
+alter table public.genres enable row level security;
+drop policy if exists "Allow read genres" on public.genres;
+create policy "Allow read genres" on public.genres for select using (true);
+
+create table if not exists public.eras (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  start_year int not null,
+  end_year int not null,
+  sort_order int not null default 0,
+  created_at timestamptz default now()
+);
+create index if not exists idx_eras_years on public.eras(start_year, end_year);
+create index if not exists idx_eras_sort on public.eras(sort_order);
+alter table public.eras enable row level security;
+drop policy if exists "Allow read eras" on public.eras;
+create policy "Allow read eras" on public.eras for select using (true);
+
+alter table public.themes add column if not exists genre_id uuid references public.genres(id) on delete set null;
+alter table public.themes add column if not exists era_id uuid references public.eras(id) on delete set null;
+create index if not exists idx_themes_genre on public.themes(genre_id);
+create index if not exists idx_themes_era on public.themes(era_id);
+
+-- ========== SEED: genres, eras, theme sub-genres (1950s–2026) ==========
+INSERT INTO public.genres (id, name, slug, sort_order) VALUES
+  ('b1000001-0000-4000-8000-000000000001', 'Rock', 'rock', 1),
+  ('b1000001-0000-4000-8000-000000000002', 'Hip-Hop', 'hip-hop', 2),
+  ('b1000001-0000-4000-8000-000000000003', 'Reggae', 'reggae', 3),
+  ('b1000001-0000-4000-8000-000000000004', 'R&B & Soul', 'rb-soul', 4),
+  ('b1000001-0000-4000-8000-000000000005', 'Afrobeats & Global', 'afrobeats-global', 5),
+  ('b1000001-0000-4000-8000-000000000006', 'Pop', 'pop', 6),
+  ('b1000001-0000-4000-8000-000000000007', 'Country', 'country', 7),
+  ('b1000001-0000-4000-8000-000000000008', 'Jazz', 'jazz', 8),
+  ('b1000001-0000-4000-8000-000000000009', 'Screen & Media', 'screen-media', 9)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, slug = EXCLUDED.slug, sort_order = EXCLUDED.sort_order;
+
+INSERT INTO public.eras (id, name, start_year, end_year, sort_order) VALUES
+  ('c1000001-0000-4000-8000-000000000001', '1950s-60s', 1950, 1969, 1),
+  ('c1000001-0000-4000-8000-000000000002', '1970s-80s', 1970, 1989, 2),
+  ('c1000001-0000-4000-8000-000000000003', '1980s-90s', 1980, 1999, 3),
+  ('c1000001-0000-4000-8000-000000000004', '1990s-2000s', 1990, 2009, 4),
+  ('c1000001-0000-4000-8000-000000000005', '2000s-10s', 2000, 2019, 5),
+  ('c1000001-0000-4000-8000-000000000006', '2010s-26', 2010, 2026, 6),
+  ('c1000001-0000-4000-8000-000000000007', '2020s-26', 2020, 2026, 7),
+  ('c1000001-0000-4000-8000-000000000008', 'Classic', 1950, 1989, 8),
+  ('c1000001-0000-4000-8000-000000000009', 'Modern', 1990, 2019, 9),
+  ('c1000001-0000-4000-8000-000000000010', 'Origins', 1950, 1989, 10)
+ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, start_year = EXCLUDED.start_year, end_year = EXCLUDED.end_year, sort_order = EXCLUDED.sort_order;
+
+-- Rock
+INSERT INTO public.themes (name, category, description, artwork_url, genre_id, era_id) VALUES
+  ('Rock & Roll', 'genre', '1950s-60s Rock & Roll.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000001'),
+  ('Rockabilly', 'genre', '1950s-60s Rockabilly.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000001'),
+  ('British Invasion', 'genre', '1950s-60s British Invasion.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000001'),
+  ('Psychedelic Rock', 'genre', '1950s-60s Psychedelic.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000001'),
+  ('Hard Rock', 'genre', '1970s-80s Hard Rock.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000002'),
+  ('Punk', 'genre', '1970s-80s Punk.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000002'),
+  ('New Wave', 'genre', '1970s-80s New Wave.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000002'),
+  ('Glam Rock', 'genre', '1970s-80s Glam.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000002'),
+  ('Thrash Metal', 'genre', '1970s-80s Thrash Metal.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000002'),
+  ('Grunge', 'genre', '1990s-2000s Grunge.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000004'),
+  ('Alt-Rock', 'genre', '1990s-2000s Alt-Rock.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000004'),
+  ('Nu-Metal', 'genre', '1990s-2000s Nu-Metal.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000004'),
+  ('Indie Rock', 'genre', '1990s-2000s Indie.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000004'),
+  ('Emo', 'genre', '1990s-2000s Emo.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000004'),
+  ('Shoegaze Revival', 'genre', '2010s-2026 Shoegaze Revival.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000006'),
+  ('Post-Rock', 'genre', '2010s-2026 Post-Rock.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000006'),
+  ('Digicore-Rock', 'genre', '2010s-2026 Digicore-Rock.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000006'),
+  ('AI-Generative Rock', 'genre', '2010s-2026 AI-Generative Rock.', 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400', 'b1000001-0000-4000-8000-000000000001', 'c1000001-0000-4000-8000-000000000006');
+
+-- Hip-Hop
+INSERT INTO public.themes (name, category, description, artwork_url, genre_id, era_id) VALUES
+  ('Old School Hip-Hop', 'genre', '1980s-90s Old School.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000003'),
+  ('Boom Bap', 'genre', '1980s-90s Boom Bap.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000003'),
+  ('G-Funk', 'genre', '1980s-90s G-Funk.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000003'),
+  ('East Coast Hip-Hop', 'genre', '1980s-90s East Coast.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000003'),
+  ('West Coast Hip-Hop', 'genre', '1980s-90s West Coast.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000003'),
+  ('Dirty South', 'genre', '2000s-10s Dirty South.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000005'),
+  ('Trap', 'genre', '2000s-10s Trap.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000005'),
+  ('Cloud Rap', 'genre', '2000s-10s Cloud Rap.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000005'),
+  ('UK Drill', 'genre', '2000s-10s UK/NY Drill.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000005'),
+  ('Rage', 'genre', '2020s-26 Rage.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000007'),
+  ('Jersey Club Rap', 'genre', '2020s-26 Jersey Club Rap.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000007'),
+  ('Sample-Drill', 'genre', '2020s-26 Sample-Drill.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000007'),
+  ('Global Fusion Hip-Hop', 'genre', '2020s-26 Global Fusion.', 'https://images.unsplash.com/photo-1571330735066-03aaa9429d89?w=400', 'b1000001-0000-4000-8000-000000000002', 'c1000001-0000-4000-8000-000000000007');
+
+-- Reggae
+INSERT INTO public.themes (name, category, description, artwork_url, genre_id, era_id) VALUES
+  ('Roots Reggae', 'genre', '1970s-80s Roots.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000002'),
+  ('Dub', 'genre', '1970s-80s Dub.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000002'),
+  ('Lovers Rock', 'genre', '1970s-80s Lovers Rock.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000002'),
+  ('Early Dancehall', 'genre', '1970s-80s Early Dancehall.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000002'),
+  ('Rub-a-Dub', 'genre', '1970s-80s Rub-a-Dub.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000002'),
+  ('Reggae Fusion', 'genre', '1990s-2000s Reggae Fusion.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000004'),
+  ('Conscious Dancehall', 'genre', '1990s-2000s Conscious Dancehall.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000004'),
+  ('Modern Roots', 'genre', '1990s-2000s Modern Roots.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000004'),
+  ('Afro-Dancehall', 'genre', '2010s-26 Afro-Dancehall.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000006'),
+  ('Digital Reggae', 'genre', '2010s-26 Digital Reggae.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000006'),
+  ('Lo-fi Reggae', 'genre', '2010s-26 Lo-fi Reggae.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000003', 'c1000001-0000-4000-8000-000000000006');
+
+-- R&B & Soul
+INSERT INTO public.themes (name, category, description, artwork_url, genre_id, era_id) VALUES
+  ('Motown', 'genre', 'Classic Motown.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000008'),
+  ('Soul', 'genre', 'Classic Soul.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000008'),
+  ('Funk', 'genre', 'Classic Funk.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000008'),
+  ('Disco', 'genre', 'Classic Disco.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000008'),
+  ('New Jack Swing', 'genre', 'Modern New Jack Swing.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000009'),
+  ('Neo-Soul', 'genre', 'Modern Neo-Soul.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000009'),
+  ('Trap-Soul', 'genre', 'Modern Trap-Soul.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000009'),
+  ('Alternative R&B', 'genre', 'Modern Alternative R&B.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000009'),
+  ('PluggnB', 'genre', '2020s-26 PluggnB.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000007'),
+  ('Afro-Soul', 'genre', '2020s-26 Afro-Soul.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000007'),
+  ('Ambient R&B', 'genre', '2020s-26 Ambient R&B.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000004', 'c1000001-0000-4000-8000-000000000007');
+
+-- Afrobeats & Global
+INSERT INTO public.themes (name, category, description, artwork_url, genre_id, era_id) VALUES
+  ('Afrobeat', 'genre', 'Origins Afrobeat.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000010'),
+  ('Highlife', 'genre', 'Origins Highlife.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000010'),
+  ('Jùjú', 'genre', 'Origins Jùjú.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000010'),
+  ('Afropop', 'genre', 'Modern Afropop.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000009'),
+  ('Gqom', 'genre', 'Modern Gqom.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000009'),
+  ('Amapiano', 'genre', '2020s Amapiano.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000007'),
+  ('Alté', 'genre', 'Modern Alté.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000009'),
+  ('Afro-Drill', 'genre', 'Modern Afro-Drill.', 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=400', 'b1000001-0000-4000-8000-000000000005', 'c1000001-0000-4000-8000-000000000009');
+
+-- Pop, Country, Jazz, Screen & Media
+INSERT INTO public.themes (name, category, description, artwork_url, genre_id, era_id) VALUES
+  ('Synth-Pop', 'genre', 'Synth-Pop.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000006', 'c1000001-0000-4000-8000-000000000004'),
+  ('Teen Pop', 'genre', 'Teen Pop.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000006', 'c1000001-0000-4000-8000-000000000004'),
+  ('Hyperpop', 'genre', 'Hyperpop.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000006', 'c1000001-0000-4000-8000-000000000006'),
+  ('K-Pop', 'genre', 'K-Pop.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000006', 'c1000001-0000-4000-8000-000000000006'),
+  ('Art Pop', 'genre', 'Art Pop.', 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400', 'b1000001-0000-4000-8000-000000000006', 'c1000001-0000-4000-8000-000000000006'),
+  ('Honky Tonk', 'genre', 'Honky Tonk.', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400', 'b1000001-0000-4000-8000-000000000007', 'c1000001-0000-4000-8000-000000000008'),
+  ('Outlaw Country', 'genre', 'Outlaw.', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400', 'b1000001-0000-4000-8000-000000000007', 'c1000001-0000-4000-8000-000000000002'),
+  ('Bro-Country', 'genre', 'Bro-Country.', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400', 'b1000001-0000-4000-8000-000000000007', 'c1000001-0000-4000-8000-000000000005'),
+  ('Country-Trap', 'genre', 'Country-Trap.', 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400', 'b1000001-0000-4000-8000-000000000007', 'c1000001-0000-4000-8000-000000000007'),
+  ('Bebop', 'genre', 'Bebop.', 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400', 'b1000001-0000-4000-8000-000000000008', 'c1000001-0000-4000-8000-000000000001'),
+  ('Jazz Fusion', 'genre', 'Fusion.', 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400', 'b1000001-0000-4000-8000-000000000008', 'c1000001-0000-4000-8000-000000000002'),
+  ('Acid Jazz', 'genre', 'Acid Jazz.', 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400', 'b1000001-0000-4000-8000-000000000008', 'c1000001-0000-4000-8000-000000000004'),
+  ('Jazztronica', 'genre', 'Jazztronica.', 'https://images.unsplash.com/photo-1415201364774-f6f0bb35f28f?w=400', 'b1000001-0000-4000-8000-000000000008', 'c1000001-0000-4000-8000-000000000006'),
+  ('Movie Themes (Epic/Noir)', 'genre', 'Movie themes: Epic, Noir.', 'https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=400', 'b1000001-0000-4000-8000-000000000009', NULL),
+  ('TV Shows (Sitcom/Anime)', 'genre', 'TV: Sitcom, Anime.', 'https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=400', 'b1000001-0000-4000-8000-000000000009', NULL),
+  ('Video Game OSTs', 'genre', 'Video Game soundtracks.', 'https://images.unsplash.com/photo-1487180144351-b8472da7d491?w=400', 'b1000001-0000-4000-8000-000000000009', NULL);
