@@ -112,3 +112,90 @@ export async function verifyBingo(
   }
   return { valid: false }
 }
+
+/**
+ * Manual tap mode: verify using the player's marked song IDs against the host's master list (played_songs).
+ * Every marked song must have been played by the host; marked positions must form a valid winning pattern.
+ */
+export async function verifyBingoWithMarks(
+  cardId: string,
+  gameId: string,
+  markedPlaylistSongIds: string[]
+): Promise<{ valid: boolean; error?: string; playerName?: string }> {
+  const supabase = createClient()
+
+  const { data: game, error: gameError } = await supabase
+    .from('games')
+    .select('mode, grid_size')
+    .eq('id', gameId)
+    .single()
+  if (gameError || !game) return { valid: false, error: 'Game not found' }
+
+  const mode = (game.mode as WinPattern) || 'line'
+  const gridSize = game.grid_size === 4 ? 4 : 5
+  const cellCount = gridSize * gridSize
+
+  const { data: card, error: cardError } = await supabase
+    .from('cards')
+    .select('id, game_id, player_name')
+    .eq('id', cardId)
+    .eq('game_id', gameId)
+    .single()
+  if (cardError || !card) return { valid: false, error: 'Card not found' }
+
+  const { data: cells, error: cellsError } = await supabase
+    .from('card_cells')
+    .select('position, playlist_song_id')
+    .eq('card_id', cardId)
+    .order('position')
+  if (cellsError || !cells?.length) return { valid: false, error: 'Card has no cells' }
+
+  const { data: played } = await supabase
+    .from('played_songs')
+    .select('playlist_song_id')
+    .eq('game_id', gameId)
+  const playedSet = new Set(played?.map((p) => p.playlist_song_id) ?? [])
+
+  const markedSet = new Set(markedPlaylistSongIds)
+  const positionToSong = new Map<number, string>()
+  for (const c of cells) {
+    positionToSong.set(c.position, c.playlist_song_id)
+  }
+
+  const markedPositions = cells
+    .filter((c) => markedSet.has(c.playlist_song_id))
+    .map((c) => c.position)
+
+  for (const pos of markedPositions) {
+    const songId = positionToSong.get(pos)
+    if (songId != null && !playedSet.has(songId)) {
+      return { valid: false, error: 'Invalid Bingo – you marked a song that has not been played yet.' }
+    }
+  }
+
+  const isPositionMarked = (pos: number) => markedSet.has(positionToSong.get(pos)!)
+  const isLineComplete = (positions: number[]) => positions.every((pos) => isPositionMarked(pos))
+  const playerName = (card as { player_name?: string }).player_name
+
+  if (mode === 'blackout') {
+    const allPositions = Array.from({ length: cellCount }, (_, i) => i)
+    const ok = isLineComplete(allPositions)
+    return { valid: ok, playerName: ok ? playerName : undefined }
+  }
+
+  const ROWS = gridSize === 4 ? ROWS_4 : ROWS_5
+  const COLS = gridSize === 4 ? COLS_4 : COLS_5
+  const DIAGS = gridSize === 4 ? DIAGS_4 : DIAGS_5
+
+  if (mode === 'x') {
+    const bothDiags = DIAGS.every((line) => isLineComplete(line))
+    return { valid: bothDiags, playerName: bothDiags ? playerName : undefined }
+  }
+
+  for (const line of [...ROWS, ...COLS, ...DIAGS]) {
+    if (isLineComplete(line)) {
+      return { valid: true, playerName }
+    }
+  }
+  return { valid: false, error: 'No winning pattern yet. Keep playing!' }
+}

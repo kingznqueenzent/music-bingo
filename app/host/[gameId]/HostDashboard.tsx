@@ -50,6 +50,7 @@ export function HostDashboard({
   const [loadError, setLoadError] = useState(initialServerError ?? '')
   const [retryTrigger, setRetryTrigger] = useState(0)
   const [actionError, setActionError] = useState('')
+  const [playingSongId, setPlayingSongId] = useState<string | null>(null)
   const [currentSong, setCurrentSong] = useState<PlaylistSong | null>(null)
   const [verificationCardId, setVerificationCardId] = useState('')
   const [verificationResult, setVerificationResult] = useState<
@@ -62,6 +63,7 @@ export function HostDashboard({
   const [logoSaving, setLogoSaving] = useState(false)
   const [verifyBingoLoading, setVerifyBingoLoading] = useState(false)
   const [verifyBingoSuccess, setVerifyBingoSuccess] = useState('')
+  const [winnerAlert, setWinnerAlert] = useState<{ playerName: string; cardId: string } | null>(null)
   const playChannelRef = useRef<{ send: (msg: { type: 'broadcast'; event: string; payload: object }) => void } | null>(null)
 
   useEffect(() => {
@@ -129,6 +131,16 @@ export function HostDashboard({
           supabase.from('cards').select('*', { count: 'exact', head: true }).eq('game_id', gameId).then(({ count }) => setPlayerCount(count ?? 0))
         }
       )
+      .on(
+        'broadcast',
+        { event: 'bingo_winner' },
+        (payload: { payload?: { playerName?: string; cardId?: string } }) => {
+          const p = payload?.payload
+          if (p?.playerName != null || p?.cardId != null) {
+            setWinnerAlert({ playerName: p?.playerName ?? 'Player', cardId: p?.cardId ?? '' })
+          }
+        }
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
@@ -162,9 +174,17 @@ export function HostDashboard({
 
   async function handleNextSong(song: PlaylistSong) {
     setActionError('')
-    const res = await playNextSong(gameId, song.id)
-    if (res.error) setActionError(res.error)
-    else setCurrentSong(song)
+    setPlayingSongId(song.id)
+    try {
+      const res = await playNextSong(gameId, song.id)
+      if (res.error) {
+        setActionError(res.error)
+      } else {
+        setCurrentSong(song)
+      }
+    } finally {
+      setPlayingSongId(null)
+    }
   }
 
   async function handleVerifyCard() {
@@ -260,7 +280,7 @@ export function HostDashboard({
     return <div className="text-xl text-slate-300">Loading…</div>
   }
   if (loadError) {
-    const isSchemaError = /playlist_id|current_song_id|player_identifier|schema cache|column.*games|column.*cards/i.test(loadError)
+    const isSchemaError = /playlist_id|current_song_id|player_identifier|player_name|schema cache|column.*games|column.*cards/i.test(loadError)
     const isTimeout = /timed out|timeout/i.test(loadError)
     return (
       <div className="space-y-4 max-w-xl">
@@ -306,6 +326,21 @@ export function HostDashboard({
 
   return (
     <div className="w-full max-w-4xl space-y-8">
+      {winnerAlert && (
+        <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 p-4 flex items-center justify-between gap-4">
+          <p className="text-xl font-bold text-emerald-300">
+            🏆 WINNER: {winnerAlert.playerName}
+            {winnerAlert.cardId && <span className="text-slate-400 font-normal text-sm ml-2">(Card: {winnerAlert.cardId.slice(0, 8)}…)</span>}
+          </p>
+          <button
+            type="button"
+            onClick={() => setWinnerAlert(null)}
+            className="rounded-lg bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-sm text-slate-200"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
         <div className="flex flex-wrap items-center gap-4 mb-6">
           <LyricGridLogo size={52} className="shrink-0" />
@@ -436,13 +471,13 @@ export function HostDashboard({
 
         <div className="mt-6 pt-6 border-t border-slate-700">
           <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">
-            Winning pattern
+            Winning pattern (players must mark this to claim BINGO)
           </h4>
           <div className="flex flex-wrap gap-2 mb-4">
             {(
               [
-                ['line', 'Single Line'],
-                ['x', 'X-Shape'],
+                ['line', 'Single Line (horizontal, vertical, or diagonal)'],
+                ['x', 'X-Shape (both diagonals)'],
                 ['blackout', 'Full House (Blackout)'],
               ] as const
             ).map(([value, label]) => (
@@ -564,6 +599,14 @@ export function HostDashboard({
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
         <h3 className="text-2xl font-bold mb-4 text-slate-50">Playlist</h3>
+        {actionError && (
+          <div className="mb-4 p-3 rounded-xl bg-red-500/20 border border-red-500/50 text-red-300 text-sm space-y-1">
+            <p>{actionError}</p>
+            {(actionError.includes('schema cache') || actionError.includes('column') || actionError.includes('played_songs')) && (
+              <p className="text-slate-400 text-xs mt-1">Run supabase/reload-schema-cache.sql in Supabase SQL Editor, then Restart project.</p>
+            )}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide mb-2">
@@ -572,6 +615,7 @@ export function HostDashboard({
             <ul className="space-y-1.5 max-h-72 overflow-y-auto">
               {upNext.map((song, idx) => {
                 const label = playlistSongLabel(song)
+                const isPlaying = playingSongId === song.id
                 return (
                   <li key={song.id} className="flex items-center gap-2">
                     <span className="text-slate-500 w-6 text-sm">{idx + 1}</span>
@@ -579,9 +623,10 @@ export function HostDashboard({
                     <button
                       type="button"
                       onClick={() => handleNextSong(song)}
-                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 font-semibold py-1.5 px-3 text-xs shrink-0"
+                      disabled={playingSongId != null}
+                      className="rounded-full bg-emerald-500 hover:bg-emerald-400 font-semibold py-1.5 px-3 text-xs shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Play
+                      {isPlaying ? 'Playing…' : 'Play'}
                     </button>
                   </li>
                 )
@@ -593,7 +638,7 @@ export function HostDashboard({
           </div>
           <div>
             <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
-              Played
+              Recently Played (Master list)
             </h4>
             <ul className="space-y-1.5 max-h-72 overflow-y-auto">
               {playedSongs.map((song) => {

@@ -15,7 +15,8 @@ PostgREST (Supabase’s API layer) is using an old schema cache and doesn’t se
 -- Games
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS playlist_id uuid REFERENCES public.playlists(id) ON DELETE RESTRICT;
 ALTER TABLE public.games ADD COLUMN IF NOT EXISTS current_song_id uuid REFERENCES public.playlist_songs(id) ON DELETE SET NULL;
--- Cards (fixes "player_identifier" when joining)
+-- Cards (fixes "player_identifier" / "player_name" when joining)
+ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS player_name text;
 ALTER TABLE public.cards ADD COLUMN IF NOT EXISTS player_identifier text;
 
 GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;

@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { verifyBingo } from '@/app/actions/verify'
+import { verifyBingo, verifyBingoWithMarks } from '@/app/actions/verify'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { gameId, playerIdentifier, cardId } = body as {
+    const { gameId, playerIdentifier, cardId, markedPlaylistSongIds } = body as {
       gameId?: string
       playerIdentifier?: string
       cardId?: string
+      markedPlaylistSongIds?: string[]
     }
 
     const supabase = createClient()
@@ -31,7 +32,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await verifyBingo(targetCardId, gameId)
+    const useManualMarks = Array.isArray(markedPlaylistSongIds) && markedPlaylistSongIds.length > 0
+    const result = useManualMarks
+      ? await verifyBingoWithMarks(targetCardId, gameId, markedPlaylistSongIds)
+      : await verifyBingo(targetCardId, gameId)
+
     if (result.valid) {
       const { data: card } = await supabase
         .from('cards')
@@ -54,7 +59,12 @@ export async function POST(request: NextRequest) {
         { onConflict: 'game_id,card_id,round', ignoreDuplicates: true }
       )
     }
-    return NextResponse.json({ valid: result.valid, error: result.error })
+
+    return NextResponse.json({
+      valid: result.valid,
+      error: result.error,
+      playerName: result.playerName ?? undefined,
+    })
   } catch (e) {
     return NextResponse.json({ valid: false, error: String(e) }, { status: 500 })
   }

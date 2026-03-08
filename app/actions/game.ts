@@ -431,12 +431,18 @@ export async function playNextSong(gameId: string, playlistSongId: string) {
     game_id: gameId,
     playlist_song_id: playlistSongId,
   })
-  if (playedError) return { error: playedError.message }
+  if (playedError) {
+    const msg = [playedError.message, playedError.details, playedError.hint].filter(Boolean).join(' ')
+    return { error: msg || playedError.message }
+  }
   const { error: updateError } = await supabase
     .from('games')
     .update({ current_song_id: playlistSongId, status: 'playing' })
     .eq('id', gameId)
-  if (updateError) return { error: updateError.message }
+  if (updateError) {
+    const msg = [updateError.message, updateError.details, updateError.hint].filter(Boolean).join(' ')
+    return { error: msg || updateError.message }
+  }
   return { ok: true }
 }
 

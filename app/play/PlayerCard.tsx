@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
-import type { CardCell, PlaylistSong, PlayedSong, LeaderboardEntry } from '@/lib/supabase/types'
+import type { CardCell, PlaylistSong, LeaderboardEntry } from '@/lib/supabase/types'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
 
@@ -29,6 +29,42 @@ function setStoredMarks(gameId: string, cardId: string, ids: Set<string>) {
   }
 }
 
+type WinPattern = 'line' | 'x' | 'blackout'
+
+function hasWinningPattern(
+  markedSongIds: Set<string>,
+  cells: { position: number; playlist_song_id: string }[],
+  size: number,
+  mode: WinPattern
+): boolean {
+  const positionToSong = new Map(cells.map((c) => [c.position, c.playlist_song_id]))
+  const isMarked = (pos: number) => markedSongIds.has(positionToSong.get(pos)!)
+  const isLineComplete = (positions: number[]) => positions.every((p) => isMarked(p))
+
+  const cellCount = size * size
+  const ROWS = Array.from({ length: size }, (_, r) =>
+    Array.from({ length: size }, (_, c) => r * size + c)
+  )
+  const COLS = Array.from({ length: size }, (_, c) =>
+    Array.from({ length: size }, (_, r) => r * size + c)
+  )
+  const DIAGS: number[][] = [
+    Array.from({ length: size }, (_, i) => i * size + i),
+    Array.from({ length: size }, (_, i) => (i + 1) * size - 1 - i),
+  ]
+
+  if (mode === 'blackout') {
+    return Array.from({ length: cellCount }, (_, i) => i).every((p) => isMarked(p))
+  }
+  if (mode === 'x') {
+    return DIAGS.every((line) => isLineComplete(line))
+  }
+  for (const line of [...ROWS, ...COLS, ...DIAGS]) {
+    if (isLineComplete(line)) return true
+  }
+  return false
+}
+
 interface CellWithSong extends CardCell {
   song?: PlaylistSong | null
 }
@@ -45,23 +81,39 @@ export function PlayerCard({
   const supabase = useMemo(() => createClient(), [])
   const [cells, setCells] = useState<CellWithSong[]>([])
   const [playerName, setPlayerName] = useState('')
-  const [playedSongIds, setPlayedSongIds] = useState<Set<string>>(() => getStoredMarks(gameId, cardId))
+  const [gameMode, setGameMode] = useState<WinPattern>('line')
+  const [gridSize, setGridSize] = useState(5)
+  const [markedSongIds, setMarkedSongIds] = useState<Set<string>>(() => getStoredMarks(gameId, cardId))
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showWinModal, setShowWinModal] = useState(false)
   const [claimName, setClaimName] = useState('')
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimError, setClaimError] = useState('')
+  const [bingoSubmitting, setBingoSubmitting] = useState(false)
+  const [bingoMessage, setBingoMessage] = useState<'invalid' | null>(null)
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
-  const [justMarkedIds, setJustMarkedIds] = useState<Set<string>>(new Set())
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
       setStoredMarks(gameId, cardId, ids)
     },
     [gameId, cardId]
+  )
+
+  const toggleMark = useCallback(
+    (playlistSongId: string) => {
+      setMarkedSongIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(playlistSongId)) next.delete(playlistSongId)
+        else next.add(playlistSongId)
+        persistMarks(next)
+        return next
+      })
+    },
+    [persistMarks]
   )
 
   async function handleClaimLeaderboard() {
@@ -96,6 +148,13 @@ export function PlayerCard({
     async function load() {
       const { data: card } = await supabase.from('cards').select('player_name').eq('id', cardId).single()
       if (card) setPlayerName(card.player_name)
+
+      const { data: game } = await supabase.from('games').select('mode, grid_size').eq('id', gameId).single()
+      if (game) {
+        setGameMode((game.mode as WinPattern) || 'line')
+        setGridSize(game.grid_size === 4 ? 4 : 5)
+      }
+
       const { data: rows } = await supabase.from('card_cells').select('*').eq('card_id', cardId).order('position')
       if (!rows?.length) {
         setError('Card not found.')
@@ -111,14 +170,11 @@ export function PlayerCard({
           song: songMap.get(r.playlist_song_id) ?? null,
         }))
       )
-      const { data: played } = await supabase.from('played_songs').select('playlist_song_id').eq('game_id', gameId)
-      const fromServer = new Set((played ?? []).map((p) => p.playlist_song_id))
-      setPlayedSongIds(fromServer)
-      persistMarks(fromServer)
+      setMarkedSongIds(getStoredMarks(gameId, cardId))
       setLoading(false)
     }
     load()
-  }, [cardId, gameId, persistMarks])
+  }, [cardId, gameId, supabase])
 
   useEffect(() => {
     if (!leaderboardDrawerOpen) return
@@ -137,24 +193,6 @@ export function PlayerCard({
     const channel = supabase
       .channel(`play-${gameId}`)
       .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
-        (payload) => {
-          const newId = (payload.new as PlayedSong).playlist_song_id
-          setJustMarkedIds((prev) => new Set([...prev, newId]))
-          setTimeout(() => setJustMarkedIds((prev) => {
-            const next = new Set(prev)
-            next.delete(newId)
-            return next
-          }), 500)
-          setPlayedSongIds((prev) => {
-            const next = new Set([...prev, newId])
-            persistMarks(next)
-            return next
-          })
-        }
-      )
-      .on(
         'broadcast',
         { event: 'bingo_verified' },
         (payload: { payload?: { cardId?: string } }) => {
@@ -165,7 +203,48 @@ export function PlayerCard({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [gameId, cardId, persistMarks, supabase])
+  }, [gameId, cardId, supabase])
+
+  const canClaimBingo = hasWinningPattern(markedSongIds, cells, gridSize, gameMode)
+
+  async function handleBingoClick() {
+    if (!canClaimBingo || bingoSubmitting) return
+    setBingoMessage(null)
+    setBingoSubmitting(true)
+    try {
+      const res = await fetch('/api/verify-bingo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cardId,
+          gameId,
+          markedPlaylistSongIds: [...markedSongIds],
+        }),
+      })
+      const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
+      if (data.valid) {
+        const ch = supabase.channel(`game-${gameId}`)
+        ch.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            ch.send({
+              type: 'broadcast',
+              event: 'bingo_winner',
+              payload: { cardId, playerName: data.playerName ?? playerName },
+            })
+          }
+        })
+        setShowWinModal(true)
+      } else {
+        setBingoMessage('invalid')
+        setTimeout(() => setBingoMessage(null), 4000)
+      }
+    } catch {
+      setBingoMessage('invalid')
+      setTimeout(() => setBingoMessage(null), 4000)
+    } finally {
+      setBingoSubmitting(false)
+    }
+  }
 
   if (loading) {
     return <div className="text-xl">Loading your card…</div>
@@ -181,8 +260,7 @@ export function PlayerCard({
     )
   }
 
-  const gridSize = Math.sqrt(cells.length) | 0
-  const size = gridSize >= 4 ? gridSize : 5
+  const size = gridSize
   const grid = Array(size)
     .fill(0)
     .map((_, row) =>
@@ -190,7 +268,7 @@ export function PlayerCard({
     )
 
   return (
-    <div className="w-full max-w-lg mx-auto relative pb-20">
+    <div className="w-full max-w-lg mx-auto relative pb-28">
       <div className="flex items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-3">
           <LyricGridLogo size={48} className="shrink-0" />
@@ -212,17 +290,18 @@ export function PlayerCard({
         >
           {grid.map((row) =>
             row.map((cell) => {
-              const isMarked = playedSongIds.has(cell.playlist_song_id)
-              const justMarked = justMarkedIds.has(cell.playlist_song_id)
+              const isMarked = markedSongIds.has(cell.playlist_song_id)
               return (
-                <div
+                <button
                   key={cell.id}
+                  type="button"
+                  onClick={() => toggleMark(cell.playlist_song_id)}
                   className={`
                     aspect-square rounded-xl flex flex-col items-center justify-center p-1 text-center text-xs font-medium
-                    border transition-all duration-300 overflow-hidden
+                    border-2 transition-all duration-200 overflow-hidden cursor-pointer touch-manipulation
                     ${isMarked
-                      ? `bg-[#1E1E1E] border-[#00FFFF] text-[#00FFFF] ${justMarked ? 'animate-bingo-mark' : 'animate-pulse-glow'}`
-                      : 'bg-[#1E1E1E] border-white/20 text-slate-300'}
+                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.15)]'
+                      : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-slate-400'}
                   `}
                 >
                   {cell.song?.album_art_url && (
@@ -233,16 +312,33 @@ export function PlayerCard({
                     />
                   )}
                   <span className="line-clamp-3">{cell.song?.title || cell.song?.youtube_id || cell.song?.spotify_track_id || '—'}</span>
-                </div>
+                </button>
               )
             })
           )}
         </div>
       </div>
 
-      <p className="mt-6 text-white/70 text-sm text-center">
-        When you get {size} in a row (horizontal, vertical, or diagonal), type <strong>BINGO</strong> in chat!
+      <p className="mt-4 text-white/70 text-sm text-center">
+        Tap a square to mark it when the host plays that song. Get a winning pattern, then tap BINGO!
       </p>
+
+      <div className="mt-6 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={handleBingoClick}
+          disabled={!canClaimBingo || bingoSubmitting}
+          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/40 hover:scale-[1.02] disabled:hover:scale-100"
+        >
+          {bingoSubmitting ? 'Checking…' : 'BINGO!'}
+        </button>
+        {!canClaimBingo && (
+          <p className="text-slate-500 text-xs">Mark a full line (or the current pattern) to enable BINGO.</p>
+        )}
+        {bingoMessage === 'invalid' && (
+          <p className="text-red-400 text-sm font-medium">Invalid Bingo – only mark songs the host has already played.</p>
+        )}
+      </div>
 
       {showWinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
