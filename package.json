@@ -10,7 +10,8 @@
     "verify-env": "node scripts/verify-and-vercel-checklist.js",
     "vercel:env-push": "node scripts/push-supabase-env-to-vercel.js",
     "db:seed-themes": "node scripts/run-seed-themes.js",
-    "db:seed-genre-era": "node scripts/run-seed-genre-era.js"
+    "db:seed-genre-era": "node scripts/run-seed-genre-era.js",
+    "db:fix-media-theme-id": "node scripts/run-fix-media-theme-id.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",

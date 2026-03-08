@@ -33,8 +33,23 @@ export function MediaManager({ initialThemeId }: { initialThemeId?: string | nul
       .select('*')
       .order('created_at', { ascending: false })
     if (e) {
-      setError(e.message)
-      setItems([])
+      const isSchemaCache = /theme_id|schema cache|column.*media_library/i.test(e.message)
+      if (isSchemaCache) {
+        const { data: fallbackData, error: fallbackErr } = await supabase
+          .from('media_library')
+          .select('id, name, file_path, file_url, storage_bucket, file_type, file_size_bytes, created_at')
+          .order('created_at', { ascending: false })
+        if (fallbackErr) {
+          setError(fallbackErr.message)
+          setItems([])
+        } else {
+          setItems((fallbackData ?? []) as MediaLibraryItem[])
+          setError('')
+        }
+      } else {
+        setError(e.message)
+        setItems([])
+      }
     } else {
       setItems((data ?? []) as MediaLibraryItem[])
     }
@@ -86,15 +101,21 @@ export function MediaManager({ initialThemeId }: { initialThemeId?: string | nul
       if (uploadError) throw new Error(uploadError.message)
       const { data: urlData } = supabase.storage.from('media').getPublicUrl(path)
       const fileUrl = urlData.publicUrl
-      const { error: insertError } = await supabase.from('media_library').insert({
+      const insertPayload: Record<string, unknown> = {
         name,
         file_path: path,
         file_url: fileUrl,
         storage_bucket: 'media',
         file_type: ext as 'mp3' | 'mp4',
         file_size_bytes: file.size,
-        theme_id: uploadThemeId || null,
-      })
+      }
+      if (uploadThemeId) insertPayload.theme_id = uploadThemeId
+      let { error: insertError } = await supabase.from('media_library').insert(insertPayload)
+      if (insertError && /theme_id|schema cache|column/i.test(insertError.message)) {
+        delete insertPayload.theme_id
+        const retry = await supabase.from('media_library').insert(insertPayload)
+        insertError = retry.error
+      }
       if (insertError) {
         await supabase.storage.from('media').remove([path])
         throw new Error(insertError.message)
@@ -132,14 +153,18 @@ export function MediaManager({ initialThemeId }: { initialThemeId?: string | nul
     }
     setSavingId(editingId)
     setError('')
-    const { error: updateError } = await supabase
-      .from('media_library')
-      .update({
-        name,
-        file_url: editingUrl.trim() || null,
-        theme_id: editingThemeId || null,
-      })
-      .eq('id', editingId)
+    const updatePayload: Record<string, unknown> = {
+      name,
+      file_url: editingUrl.trim() || null,
+    }
+    if (editingThemeId) updatePayload.theme_id = editingThemeId
+    else updatePayload.theme_id = null
+    let { error: updateError } = await supabase.from('media_library').update(updatePayload).eq('id', editingId)
+    if (updateError && /theme_id|schema cache|column/i.test(updateError.message)) {
+      delete updatePayload.theme_id
+      const retry = await supabase.from('media_library').update({ name: updatePayload.name, file_url: updatePayload.file_url }).eq('id', editingId)
+      updateError = retry.error
+    }
     if (updateError) {
       setError(updateError.message)
     } else {

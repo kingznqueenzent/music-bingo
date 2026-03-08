@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
@@ -95,6 +95,7 @@ export function PlayerCard({
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
+  const touchHandledRef = useRef(false)
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -268,7 +269,7 @@ export function PlayerCard({
     )
 
   return (
-    <div className="w-full max-w-lg mx-auto relative pb-28">
+    <div className="w-full max-w-3xl mx-auto px-2 sm:px-0 relative pb-28">
       <div className="flex items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-3">
           <LyricGridLogo size={48} className="shrink-0" />
@@ -283,35 +284,51 @@ export function PlayerCard({
       </div>
       <p className="text-slate-400 mb-6">{playerName}</p>
 
-      <div className="bg-[#1E1E1E] rounded-2xl p-4 border border-white/10">
+      <div className="bg-[#1E1E1E] rounded-2xl p-3 sm:p-5 border border-white/10 relative z-10">
         <div
-          className="grid gap-2"
+          className="grid gap-1.5 sm:gap-3 relative"
           style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
         >
           {grid.map((row) =>
             row.map((cell) => {
               const isMarked = markedSongIds.has(cell.playlist_song_id)
+              const songId = cell.playlist_song_id
+              const handleTap = () => toggleMark(songId)
               return (
                 <button
                   key={cell.id}
                   type="button"
-                  onClick={() => toggleMark(cell.playlist_song_id)}
+                  onClick={() => {
+                    if (touchHandledRef.current) {
+                      touchHandledRef.current = false
+                      return
+                    }
+                    handleTap()
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault()
+                    touchHandledRef.current = true
+                    handleTap()
+                    setTimeout(() => { touchHandledRef.current = false }, 400)
+                  }}
                   className={`
-                    aspect-square rounded-xl flex flex-col items-center justify-center p-1 text-center text-xs font-medium
-                    border-2 transition-all duration-200 overflow-hidden cursor-pointer touch-manipulation
+                    aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-3 text-center text-base sm:text-lg font-medium
+                    border-2 transition-all duration-200 overflow-hidden cursor-pointer touch-manipulation min-h-[4.5rem] min-w-[3rem]
+                    select-none active:scale-[0.98]
                     ${isMarked
                       ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.15)]'
                       : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-slate-400'}
                   `}
+                  style={{ WebkitTapHighlightColor: 'transparent' }}
                 >
                   {cell.song?.album_art_url && (
                     <img
                       src={cell.song.album_art_url}
                       alt=""
-                      className="w-6 h-6 rounded object-cover shrink-0 mb-0.5"
+                      className="w-5 h-5 sm:w-7 sm:h-7 rounded object-cover shrink-0 mb-0.5 pointer-events-none"
                     />
                   )}
-                  <span className="line-clamp-3">{cell.song?.title || cell.song?.youtube_id || '—'}</span>
+                  <span className="line-clamp-5 leading-snug break-words pointer-events-none">{cell.song?.title || cell.song?.youtube_id || '—'}</span>
                 </button>
               )
             })

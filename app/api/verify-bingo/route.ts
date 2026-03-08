@@ -60,10 +60,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const r = result as { valid: boolean; error?: string; playerName?: string }
     return NextResponse.json({
-      valid: result.valid,
-      error: result.error,
-      playerName: result.playerName ?? undefined,
+      valid: r.valid,
+      error: r.error,
+      playerName: r.playerName ?? undefined,
     })
   } catch (e) {
     return NextResponse.json({ valid: false, error: String(e) }, { status: 500 })

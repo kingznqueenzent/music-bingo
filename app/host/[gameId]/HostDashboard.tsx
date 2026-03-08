@@ -5,10 +5,10 @@ import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
 import {
-  startGame,
   updateGameSettings,
   getCardForVerification,
   getCardsForPdf,
+  playNextSong,
   type CardCellVerification,
   type WinPattern,
 } from '@/app/actions/game'
@@ -158,29 +158,41 @@ export function HostDashboard({
     }
   }, [gameId, supabase])
 
-  useEffect(() => {
-    if (!game?.current_song_id) {
-      setCurrentSong(null)
-      return
-    }
-    const song = songs.find((s) => s.id === game.current_song_id) ?? null
-    setCurrentSong(song)
-  }, [game?.current_song_id, songs])
+  // Do not auto-load/play the last song on host page load – playback starts only when host clicks Play in "Up next"
 
   async function handleStart() {
     setActionError('')
-    const res = await startGame(gameId)
-    if (res.error) setActionError(res.error)
+    setGame((prev) => (prev ? { ...prev, status: 'playing' as const } : null))
+    try {
+      const res = await fetch('/api/start-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (!res.ok || !data.ok) {
+        setGame((prev) => (prev ? { ...prev, status: 'lobby' as const } : null))
+        setActionError(data.error ?? `Error ${res.status}. Could not start game.`)
+      }
+    } catch (e) {
+      setGame((prev) => (prev ? { ...prev, status: 'lobby' as const } : null))
+      setActionError(e instanceof Error ? e.message : 'Could not start game.')
+    }
   }
 
   async function handleNextSong(song: PlaylistSong) {
+    if (!song?.id) {
+      setActionError('Invalid song.')
+      return
+    }
     setActionError('')
     previousCurrentSongRef.current = currentSong
     setCurrentSong(song)
     setTimeout(() => nowPlayingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
     setPlayingSongId(song.id)
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
+    const timeoutId = setTimeout(() => controller.abort(), 12000)
+    let success = false
     try {
       const res = await fetch('/api/play-next', {
         method: 'POST',
@@ -193,27 +205,47 @@ export function HostDashboard({
       try {
         data = (await res.json()) as { ok?: boolean; error?: string }
       } catch {
-        setCurrentSong(previousCurrentSongRef.current)
-        setActionError(res.ok ? 'Invalid response.' : `Error ${res.status}. Try again.`)
-        return
+        setActionError(res.ok ? 'Invalid response.' : `API error ${res.status}. Trying fallback…`)
+        // Fall through to server action
       }
-      if (res.ok && data.ok) {
-        // Keep currentSong (already set optimistically)
-      } else {
-        setCurrentSong(previousCurrentSongRef.current)
-        setActionError(data.error ?? `Error ${res.status}. Could not play song.`)
+      if (res.ok && data?.ok) {
+        success = true
+      } else if (data?.error) {
+        setActionError(data.error + ' Trying fallback…')
       }
     } catch (e) {
       clearTimeout(timeoutId)
-      setCurrentSong(previousCurrentSongRef.current)
       if ((e as Error).name === 'AbortError') {
-        setActionError('Request timed out. Try again.')
+        setActionError('Request timed out. Trying fallback…')
       } else {
-        setActionError(e instanceof Error ? e.message : 'Something went wrong.')
+        setActionError((e instanceof Error ? e.message : 'Something went wrong') + ' Trying fallback…')
       }
-    } finally {
-      setPlayingSongId(null)
     }
+    if (!success) {
+      try {
+        const fallback = await playNextSong(gameId, song.id)
+        if (fallback.ok) success = true
+        else setActionError(fallback.error ?? 'Could not play song.')
+      } catch {
+        setActionError(prev => (prev ? prev.replace(' Trying fallback…', '') + ' Fallback failed.' : 'Could not play song.'))
+      }
+    }
+    if (success) {
+      setActionError('')
+      try {
+        const { data: playedData } = await supabase
+          .from('played_songs')
+          .select('*')
+          .eq('game_id', gameId)
+          .order('played_at')
+        setPlayed(playedData ?? [])
+      } catch {
+        // keep currentSong and played as-is
+      }
+    } else {
+      setCurrentSong(previousCurrentSongRef.current)
+    }
+    setPlayingSongId(null)
   }
 
   async function handleResetPlayed() {
@@ -293,20 +325,35 @@ export function HostDashboard({
 
   async function handleClipChange(seconds: number) {
     setActionError('')
+    const prevClip = game?.clip_seconds ?? 20
+    setGame((prev) => (prev ? { ...prev, clip_seconds: seconds } : null))
     const res = await updateGameSettings(gameId, { clipSeconds: seconds })
-    if (res.error) setActionError(res.error)
+    if (res.error) {
+      setActionError(res.error)
+      setGame((prev) => (prev ? { ...prev, clip_seconds: prevClip } : null))
+    }
   }
 
   async function handleCrossfadeChange(seconds: number) {
     setActionError('')
+    const prevCrossfade = game?.crossfade_seconds ?? 0
+    setGame((prev) => (prev ? { ...prev, crossfade_seconds: seconds } : null))
     const res = await updateGameSettings(gameId, { crossfadeSeconds: seconds })
-    if (res.error) setActionError(res.error)
+    if (res.error) {
+      setActionError(res.error)
+      setGame((prev) => (prev ? { ...prev, crossfade_seconds: prevCrossfade } : null))
+    }
   }
 
   async function handleWinPatternChange(pattern: WinPattern) {
     setActionError('')
+    const prevMode = game?.mode ?? 'line'
+    setGame((prev) => (prev ? { ...prev, mode: pattern } : null))
     const res = await updateGameSettings(gameId, { winPattern: pattern })
-    if (res.error) setActionError(res.error)
+    if (res.error) {
+      setActionError(res.error)
+      setGame((prev) => (prev ? { ...prev, mode: prevMode } : null))
+    }
   }
 
   async function handleSaveLogo() {
@@ -422,7 +469,7 @@ export function HostDashboard({
             type="button"
             onClick={handleStart}
             disabled={game.status !== 'lobby'}
-            className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-xl font-semibold py-4 px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100"
+            className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-xl font-semibold py-4 px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100 cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-[48px]"
           >
             ▶️ Start game
           </button>
@@ -542,7 +589,7 @@ export function HostDashboard({
                 key={value}
                 type="button"
                 onClick={() => handleWinPatternChange(value)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-full px-5 py-3 text-sm font-medium transition-colors cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-[44px] ${
                   winPattern === value
                     ? 'bg-emerald-500 text-white'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -557,14 +604,14 @@ export function HostDashboard({
           <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">
             Auto-snippets
           </h4>
-          <div className="flex flex-wrap items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="text-slate-300">Clip length:</span>
             {[20, 30, 45].map((sec) => (
               <button
                 key={sec}
                 type="button"
                 onClick={() => handleClipChange(sec)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-full px-5 py-3 text-sm font-medium transition-colors cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-[44px] ${
                   clipSeconds === sec
                     ? 'bg-emerald-500 text-white'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
@@ -580,7 +627,7 @@ export function HostDashboard({
                 key={sec}
                 type="button"
                 onClick={() => handleCrossfadeChange(sec)}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                className={`rounded-full px-5 py-3 text-sm font-medium transition-colors cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-[44px] ${
                   crossfadeSeconds === sec
                     ? 'bg-emerald-500 text-white'
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
