@@ -1,6 +1,8 @@
 import { LyricGridLogo } from '@/components/LyricGridLogo'
+import { HomeCtas } from '@/components/HomeCtas'
+import { TournamentLobbyHome } from '@/components/TournamentLobbyHome'
 
-export default function Home() {
+export default function LyricGridHome() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       {/* Hero */}
@@ -22,26 +24,9 @@ export default function Home() {
           Join with a game code, play with friends, and compete on the global leaderboard.
         </p>
 
-        <div className="flex flex-wrap justify-center gap-4 mt-2">
-          <a
-            href="/join"
-            className="inline-flex items-center justify-center rounded-full bg-emerald-500 hover:bg-emerald-400 px-8 py-3 text-lg font-semibold shadow-xl shadow-emerald-500/40 transition-transform hover:scale-105"
-          >
-            Join a Game
-          </a>
-          <a
-            href="/playlists"
-            className="inline-flex items-center justify-center rounded-full border border-slate-600/80 px-8 py-3 text-lg font-semibold text-slate-100 hover:border-slate-300 hover:bg-slate-900/60 transition-colors"
-          >
-            Browse Playlists
-          </a>
-          <a
-            href="/leaderboard"
-            className="inline-flex items-center justify-center rounded-full border border-amber-500/60 px-8 py-3 text-lg font-semibold text-amber-200 hover:border-amber-400 hover:bg-amber-500/20 transition-colors"
-          >
-            Leaderboard
-          </a>
-        </div>
+        <HomeCtas />
+
+        <TournamentLobbyHome />
 
         {/* Stats */}
         <div className="mt-8 grid grid-cols-3 gap-4 max-w-md text-sm sm:text-base">

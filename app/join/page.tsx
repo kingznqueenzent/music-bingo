@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { JoinForm } from './JoinForm'
+import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
 
 export default async function JoinPage({
   searchParams,
@@ -7,19 +8,17 @@ export default async function JoinPage({
   searchParams: Promise<{ code?: string }>
 }) {
   const params = await searchParams
-  const initialCode = params?.code?.trim().toUpperCase() ?? ''
+  const initialCode = params?.code?.trim().toUpperCase() || DEFAULT_ROOM_CODE
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">
-      <h1 className="text-4xl md:text-5xl font-extrabold mb-12 text-slate-100">
-        <span className="block">📱 Join Game</span>
-      </h1>
+      <h1 className="text-2xl md:text-3xl font-extrabold mb-8 text-slate-100 text-center">📱 Join Game</h1>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-12 max-w-md w-full">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8 md:p-12 max-w-md w-full">
         <JoinForm initialGameCode={initialCode} />
       </div>
 
-      <Link href="/" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
+      <Link href="/lyricgrid" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
         ← Back to Home
       </Link>
     </main>

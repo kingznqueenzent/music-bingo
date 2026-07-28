@@ -2,19 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createGameFromThemeDirect } from '@/lib/db'
-import { generateCardLayout } from '@/lib/bingo/cards'
+import { generateCardLayout, minSongsForGrid } from '@/lib/bingo/cards'
 import { getMaxPlayersForTier, type GameTier } from '@/lib/tiers'
-
-const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-const CODE_LENGTH = 6
-
-function generateCode(): string {
-  let code = ''
-  for (let i = 0; i < CODE_LENGTH; i++) {
-    code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
-  }
-  return code
-}
+import { isFeatureEnabled } from '@/lib/feature-flags'
+import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
+import { findLyricLobbyGame, insertGameOrReuseLobby } from '@/lib/game-room-code'
 
 export type GameCreateOptions = {
   gridSize?: 4 | 5
@@ -37,6 +29,11 @@ export async function createGame(
   const gridSize = options.gridSize ?? 5
   const tier = options.tier ?? 'free'
   const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
+
+  const existingLobby = await findLyricLobbyGame(supabase)
+  if (existingLobby) {
+    return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
+  }
 
   const { data: playlist, error: playlistError } = await supabase
     .from('playlists')
@@ -83,37 +80,23 @@ export async function createGame(
 
   await fillYoutubeTitles(supabase, insertedSongs)
 
-  let code = generateCode()
-  let attempts = 0
-  while (attempts < 10) {
-    const { data: existing } = await supabase.from('games').select('id').eq('code', code).single()
-    if (!existing) break
-    code = generateCode()
-    attempts++
-  }
-
   const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
   const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
 
-  const { data: game, error: gameError } = await supabase
-    .from('games')
-    .insert({
-      playlist_id: playlist.id,
-      code,
-      status: 'lobby',
-      grid_size: gridSize,
-      clip_seconds: clipSeconds,
-      crossfade_seconds: crossfadeSeconds,
-      tier,
-      logo_url: options.logoUrl ?? null,
-    })
-    .select()
-    .single()
+  const roomResult = await insertGameOrReuseLobby(supabase, {
+    playlist_id: playlist.id,
+    status: 'lobby',
+    grid_size: gridSize,
+    clip_seconds: clipSeconds,
+    crossfade_seconds: crossfadeSeconds,
+    tier,
+    logo_url: options.logoUrl ?? null,
+  })
 
-  if (gameError) {
-    return { error: gameError.message }
+  if (roomResult.error) {
+    return { error: roomResult.error }
   }
-  return { game, code }
+  return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
 }
 
 /** Host: create a game from Media Library (uploaded MP3/MP4) — requires Pro or Enterprise */
@@ -126,6 +109,11 @@ export async function createGameFromMediaLibrary(
   const gridSize = options.gridSize ?? 5
   const tier = options.tier ?? 'pro'
   const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
+
+  const existingLobby = await findLyricLobbyGame(supabase)
+  if (existingLobby) {
+    return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
+  }
 
   const uniqueIds = [...new Set(mediaIds)]
   if (uniqueIds.length < minSongs) {
@@ -194,37 +182,23 @@ export async function createGameFromMediaLibrary(
     return { error: songsError.message }
   }
 
-  let code = generateCode()
-  let attempts = 0
-  while (attempts < 10) {
-    const { data: existing } = await supabase.from('games').select('id').eq('code', code).single()
-    if (!existing) break
-    code = generateCode()
-    attempts++
-  }
-
   const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
   const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
 
-  const { data: game, error: gameError } = await supabase
-    .from('games')
-    .insert({
-      playlist_id: playlist.id,
-      code,
-      status: 'lobby',
-      grid_size: gridSize,
-      clip_seconds: clipSeconds,
-      crossfade_seconds: crossfadeSeconds,
-      tier,
-      logo_url: options.logoUrl ?? null,
-    })
-    .select()
-    .single()
+  const roomResult = await insertGameOrReuseLobby(supabase, {
+    playlist_id: playlist.id,
+    status: 'lobby',
+    grid_size: gridSize,
+    clip_seconds: clipSeconds,
+    crossfade_seconds: crossfadeSeconds,
+    tier,
+    logo_url: options.logoUrl ?? null,
+  })
 
-  if (gameError) {
-    return { error: gameError.message }
+  if (roomResult.error) {
+    return { error: roomResult.error }
   }
-  return { game, code }
+  return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
 }
 
 /** Host: create a game from a saved theme (themes + theme_songs) */
@@ -237,6 +211,11 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
   }
 
   const supabase = createClient()
+
+  const existingLobby = await findLyricLobbyGame(supabase)
+  if (existingLobby) {
+    return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
+  }
 
   const { data: theme, error: themeError } = await supabase
     .from('themes')
@@ -288,36 +267,21 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
     return { error: playlistSongsError.message }
   }
 
-  let code = generateCode()
-  let attempts = 0
-  while (attempts < 10) {
-    const { data: existing } = await supabase.from('games').select('id').eq('code', code).single()
-    if (!existing) break
-    code = generateCode()
-    attempts++
+  const roomResult = await insertGameOrReuseLobby(supabase, {
+    playlist_id: playlist.id,
+    status: 'lobby',
+    theme_id: theme.id,
+    grid_size: 5,
+    clip_seconds: 20,
+    crossfade_seconds: 0,
+    tier: options.tier ?? 'free',
+    logo_url: options.logoUrl ?? null,
+  })
+
+  if (roomResult.error) {
+    return { error: roomResult.error }
   }
-
-  const { data: game, error: gameError } = await supabase
-    .from('games')
-    .insert({
-      playlist_id: playlist.id,
-      code,
-      status: 'lobby',
-      theme_id: theme.id,
-      grid_size: 5,
-      clip_seconds: 20,
-      crossfade_seconds: 0,
-      tier: options.tier ?? 'free',
-      logo_url: options.logoUrl ?? null,
-    })
-    .select()
-    .single()
-
-  if (gameError) {
-    return { error: gameError.message }
-  }
-
-  return { game, code }
+  return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
 }
 
 /** Player: join game and get a new bingo card */
@@ -327,7 +291,7 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
 
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .select('id, playlist_id, status, grid_size, tier')
+    .select('id, playlist_id, status, grid_size, tier, entry_fee_cents')
     .eq('code', code)
     .single()
 
@@ -351,7 +315,6 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
   }
 
   const gridSize = (game.grid_size === 4 ? 4 : 5) as 4 | 5
-  const cellCount = gridSize * gridSize
 
   const { data: songRows } = await supabase
     .from('playlist_songs')
@@ -360,8 +323,9 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
     .order('position')
 
   const songIds = songRows?.map((r) => r.id) ?? []
-  if (songIds.length < cellCount) {
-    return { error: `This game does not have enough songs (need ${cellCount}).` }
+  const minSongs = minSongsForGrid(gridSize)
+  if (songIds.length < minSongs) {
+    return { error: `This game does not have enough songs (need ${minSongs} for a ${gridSize}×${gridSize} grid).` }
   }
 
   const identifier = playerIdentifier?.trim() || null
@@ -412,6 +376,17 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
     return { error: cellsError.message }
   }
 
+  const entryFee = Math.max(0, game.entry_fee_cents ?? 0)
+  if (entryFee > 0 && (await isFeatureEnabled(supabase, 'paid_entry_games'))) {
+    const { error: poolErr } = await supabase.rpc('add_to_prize_pool', {
+      p_game_id: game.id,
+      p_cents: entryFee,
+    })
+    if (poolErr) {
+      console.error('[joinGame] add_to_prize_pool', poolErr.message)
+    }
+  }
+
   return { cardId: card.id, gameId: game.id }
 }
 
@@ -456,6 +431,13 @@ export async function updateGameSettings(
     logoUrl?: string | null
     winPattern?: WinPattern
     stageShowLeaderboard?: boolean
+    venueDisplayName?: string | null
+    brandPrimaryHex?: string | null
+    brandAccentHex?: string | null
+    brandHideLyricgrid?: boolean
+    entryFeeCents?: number | null
+    mutedPlayers?: string[] | null
+    chatProfanityFilterEnabled?: boolean
   }
 ) {
   const supabase = createClient()
@@ -465,6 +447,13 @@ export async function updateGameSettings(
     logo_url?: string | null
     mode?: string
     stage_show_leaderboard?: boolean
+    venue_display_name?: string | null
+    brand_primary_hex?: string | null
+    brand_accent_hex?: string | null
+    brand_hide_lyricgrid?: boolean
+    entry_fee_cents?: number
+    muted_players?: string[]
+    chat_profanity_filter_enabled?: boolean
   } = {}
   if (settings.clipSeconds != null)
     updates.clip_seconds = Math.min(120, Math.max(10, settings.clipSeconds))
@@ -475,6 +464,19 @@ export async function updateGameSettings(
     updates.mode = settings.winPattern
   if (settings.stageShowLeaderboard !== undefined)
     updates.stage_show_leaderboard = settings.stageShowLeaderboard
+  if (settings.venueDisplayName !== undefined) updates.venue_display_name = settings.venueDisplayName?.trim() || null
+  if (settings.brandPrimaryHex !== undefined) updates.brand_primary_hex = settings.brandPrimaryHex?.trim() || null
+  if (settings.brandAccentHex !== undefined) updates.brand_accent_hex = settings.brandAccentHex?.trim() || null
+  if (settings.brandHideLyricgrid !== undefined) updates.brand_hide_lyricgrid = settings.brandHideLyricgrid
+  if (settings.entryFeeCents != null) {
+    updates.entry_fee_cents = Math.min(1_000_000, Math.max(0, Math.floor(settings.entryFeeCents)))
+  }
+  if (settings.mutedPlayers !== undefined) {
+    updates.muted_players = settings.mutedPlayers?.map((s) => s.trim().toLowerCase()).filter(Boolean) ?? []
+  }
+  if (settings.chatProfanityFilterEnabled !== undefined) {
+    updates.chat_profanity_filter_enabled = settings.chatProfanityFilterEnabled
+  }
   if (Object.keys(updates).length === 0) return { ok: true }
   const { error } = await supabase.from('games').update(updates).eq('id', gameId)
   if (error) return { error: error.message }

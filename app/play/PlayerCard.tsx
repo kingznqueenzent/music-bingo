@@ -4,7 +4,16 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
-import type { CardCell, PlaylistSong, LeaderboardEntry } from '@/lib/supabase/types'
+import type {
+  CardCell,
+  PlaylistSong,
+  LeaderboardEntry,
+  GameSponsor,
+  GameStatus,
+} from '@/lib/supabase/types'
+import { ChatPanel, type ChatIdentity } from '@/components/chat/ChatPanel'
+import { normalizeWinPattern, hasWinningPatternFromMarks, type WinPattern } from '@/lib/bingo-win-pattern'
+import { FeatureGate } from '@/components/FeatureGate'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
 
@@ -29,54 +38,41 @@ function setStoredMarks(gameId: string, cardId: string, ids: Set<string>) {
   }
 }
 
-type WinPattern = 'line' | 'x' | 'blackout'
-
-function hasWinningPattern(
-  markedSongIds: Set<string>,
-  cells: { position: number; playlist_song_id: string }[],
-  size: number,
-  mode: WinPattern
-): boolean {
-  const positionToSong = new Map(cells.map((c) => [c.position, c.playlist_song_id]))
-  const isMarked = (pos: number) => markedSongIds.has(positionToSong.get(pos)!)
-  const isLineComplete = (positions: number[]) => positions.every((p) => isMarked(p))
-
-  const cellCount = size * size
-  const ROWS = Array.from({ length: size }, (_, r) =>
-    Array.from({ length: size }, (_, c) => r * size + c)
-  )
-  const COLS = Array.from({ length: size }, (_, c) =>
-    Array.from({ length: size }, (_, r) => r * size + c)
-  )
-  const DIAGS: number[][] = [
-    Array.from({ length: size }, (_, i) => i * size + i),
-    Array.from({ length: size }, (_, i) => (i + 1) * size - 1 - i),
-  ]
-
-  if (mode === 'blackout') {
-    return Array.from({ length: cellCount }, (_, i) => i).every((p) => isMarked(p))
-  }
-  if (mode === 'x') {
-    return DIAGS.every((line) => isLineComplete(line))
-  }
-  for (const line of [...ROWS, ...COLS, ...DIAGS]) {
-    if (isLineComplete(line)) return true
-  }
-  return false
-}
-
 interface CellWithSong extends CardCell {
   song?: PlaylistSong | null
+}
+
+/** Row-major slots by `position` (0..size*size-1); handles out-of-order rows and missing holes. */
+function cellsToRows(size: number, cellsWithSongs: CellWithSong[]): (CellWithSong | null)[][] {
+  const map = new Map(cellsWithSongs.map((c) => [c.position, c]))
+  const rows: (CellWithSong | null)[][] = []
+  for (let r = 0; r < size; r++) {
+    const row: (CellWithSong | null)[] = []
+    for (let c = 0; c < size; c++) {
+      row.push(map.get(r * size + c) ?? null)
+    }
+    rows.push(row)
+  }
+  return rows
 }
 
 export function PlayerCard({
   cardId,
   gameId,
   logoUrl = null,
+  whiteLabel = null,
+  sponsors = [],
 }: {
   cardId: string
   gameId: string
   logoUrl?: string | null
+  whiteLabel?: {
+    venueDisplayName: string | null
+    brandPrimaryHex: string | null
+    brandAccentHex: string | null
+    brandHideLyricgrid: boolean
+  } | null
+  sponsors?: GameSponsor[]
 }) {
   const supabase = useMemo(() => createClient(), [])
   const [cells, setCells] = useState<CellWithSong[]>([])
@@ -85,7 +81,9 @@ export function PlayerCard({
   const [gridSize, setGridSize] = useState(5)
   const [markedSongIds, setMarkedSongIds] = useState<Set<string>>(() => getStoredMarks(gameId, cardId))
   const [loading, setLoading] = useState(true)
+  const [loadHint, setLoadHint] = useState('')
   const [error, setError] = useState('')
+  const [songsFetchError, setSongsFetchError] = useState('')
   const [showWinModal, setShowWinModal] = useState(false)
   const [claimName, setClaimName] = useState('')
   const [claimSubmitting, setClaimSubmitting] = useState(false)
@@ -95,7 +93,13 @@ export function PlayerCard({
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
-  const touchHandledRef = useRef(false)
+  const cellSkipClickRef = useRef(false)
+  const bingoSkipClickRef = useRef(false)
+  const participationSentRef = useRef(false)
+  const [profileIdentifier, setProfileIdentifier] = useState('')
+  const [envelopeSponsor, setEnvelopeSponsor] = useState<GameSponsor | null>(null)
+  const [gameStatus, setGameStatus] = useState<GameStatus>('lobby')
+  const [chatEmail, setChatEmail] = useState('')
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -111,11 +115,44 @@ export function PlayerCard({
         if (next.has(playlistSongId)) next.delete(playlistSongId)
         else next.add(playlistSongId)
         persistMarks(next)
+        void fetch('/api/game/update-board', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId,
+            cardId,
+            markedPlaylistSongIds: [...next],
+            playerIdentifier: profileIdentifier || undefined,
+          }),
+        })
         return next
       })
     },
-    [persistMarks]
+    [persistMarks, gameId, cardId, profileIdentifier]
   )
+
+  const sendParticipationSession = useCallback(() => {
+    if (participationSentRef.current) return
+    const name = (claimName || playerName || '').trim()
+    if (!name) return
+    participationSentRef.current = true
+    const body = JSON.stringify({ cardId, gameId, playerName: name })
+    try {
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        const blob = new Blob([body], { type: 'application/json' })
+        navigator.sendBeacon(`${window.location.origin}/api/player-progress/complete-session`, blob)
+      } else {
+        void fetch('/api/player-progress/complete-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          keepalive: true,
+        })
+      }
+    } catch {
+      participationSentRef.current = false
+    }
+  }, [cardId, gameId, claimName, playerName])
 
   async function handleClaimLeaderboard() {
     const name = (claimName || playerName || '').trim()
@@ -131,8 +168,14 @@ export function PlayerCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ cardId, gameId, playerName: name }),
       })
-      const data = (await res.json()) as { ok?: boolean; error?: string }
+      const data = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        xpGained?: number
+        newBadges?: string[]
+      }
       if (data.ok) {
+        participationSentRef.current = true
         setShowWinModal(false)
         setClaimName('')
       } else {
@@ -146,24 +189,174 @@ export function PlayerCard({
   }
 
   useEffect(() => {
+    let cancelled = false
+
     async function load() {
-      const { data: card } = await supabase.from('cards').select('player_name').eq('id', cardId).single()
-      if (card) setPlayerName(card.player_name)
+      setLoading(true)
+      setLoadHint('Connecting…')
+      setError('')
+      setSongsFetchError('')
 
-      const { data: game } = await supabase.from('games').select('mode, grid_size').eq('id', gameId).single()
-      if (game) {
-        setGameMode((game.mode as WinPattern) || 'line')
-        setGridSize(game.grid_size === 4 ? 4 : 5)
-      }
-
-      const { data: rows } = await supabase.from('card_cells').select('*').eq('card_id', cardId).order('position')
-      if (!rows?.length) {
-        setError('Card not found.')
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      if (!url?.trim() || !key?.trim() || url.includes('placeholder')) {
+        setError(
+          'Supabase is not configured (missing NEXT_PUBLIC_SUPABASE_URL / ANON_KEY). The app cannot load your card.'
+        )
         setLoading(false)
         return
       }
+
+      const { data: card, error: cardError } = await supabase
+        .from('cards')
+        .select('player_name, player_identifier, grid_data')
+        .eq('id', cardId)
+        .single()
+
+      if (cancelled) return
+
+      if (cardError) {
+        setError(
+          `Could not read your card (${cardError.message}). This may be a network issue or database policy blocking access.`
+        )
+        setLoading(false)
+        return
+      }
+      if (!card) {
+        setError('Card not found. Check the link or join again.')
+        setLoading(false)
+        return
+      }
+      setPlayerName(card.player_name)
+      setProfileIdentifier((card.player_identifier ?? '').trim())
+
+      const { data: game, error: gameError } = await supabase
+        .from('games')
+        .select('mode, grid_size, status')
+        .eq('id', gameId)
+        .single()
+
+      if (cancelled) return
+
+      if (gameError) {
+        setError(`Could not load game (${gameError.message}).`)
+        setLoading(false)
+        return
+      }
+      if (game) {
+        setGameMode(normalizeWinPattern(game.mode))
+        setGridSize(game.grid_size === 4 ? 4 : 5)
+        if (game.status) setGameStatus(game.status as GameStatus)
+      }
+
+
+      // grid_data from Choice A (players + bingo_game_tracks jsonb path)
+      const gridJson = card.grid_data
+      if (Array.isArray(gridJson) && gridJson.length > 0) {
+        setLoadHint('Loading your grid…')
+        const sorted = [...gridJson].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        setCells(
+          sorted.map((cell) => ({
+            id: `grid-${cell.position}`,
+            card_id: cardId,
+            playlist_song_id: cell.playlist_song_id ?? cell.track_id,
+            position: cell.position,
+            created_at: '',
+            song: {
+              id: cell.playlist_song_id ?? cell.track_id,
+              playlist_id: '',
+              youtube_id: null,
+              file_url: null,
+              title: cell.title ?? null,
+              position: cell.position,
+              created_at: '',
+            },
+          }))
+        )
+        setMarkedSongIds(getStoredMarks(gameId, cardId))
+        setLoading(false)
+        setLoadHint('')
+        return
+      }
+      const maxAttempts = 12
+      const delayMs = 400
+      let rows: CardCell[] | null = null
+      let cellsError: { message: string } | null = null
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        if (cancelled) return
+        setLoadHint(attempt === 1 ? 'Loading your grid…' : `Waiting for card squares… (${attempt}/${maxAttempts})`)
+
+        const { data: cellRows, error: ce } = await supabase
+          .from('card_cells')
+          .select('*')
+          .eq('card_id', cardId)
+          .order('position', { ascending: true })
+
+        if (cancelled) return
+
+        if (ce) {
+          cellsError = ce
+          break
+        }
+        if (cellRows && cellRows.length > 0) {
+          rows = cellRows
+          break
+        }
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, delayMs))
+        }
+      }
+
+      if (cancelled) return
+
+      if (!rows?.length && !cellsError) {
+        setLoadHint('Retrying card grid in 1.5s…')
+        await new Promise((r) => setTimeout(r, 1500))
+        if (cancelled) return
+        const { data: retryRows, error: retryErr } = await supabase
+          .from('card_cells')
+          .select('*')
+          .eq('card_id', cardId)
+          .order('position', { ascending: true })
+        if (retryErr) {
+          cellsError = retryErr
+        } else if (retryRows?.length) {
+          rows = retryRows
+        }
+      }
+
+      if (cancelled) return
+
+      if (cellsError) {
+        setError(
+          `Could not load card squares: ${cellsError.message}. If this persists, RLS may be blocking reads on card_cells for anonymous players.`
+        )
+        setLoading(false)
+        return
+      }
+      if (!rows?.length) {
+        setError(
+          'This card has no squares yet. Try refreshing the page. If you just joined, wait a moment and reload — the grid may still be saving.'
+        )
+        setLoading(false)
+        return
+      }
+
+      setLoadHint('Loading song titles…')
       const songIds = [...new Set(rows.map((r) => r.playlist_song_id))]
-      const { data: songs } = await supabase.from('playlist_songs').select('*').in('id', songIds)
+      const { data: songs, error: songsError } = await supabase.from('playlist_songs').select('*').in('id', songIds)
+
+      if (cancelled) return
+
+      if (songsError) {
+        setSongsFetchError(
+          `Song details could not be loaded (${songsError.message}). Squares still work; titles may show as placeholders.`
+        )
+      } else {
+        setSongsFetchError('')
+      }
+
       const songMap = new Map((songs ?? []).map((s) => [s.id, s]))
       setCells(
         rows.map((r) => ({
@@ -173,22 +366,72 @@ export function PlayerCard({
       )
       setMarkedSongIds(getStoredMarks(gameId, cardId))
       setLoading(false)
+      setLoadHint('')
     }
-    load()
+
+    void load()
+    return () => {
+      cancelled = true
+    }
   }, [cardId, gameId, supabase])
+
+  useEffect(() => {
+    try {
+      const e = localStorage.getItem('lyricgrid_chat_email')
+      if (e) setChatEmail(e)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  /**
+   * Host / Kingz Control can change `games.mode` anytime — keep player UI in sync with Supabase.
+   * Requires Realtime enabled on `public.games` in the Supabase dashboard, or updates never arrive.
+   * @see docs/SUPABASE-REALTIME-GAMES.md
+   */
+  useEffect(() => {
+    const channel = supabase
+      .channel(`player-sync-game-${gameId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
+        (payload) => {
+          const row = payload.new as {
+            mode?: string | null
+            grid_size?: number | null
+            status?: GameStatus | null
+          }
+          if (row.mode != null) setGameMode(normalizeWinPattern(row.mode))
+          if (row.grid_size === 4 || row.grid_size === 5) setGridSize(row.grid_size)
+          if (row.status === 'lobby' || row.status === 'playing' || row.status === 'ended') setGameStatus(row.status)
+        }
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [gameId, supabase])
 
   useEffect(() => {
     if (!leaderboardDrawerOpen) return
     setLeaderboardLoading(true)
     const promise = supabase
       .from('leaderboard')
-      .select('id, player_name, identifier, wins, points, last_played, updated_at')
+      .select('id, player_name, identifier, wins, points, total_xp, last_played, updated_at')
       .order('points', { ascending: false })
       .limit(10)
     promise.then(({ data }) => {
       setLeaderboardList((data ?? []) as LeaderboardEntry[])
     }).then(() => setLeaderboardLoading(false), () => setLeaderboardLoading(false))
   }, [leaderboardDrawerOpen, supabase])
+
+  useEffect(() => {
+    if (showWinModal && sponsors.length > 0) {
+      setEnvelopeSponsor(sponsors[Math.floor(Math.random() * sponsors.length)])
+    } else {
+      setEnvelopeSponsor(null)
+    }
+  }, [showWinModal, sponsors])
 
   useEffect(() => {
     const channel = supabase
@@ -206,7 +449,29 @@ export function PlayerCard({
     }
   }, [gameId, cardId, supabase])
 
-  const canClaimBingo = hasWinningPattern(markedSongIds, cells, gridSize, gameMode)
+  useEffect(() => {
+    const onLeave = () => {
+      sendParticipationSession()
+    }
+    window.addEventListener('pagehide', onLeave)
+    window.addEventListener('beforeunload', onLeave)
+    return () => {
+      window.removeEventListener('pagehide', onLeave)
+      window.removeEventListener('beforeunload', onLeave)
+    }
+  }, [sendParticipationSession])
+
+  const chatIdentity: ChatIdentity = useMemo(
+    () => ({
+      playerName,
+      playerEmail: chatEmail,
+      playerIdentifier: (profileIdentifier || cardId).trim(),
+      avatarUrl: null,
+    }),
+    [playerName, chatEmail, profileIdentifier, cardId]
+  )
+
+  const canClaimBingo = hasWinningPatternFromMarks(markedSongIds, cells, gridSize, gameMode)
 
   async function handleBingoClick() {
     if (!canClaimBingo || bingoSubmitting) return
@@ -248,7 +513,19 @@ export function PlayerCard({
   }
 
   if (loading) {
-    return <div className="text-xl">Loading your card…</div>
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 min-h-[40vh] text-center px-4">
+        <div
+          className="h-10 w-10 rounded-full border-2 border-emerald-400/30 border-t-emerald-400 animate-spin"
+          aria-hidden
+        />
+        <p className="text-xl text-slate-100">Loading your card…</p>
+        {loadHint ? <p className="text-sm text-slate-400 max-w-md">{loadHint}</p> : null}
+        <p className="text-xs text-slate-500 max-w-md">
+          If this hangs, check your connection or Supabase env vars. Errors appear below when loading finishes.
+        </p>
+      </div>
+    )
   }
   if (error) {
     return (
@@ -262,54 +539,112 @@ export function PlayerCard({
   }
 
   const size = gridSize
-  const grid = Array(size)
-    .fill(0)
-    .map((_, row) =>
-      cells.filter((c) => Math.floor(c.position / size) === row).sort((a, b) => a.position - b.position)
-    )
+  const grid = cellsToRows(size, cells)
+
+  const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FFFF'
+  const accent = whiteLabel?.brandAccentHex?.trim() || '#34d399'
+  const hideLyricgrid = !!whiteLabel?.brandHideLyricgrid
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-2 sm:px-0 relative pb-28">
+    <div
+      className="w-full max-w-6xl mx-auto px-2 sm:px-0 relative pb-32 lg:pb-28 lg:flex lg:flex-row lg:gap-6 lg:items-start"
+      style={
+        whiteLabel
+          ? ({
+              ['--venue-primary' as string]: primary,
+              ['--venue-accent' as string]: accent,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
+      <div className="flex-1 min-w-0 max-w-3xl mx-auto w-full">
       <div className="flex items-center justify-between gap-4 mb-2">
-        <div className="flex items-center gap-3">
-          <LyricGridLogo size={48} className="shrink-0" />
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#00FFFF] to-cyan-300 bg-clip-text text-transparent">
-            Your Bingo Card
-          </h1>
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {!hideLyricgrid && (
+            <>
+              <LyricGridLogo size={48} className="shrink-0" />
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#00FFFF] to-cyan-300 bg-clip-text text-transparent">
+                Your Bingo Card
+              </h1>
+            </>
+          )}
+          {hideLyricgrid && (
+            <div className="flex items-center gap-3 min-w-0">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" className="h-12 w-auto max-h-14 object-contain shrink-0" />
+              ) : null}
+              <div className="min-w-0">
+                <h1
+                  className="text-2xl sm:text-4xl font-bold bg-clip-text text-transparent truncate"
+                  style={{
+                    backgroundImage: `linear-gradient(to right, ${primary}, ${accent})`,
+                  }}
+                >
+                  {whiteLabel?.venueDisplayName?.trim() || 'Your Bingo Card'}
+                </h1>
+                {whiteLabel?.venueDisplayName ? (
+                  <p className="text-slate-400 text-sm mt-1">Your Bingo Card</p>
+                ) : null}
+              </div>
+            </div>
+          )}
         </div>
-        {logoUrl && (
+        {!hideLyricgrid && logoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="Game logo" className="h-10 w-10 rounded object-contain shrink-0" />
-        )}
+        ) : null}
       </div>
       <p className="text-slate-400 mb-6">{playerName}</p>
+
+      {songsFetchError ? (
+        <p className="mb-4 text-amber-200/90 text-sm rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-3">
+          {songsFetchError}
+        </p>
+      ) : null}
 
       <div className="bg-[#1E1E1E] rounded-2xl p-3 sm:p-5 border border-white/10 relative z-10">
         <div
           className="grid gap-1.5 sm:gap-3 relative"
           style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
         >
-          {grid.map((row) =>
-            row.map((cell) => {
+          {grid.map((row, rowIndex) =>
+            row.map((cell, colIndex) => {
+              const slotKey = `${rowIndex}-${colIndex}`
+              if (!cell) {
+                return (
+                  <div
+                    key={`missing-${slotKey}`}
+                    className="aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-3 text-center text-base sm:text-lg font-medium border-2 border-dashed border-amber-600/50 text-amber-200/80 min-h-[4.5rem] min-w-[3rem]"
+                  >
+                    <span className="text-xs uppercase tracking-wide">Missing</span>
+                    <span className="text-slate-500 text-xs mt-1">square</span>
+                  </div>
+                )
+              }
               const isMarked = markedSongIds.has(cell.playlist_song_id)
               const songId = cell.playlist_song_id
               const handleTap = () => toggleMark(songId)
+              const label = cell.song?.title || cell.song?.youtube_id || '—'
               return (
                 <button
                   key={cell.id}
                   type="button"
+                  onPointerDown={(e) => {
+                    if (e.pointerType !== 'touch') return
+                    e.preventDefault()
+                    cellSkipClickRef.current = true
+                    handleTap()
+                    window.setTimeout(() => {
+                      cellSkipClickRef.current = false
+                    }, 600)
+                  }}
                   onClick={() => {
-                    if (touchHandledRef.current) {
-                      touchHandledRef.current = false
+                    if (cellSkipClickRef.current) {
+                      cellSkipClickRef.current = false
                       return
                     }
                     handleTap()
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault()
-                    touchHandledRef.current = true
-                    handleTap()
-                    setTimeout(() => { touchHandledRef.current = false }, 400)
                   }}
                   className={`
                     aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-3 text-center text-base sm:text-lg font-medium
@@ -319,7 +654,7 @@ export function PlayerCard({
                       ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.15)]'
                       : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-slate-400'}
                   `}
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
+                  style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                 >
                   {cell.song?.album_art_url && (
                     <img
@@ -328,7 +663,7 @@ export function PlayerCard({
                       className="w-5 h-5 sm:w-7 sm:h-7 rounded object-cover shrink-0 mb-0.5 pointer-events-none"
                     />
                   )}
-                  <span className="line-clamp-5 leading-snug break-words pointer-events-none">{cell.song?.title || cell.song?.youtube_id || '—'}</span>
+                  <span className="line-clamp-5 leading-snug break-words pointer-events-none">{label}</span>
                 </button>
               )
             })
@@ -343,9 +678,25 @@ export function PlayerCard({
       <div className="mt-6 flex flex-col items-center gap-3">
         <button
           type="button"
-          onClick={handleBingoClick}
+          onPointerDown={(e) => {
+            if (e.pointerType !== 'touch' || !canClaimBingo || bingoSubmitting) return
+            e.preventDefault()
+            bingoSkipClickRef.current = true
+            void handleBingoClick()
+            window.setTimeout(() => {
+              bingoSkipClickRef.current = false
+            }, 600)
+          }}
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={() => {
+            if (bingoSkipClickRef.current) {
+              bingoSkipClickRef.current = false
+              return
+            }
+            void handleBingoClick()
+          }}
           disabled={!canClaimBingo || bingoSubmitting}
-          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/40 hover:scale-[1.02] disabled:hover:scale-100"
+          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/40 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
         >
           {bingoSubmitting ? 'Checking…' : 'BINGO!'}
         </button>
@@ -360,8 +711,29 @@ export function PlayerCard({
       {showWinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-slate-800 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full shadow-xl animate-win-modal-in">
+            <FeatureGate flag="sponsor_integration">
+              {envelopeSponsor && (
+                <div className="mb-4 rounded-xl border border-fuchsia-500/40 bg-fuchsia-950/40 p-4 text-center">
+                  <p className="text-xs uppercase tracking-widest text-fuchsia-200/80 mb-2">Mystery envelope</p>
+                  {envelopeSponsor.logo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={envelopeSponsor.logo_url}
+                      alt=""
+                      className="h-12 mx-auto mb-2 object-contain max-w-[180px]"
+                    />
+                  )}
+                  <p className="text-fuchsia-100 font-semibold">{envelopeSponsor.name}</p>
+                </div>
+              )}
+            </FeatureGate>
             <h2 className="text-2xl font-bold text-emerald-400 mb-2">BINGO VERIFIED!</h2>
-            <p className="text-slate-300 mb-4">Enter your name to join the Leaderboard.</p>
+            <FeatureGate
+              flag="xp_and_badges"
+              fallback={<p className="text-slate-300 mb-4">Enter your name to record your win.</p>}
+            >
+              <p className="text-slate-300 mb-4">Enter your name to join the Leaderboard.</p>
+            </FeatureGate>
             <input
               type="text"
               value={claimName || playerName}
@@ -373,16 +745,22 @@ export function PlayerCard({
             <div className="flex gap-3">
               <button
                 type="button"
+                onTouchStart={(e) => e.stopPropagation()}
                 onClick={handleClaimLeaderboard}
                 disabled={claimSubmitting}
-                className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-semibold py-3 text-white"
+                className="flex-1 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-semibold py-3 text-white touch-manipulation pointer-events-auto"
               >
                 {claimSubmitting ? 'Submitting…' : 'Join Leaderboard'}
               </button>
               <button
                 type="button"
-                onClick={() => { setShowWinModal(false); setClaimError('') }}
-                className="rounded-xl bg-slate-600 hover:bg-slate-500 font-semibold py-3 px-4 text-slate-200"
+                onTouchStart={(e) => e.stopPropagation()}
+                onClick={() => {
+                  sendParticipationSession()
+                  setShowWinModal(false)
+                  setClaimError('')
+                }}
+                className="rounded-xl bg-slate-600 hover:bg-slate-500 font-semibold py-3 px-4 text-slate-200 touch-manipulation pointer-events-auto"
               >
                 Skip
               </button>
@@ -391,66 +769,97 @@ export function PlayerCard({
         </div>
       )}
 
-      <Link href="/" className="mt-8 block text-center text-xl text-slate-400 hover:text-white transition-colors">
-        ← Back to Home
-      </Link>
-
-      <button
-        type="button"
-        onClick={() => setLeaderboardDrawerOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105"
-        aria-label="View leaderboard"
-      >
-        🏆
-      </button>
-
-      {leaderboardDrawerOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-            onClick={() => setLeaderboardDrawerOpen(false)}
-            aria-hidden
-          />
-          <div
-            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-slate-900 border-t border-slate-700 shadow-2xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out"
-            role="dialog"
-            aria-label="Top 10 leaderboard"
+      <div className="mt-8 flex flex-col items-center gap-2">
+        <FeatureGate flag="xp_and_badges">
+          <Link
+            href={`/profile?identifier=${encodeURIComponent(profileIdentifier || cardId)}`}
+            className="text-lg text-cyan-400/90 hover:text-cyan-300 transition-colors touch-manipulation pointer-events-auto"
           >
-            <div className="flex items-center justify-between p-4 border-b border-slate-700">
-              <h2 className="text-xl font-bold text-white">🏆 Top 10 All-Time</h2>
-              <button
-                type="button"
-                onClick={() => setLeaderboardDrawerOpen(false)}
-                className="rounded-full p-2 text-slate-400 hover:text-white hover:bg-slate-700"
-                aria-label="Close"
-              >
-                ✕
-              </button>
+            View your profile (XP & badges)
+          </Link>
+        </FeatureGate>
+        <Link
+          href="/lyricgrid"
+          className="block text-center text-xl text-slate-400 hover:text-white transition-colors touch-manipulation pointer-events-auto"
+        >
+          ← Back to Home
+        </Link>
+      </div>
+
+      <FeatureGate flag="xp_and_badges">
+        <button
+          type="button"
+          onTouchStart={(e) => e.stopPropagation()}
+          onClick={() => setLeaderboardDrawerOpen(true)}
+          className="fixed bottom-24 right-6 z-30 lg:bottom-6 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto"
+          aria-label="View leaderboard"
+        >
+          🏆
+        </button>
+      </FeatureGate>
+
+      <FeatureGate flag="xp_and_badges">
+        {leaderboardDrawerOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              onClick={() => setLeaderboardDrawerOpen(false)}
+              aria-hidden
+            />
+            <div
+              className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-slate-900 border-t border-slate-700 shadow-2xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out"
+              role="dialog"
+              aria-label="Top 10 leaderboard"
+            >
+              <div className="flex items-center justify-between p-4 border-b border-slate-700">
+                <h2 className="text-xl font-bold text-white">🏆 Top 10 All-Time</h2>
+                <button
+                  type="button"
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onClick={() => setLeaderboardDrawerOpen(false)}
+                  className="rounded-full p-2 text-slate-400 hover:text-white hover:bg-slate-700 touch-manipulation pointer-events-auto"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-4">
+                {leaderboardLoading ? (
+                  <p className="text-slate-400 text-center py-8">Loading…</p>
+                ) : leaderboardList.length === 0 ? (
+                  <p className="text-slate-400 text-center py-8">No scores yet. Win a game and claim your spot!</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {leaderboardList.map((p, i) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-slate-800/60 px-4 py-3 border border-slate-700/50"
+                      >
+                        <span className="text-lg font-bold text-amber-400 w-8 shrink-0">#{i + 1}</span>
+                        <span className="flex-1 truncate text-slate-100 font-medium">{p.player_name}</span>
+                        <span className="text-amber-300 font-semibold shrink-0">{(p.total_xp ?? p.points) ?? 0} XP</span>
+                        <span className="text-slate-400 text-sm shrink-0">{p.wins} win{p.wins !== 1 ? 's' : ''}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-            <div className="overflow-y-auto flex-1 p-4">
-              {leaderboardLoading ? (
-                <p className="text-slate-400 text-center py-8">Loading…</p>
-              ) : leaderboardList.length === 0 ? (
-                <p className="text-slate-400 text-center py-8">No scores yet. Win a game and claim your spot!</p>
-              ) : (
-                <ul className="space-y-2">
-                  {leaderboardList.map((p, i) => (
-                    <li
-                      key={p.id}
-                      className="flex items-center justify-between gap-3 rounded-xl bg-slate-800/60 px-4 py-3 border border-slate-700/50"
-                    >
-                      <span className="text-lg font-bold text-amber-400 w-8 shrink-0">#{i + 1}</span>
-                      <span className="flex-1 truncate text-slate-100 font-medium">{p.player_name}</span>
-                      <span className="text-amber-300 font-semibold shrink-0">{p.points} pts</span>
-                      <span className="text-slate-400 text-sm shrink-0">{p.wins} win{p.wins !== 1 ? 's' : ''}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </FeatureGate>
+      </div>
+
+      <FeatureGate flag="community_chat">
+        {(gameStatus === 'lobby' || gameStatus === 'playing') && (
+          <ChatPanel
+            room={gameStatus === 'lobby' ? 'lobby' : 'ingame'}
+            gameId={gameId}
+            identity={chatIdentity}
+            title={gameStatus === 'lobby' ? 'Lobby chat' : 'Game chat'}
+          />
+        )}
+      </FeatureGate>
     </div>
   )
 }

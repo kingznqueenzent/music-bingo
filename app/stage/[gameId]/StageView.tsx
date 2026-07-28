@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
 import { SourceIndicator } from '@/components/SourceIndicator'
 import type { Game, PlaylistSong, LeaderboardEntry } from '@/lib/supabase/types'
+import { useFeatureFlags } from '@/components/FeatureFlagsProvider'
+import { useAutoDismissStack } from '@/hooks/useAutoDismissStack'
 
 type Source = 'youtube' | 'local'
 
@@ -14,23 +16,31 @@ function getSource(song: PlaylistSong | null): Source {
   return 'youtube'
 }
 
+const CONFETTI_COLORS = ['#00FFFF', '#22d3ee', '#a78bfa', '#f472b6', '#fbbf24', '#34d399']
+
 export function StageView({ gameId }: { gameId: string }) {
   const supabase = useMemo(() => createClient(), [])
+  const { isEnabled, loading: flagsLoading } = useFeatureFlags()
+  const xpOn = !flagsLoading && isEnabled('xp_and_badges')
+  const paidEntryOn = !flagsLoading && isEnabled('paid_entry_games')
+  const whiteLabelOn = !flagsLoading && isEnabled('b2b_white_label')
   const [game, setGame] = useState<Game | null>(null)
   const [songs, setSongs] = useState<PlaylistSong[]>([])
   const [currentSong, setCurrentSong] = useState<PlaylistSong | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [leaderboardUpdatedAt, setLeaderboardUpdatedAt] = useState<Date | null>(null)
+  const { items: winnerShouts, push: pushWinnerShout } = useAutoDismissStack<{ playerName: string }>(2)
 
   const fetchLeaderboard = useCallback(async () => {
-    const { data } = await supabase
+    let q = supabase
       .from('leaderboard')
       .select('id, player_name, identifier, wins, points, last_played, updated_at')
-      .order('points', { ascending: false })
       .limit(10)
+    q = xpOn ? q.order('points', { ascending: false }) : q.order('wins', { ascending: false })
+    const { data } = await q
     setLeaderboard((data ?? []) as LeaderboardEntry[])
     setLeaderboardUpdatedAt(new Date())
-  }, [supabase])
+  }, [supabase, xpOn])
 
   useEffect(() => {
     async function load() {
@@ -62,6 +72,26 @@ export function StageView({ gameId }: { gameId: string }) {
     }
   }, [gameId, supabase])
 
+  /** Same channel name as HostDashboard + PlayerCard so stage receives `bingo_winner` broadcasts. */
+  useEffect(() => {
+    const channel = supabase
+      .channel(`game-${gameId}`)
+      .on(
+        'broadcast',
+        { event: 'bingo_winner' },
+        (payload: { payload?: { playerName?: string; cardId?: string } }) => {
+          const name = payload?.payload?.playerName
+          if (name != null && String(name).trim() !== '') {
+            pushWinnerShout({ playerName: String(name).trim() })
+          }
+        }
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [gameId, supabase, pushWinnerShout])
+
   useEffect(() => {
     if (!game?.current_song_id || !songs.length) {
       setCurrentSong(null)
@@ -72,6 +102,11 @@ export function StageView({ gameId }: { gameId: string }) {
   }, [game?.current_song_id, songs])
 
   const showLeaderboardOnStage = game?.stage_show_leaderboard ?? false
+  const venueName = whiteLabelOn ? game?.venue_display_name?.trim() : ''
+  const stageLogo = whiteLabelOn ? game?.logo_url : null
+  const hideLyricgridStage = whiteLabelOn && !!game?.brand_hide_lyricgrid
+  const primaryHex = whiteLabelOn ? game?.brand_primary_hex?.trim() || '#00FFFF' : '#00FFFF'
+  const prizePool = paidEntryOn ? game?.prize_pool_cents ?? 0 : 0
 
   useEffect(() => {
     if (!showLeaderboardOnStage) return
@@ -101,6 +136,54 @@ export function StageView({ gameId }: { gameId: string }) {
   /* Full-bleed stage: media layer fills screen; title/artist overlay with Inter; leaderboard as glassmorphism overlay when toggled */
   return (
     <div className="fixed inset-0 min-h-screen w-full bg-[#121212] overflow-hidden">
+      {winnerShouts.length > 0 && (
+        <div
+          className="fixed inset-0 z-[100] pointer-events-none flex flex-col items-center justify-center px-6"
+          aria-live="polite"
+        >
+          <div className="absolute inset-0 bg-black/50 transition-opacity duration-500" />
+          {Array.from({ length: 48 }).map((_, i) => (
+            <div
+              key={i}
+              className="stage-confetti-piece"
+              style={{
+                left: `${(i * 7.3) % 100}%`,
+                top: `${-5 - (i % 5)}vh`,
+                backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+                animationDelay: `${(i % 12) * 0.08}s`,
+                animationDuration: `${2.4 + (i % 5) * 0.35}s`,
+              }}
+            />
+          ))}
+          <div className="relative z-10 flex flex-col items-center justify-center gap-6 md:gap-8 w-full max-w-4xl">
+            {winnerShouts.map((s) => (
+              <div
+                key={s.id}
+                className={`text-center w-full transition-opacity duration-500 ease-out animate-stage-celebrate ${
+                  s.fading ? 'opacity-0' : 'opacity-100'
+                }`}
+              >
+                <p
+                  className={`font-black text-[#00FFFF] drop-shadow-[0_0_24px_rgba(0,255,255,0.6)] mb-2 md:mb-4 ${
+                    winnerShouts.length > 1 ? 'text-4xl md:text-6xl' : 'text-5xl md:text-8xl'
+                  }`}
+                  style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+                >
+                  BINGO!
+                </p>
+                <p
+                  className={`font-bold text-white ${
+                    winnerShouts.length > 1 ? 'text-xl md:text-4xl' : 'text-2xl md:text-5xl'
+                  }`}
+                  style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+                >
+                  {s.playerName}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Media layer: edge-to-edge */}
       <div className="absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-500">
         {currentSong && (
@@ -114,7 +197,19 @@ export function StageView({ gameId }: { gameId: string }) {
                 {nowPlayingLabel}
               </h1>
             </div>
-            <div className="w-8" aria-hidden />
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              {paidEntryOn && prizePool > 0 && (
+                <p className="text-sm md:text-base font-bold text-amber-300" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                  Prize pool ${(prizePool / 100).toFixed(2)}
+                </p>
+              )}
+              {stageLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={stageLogo} alt="" className="h-8 w-auto max-w-[100px] object-contain" />
+              ) : (
+                <div className="w-8" aria-hidden />
+              )}
+            </div>
           </div>
         )}
 
@@ -179,12 +274,23 @@ export function StageView({ gameId }: { gameId: string }) {
         style={{ backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(20px)' }}
       >
         <div className="w-full max-w-4xl">
-          <h2 className="text-4xl md:text-6xl font-black text-center mb-2 tracking-tight text-[#00FFFF]" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-            LyricGrid
+          <h2
+            className="text-4xl md:text-6xl font-black text-center mb-2 tracking-tight text-[#00FFFF]"
+            style={{ fontFamily: 'var(--font-inter), sans-serif', color: primaryHex }}
+          >
+            {hideLyricgridStage && venueName ? venueName : 'LyricGrid'}
           </h2>
-          <p className="text-center text-xl md:text-2xl font-bold mb-8 text-[#00FFFF]/90" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+          <p
+            className="text-center text-xl md:text-2xl font-bold mb-8 text-[#00FFFF]/90"
+            style={{ fontFamily: 'var(--font-inter), sans-serif', color: primaryHex }}
+          >
             LEADERBOARD
           </p>
+          {paidEntryOn && prizePool > 0 && (
+            <p className="text-center text-lg md:text-xl font-semibold text-amber-300 mb-4" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+              Prize pool ${(prizePool / 100).toFixed(2)}
+            </p>
+          )}
           <div className="rounded-xl border-2 border-[#00FFFF]/40 overflow-hidden bg-black/30 transition-all duration-300">
             {leaderboard.length === 0 ? (
               <div className="py-16 text-center text-xl md:text-2xl text-[#00FFFF]/70" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
@@ -204,9 +310,11 @@ export function StageView({ gameId }: { gameId: string }) {
                     <span className="text-xl md:text-3xl font-bold text-[#00FFFF] flex-1 truncate" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                       {p.player_name}
                     </span>
-                    <span className="text-lg md:text-2xl font-semibold text-[#00FFFF]/95 shrink-0" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
-                      {p.points} pts
-                    </span>
+                    {xpOn && (
+                      <span className="text-lg md:text-2xl font-semibold text-[#00FFFF]/95 shrink-0" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
+                        {p.points} pts
+                      </span>
+                    )}
                     <span className="text-base md:text-xl text-[#00FFFF]/80 shrink-0" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>
                       {p.wins} W
                     </span>

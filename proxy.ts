@@ -12,7 +12,7 @@ function isAdminPath(pathname: string): boolean {
   return ADMIN_PATH_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   if (!isAdminPath(pathname)) {

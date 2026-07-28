@@ -1,8 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-
-type WinPattern = 'line' | 'x' | 'blackout'
+import { normalizeWinPattern, type WinPattern } from '@/lib/bingo-win-pattern'
 
 const ROWS_5 = [
   [0, 1, 2, 3, 4],
@@ -46,7 +45,7 @@ export async function verifyBingo(
     .single()
   if (gameError || !game) return { valid: false, error: 'Game not found' }
 
-  const mode = (game.mode as WinPattern) || 'line'
+  const mode = normalizeWinPattern(game.mode)
   const gridSize = game.grid_size === 4 ? 4 : 5
   const cellCount = gridSize * gridSize
 
@@ -131,7 +130,7 @@ export async function verifyBingoWithMarks(
     .single()
   if (gameError || !game) return { valid: false, error: 'Game not found' }
 
-  const mode = (game.mode as WinPattern) || 'line'
+  const mode = normalizeWinPattern(game.mode)
   const gridSize = game.grid_size === 4 ? 4 : 5
   const cellCount = gridSize * gridSize
 

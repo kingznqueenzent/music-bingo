@@ -1,29 +1,28 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
-import { getThemesDirect } from '@/lib/db'
+import { getThemesDirect, getGenresDirect, getErasDirect } from '@/lib/db'
 import { ImportYouTubeForm } from './ImportYouTubeForm'
-import type { Theme } from '@/lib/supabase/types'
+import type { Theme, Genre, Era } from '@/lib/supabase/types'
+import { sortThemesChronologicalThenGenre } from '@/lib/sort-themes'
 
-async function getThemes(): Promise<Theme[]> {
+async function getThemesSorted(): Promise<Theme[]> {
   if (process.env.DATABASE_URL) {
     const { themes } = await getThemesDirect()
     if (themes.length > 0) return themes
   }
   const supabase = createClient()
-  const { data } = await supabase
-    .from('themes')
-    .select('id, name, category, description, artwork_url')
-    .order('name')
-  return (data ?? []) as Theme[]
-}
-
-function sortThemesFirst(themes: Theme[]): Theme[] {
-  return [...themes].sort((a, b) => {
-    const a90 = a.name.startsWith('90') ? 0 : 1
-    const b90 = b.name.startsWith('90') ? 0 : 1
-    if (a90 !== b90) return a90 - b90
-    return a.name.localeCompare(b.name)
-  })
+  const [{ data: themeRows }, { data: genreRows }, { data: eraRows }] = await Promise.all([
+    supabase
+      .from('themes')
+      .select('id, name, category, description, artwork_url, genre_id, era_id'),
+    supabase.from('genres').select('id, name, slug, sort_order'),
+    supabase.from('eras').select('id, name, start_year, end_year, sort_order'),
+  ])
+  return sortThemesChronologicalThenGenre(
+    (themeRows ?? []) as Theme[],
+    (eraRows ?? []) as Era[],
+    (genreRows ?? []) as Genre[]
+  )
 }
 
 export default async function ImportYouTubePage({
@@ -31,8 +30,7 @@ export default async function ImportYouTubePage({
 }: {
   searchParams: Promise<{ theme?: string }>
 }) {
-  const rawThemes = await getThemes()
-  const themes = sortThemesFirst(rawThemes)
+  const themes = await getThemesSorted()
   const { theme: themeIdFromUrl } = await searchParams
 
   return (

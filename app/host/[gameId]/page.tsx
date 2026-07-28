@@ -44,7 +44,7 @@ export default async function HostGamePage({ params }: { params: Promise<{ gameI
         initialPlayerCount={initialPlayerCount}
         serverError={serverError || undefined}
       />
-      <Link href="/" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
+      <Link href="/lyricgrid" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
         ← Back to Home
       </Link>
     </main>

@@ -1,6 +1,17 @@
-# Music Bingo
+# Music Bingo / Kingz & Queenz Entertainment
 
-Interactive music bingo for livestreams and parties. Host games, players join with a code or QR, cards update in real time.
+**Homepage (`/`)** — Kingz & Queenz Entertainment DJ website  
+**LyricGrid (`/lyricgrid`)** — Interactive music bingo
+
+## Documentation
+
+| Doc | Purpose |
+|-----|---------|
+| **[README-KINGZ.md](./README-KINGZ.md)** | Branding, assets, social, merch, Vercel |
+| **[CHANGELOG.md](./CHANGELOG.md)** | Version history (1.0 → 1.4+) |
+| **config/site-config.js** | Single source of truth for all links |
+
+---
 
 ## Environments
 
@@ -9,35 +20,17 @@ Interactive music bingo for livestreams and parties. Host games, players join wi
 | **Production**    | `main`   | [music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-kingzandqueenzentertainment-1662s-projects.vercel.app) |
 | **Pre-production** | `staging` | [music-bingo-git-staging-kingzandqueenzentertainment-1662s-projects.vercel.app](https://music-bingo-git-staging-kingzandqueenzentertainment-1662s-projects.vercel.app) |
 
-Pre-production deploys from the `staging` branch. Test there, then merge to `main` to release. See [docs/VERCEL-PRE-PRODUCTION.md](docs/VERCEL-PRE-PRODUCTION.md) for setup.
-
 ---
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- DJ site: [http://localhost:3000](http://localhost:3000)
+- LyricGrid: [http://localhost:3000/lyricgrid](http://localhost:3000/lyricgrid)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
 - [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!

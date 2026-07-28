@@ -1,0 +1,15 @@
+# Local Redis for Celery (broker + result backend). From repo root:
+#   docker compose up redis          # foreground (logs in this terminal)
+#   docker compose up -d redis       # detached
+# Default URL: redis://localhost:6379/0 (see backend/worker/celery.py)
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

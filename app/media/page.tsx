@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { MediaManager } from './MediaManager'
+import { MediaLibrary } from './MediaManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ export default async function MediaPage({ searchParams }: Props) {
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-4xl mx-auto px-6 pt-6">
-        <Link href="/" className="text-slate-300 hover:text-white text-sm">
+        <Link href="/lyricgrid" className="text-slate-300 hover:text-white text-sm">
           ← Back to Home
         </Link>
       </div>
@@ -19,9 +19,9 @@ export default async function MediaPage({ searchParams }: Props) {
           Media Manager
         </h1>
         <p className="text-slate-300 mb-8">
-          Upload and index MP3 or MP4 files from your computer. Use them in playlists for local-only games or mix with YouTube.
+          Browse your seeded song catalog (Dancehall, Reggae, 80s Pop) or upload MP3/MP4 for local games.
         </p>
-        <MediaManager initialThemeId={theme ?? null} />
+        <MediaLibrary initialThemeId={theme ?? null} />
       </section>
     </main>
   )

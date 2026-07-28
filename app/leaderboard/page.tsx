@@ -1,23 +1,37 @@
 import { createClient } from '@/lib/supabase/server'
+import { isFeatureEnabled } from '@/lib/feature-flags'
 import Link from 'next/link'
 import type { LeaderboardEntry } from '@/lib/supabase/types'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-async function getTopPlayers(limit: number): Promise<LeaderboardEntry[]> {
+async function getTopPlayersByXp(limit: number): Promise<LeaderboardEntry[]> {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('leaderboard')
-    .select('id, player_name, identifier, wins, points, last_played, created_at, updated_at')
+    .select('id, player_name, identifier, wins, points, total_xp, last_played, created_at, updated_at')
     .order('points', { ascending: false })
     .limit(limit)
   if (error) return []
   return (data ?? []) as LeaderboardEntry[]
 }
 
+async function getTopPlayersByWins(limit: number): Promise<LeaderboardEntry[]> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('leaderboard')
+    .select('id, player_name, identifier, wins, points, total_xp, last_played, created_at, updated_at')
+    .order('wins', { ascending: false })
+    .limit(limit)
+  if (error) return []
+  return (data ?? []) as LeaderboardEntry[]
+}
+
 export default async function LeaderboardPage() {
-  const players = await getTopPlayers(10)
+  const supabase = createClient()
+  const xpOn = await isFeatureEnabled(supabase, 'xp_and_badges')
+  const players = xpOn ? await getTopPlayersByXp(10) : await getTopPlayersByWins(10)
 
   return (
     <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 md:p-12">
@@ -26,7 +40,7 @@ export default async function LeaderboardPage() {
           LEADERBOARD
         </h1>
         <p className="text-slate-400 text-center text-lg md:text-xl mb-10">
-          Top 10 by points — Stage ready
+          {xpOn ? 'Top 10 by XP — tap a name for profile & badges' : 'Top 10 by wins'}
         </p>
 
         <div className="rounded-2xl border-2 border-amber-500/40 bg-slate-900/90 shadow-2xl overflow-hidden">
@@ -44,12 +58,17 @@ export default async function LeaderboardPage() {
                   <span className="text-2xl md:text-4xl font-bold text-amber-400/90 w-10 md:w-14 shrink-0">
                     #{i + 1}
                   </span>
-                  <span className="text-xl md:text-3xl font-bold text-white flex-1 truncate">
+                  <Link
+                    href={`/profile?identifier=${encodeURIComponent(p.identifier)}`}
+                    className="text-xl md:text-3xl font-bold text-white flex-1 truncate hover:text-cyan-300 transition-colors text-left"
+                  >
                     {p.player_name}
-                  </span>
-                  <span className="text-lg md:text-2xl font-semibold text-amber-300/90 shrink-0">
-                    {p.points} pts
-                  </span>
+                  </Link>
+                  {xpOn && (
+                    <span className="text-lg md:text-2xl font-semibold text-amber-300/90 shrink-0">
+                      {(p.total_xp ?? p.points) ?? 0} XP
+                    </span>
+                  )}
                   <span className="text-base md:text-xl text-slate-400 shrink-0">
                     {p.wins} win{p.wins !== 1 ? 's' : ''}
                   </span>
@@ -61,7 +80,7 @@ export default async function LeaderboardPage() {
 
         <div className="mt-8 text-center">
           <Link
-            href="/"
+            href="/lyricgrid"
             className="text-slate-400 hover:text-white text-lg transition-colors"
           >
             ← Back to Home

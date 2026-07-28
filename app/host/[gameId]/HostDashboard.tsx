@@ -18,8 +18,13 @@ import { generateBingoCardsPdf } from '@/lib/pdf-export'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { SourceIndicator } from '@/components/SourceIndicator'
+import { FeatureGate } from '@/components/FeatureGate'
+import { GameSponsorsPanel } from '@/components/GameSponsorsPanel'
+import { HostChatModeration } from '@/components/HostChatModeration'
+import Link from 'next/link'
 import { playlistSongLabel } from '@/lib/media-display'
 import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
+import { useAutoDismissStack } from '@/hooks/useAutoDismissStack'
 
 type HostDashboardProps = {
   gameId: string
@@ -59,10 +64,20 @@ export function HostDashboard({
   const [pdfExporting, setPdfExporting] = useState(false)
   const [pdfPerPage, setPdfPerPage] = useState<2 | 4>(4)
   const [logoUrlInput, setLogoUrlInput] = useState(initialGame?.logo_url ?? '')
-  const [logoSaving, setLogoSaving] = useState(false)
+  const [venueNameInput, setVenueNameInput] = useState(initialGame?.venue_display_name ?? '')
+  const [brandPrimary, setBrandPrimary] = useState(initialGame?.brand_primary_hex ?? '#00FFFF')
+  const [brandAccent, setBrandAccent] = useState(initialGame?.brand_accent_hex ?? '#10b981')
+  const [hideLyricgrid, setHideLyricgrid] = useState(!!initialGame?.brand_hide_lyricgrid)
+  const [entryFeeDollars, setEntryFeeDollars] = useState(
+    initialGame?.entry_fee_cents != null ? String((initialGame.entry_fee_cents / 100).toFixed(2)) : '0'
+  )
+  const [brandingSaving, setBrandingSaving] = useState(false)
   const [verifyBingoLoading, setVerifyBingoLoading] = useState(false)
   const [verifyBingoSuccess, setVerifyBingoSuccess] = useState('')
-  const [winnerAlert, setWinnerAlert] = useState<{ playerName: string; cardId: string } | null>(null)
+  const { items: winnerAlerts, push: pushWinnerAlert, dismiss: dismissWinnerAlert } = useAutoDismissStack<{
+    playerName: string
+    cardId: string
+  }>(2)
   const [resetPlayedLoading, setResetPlayedLoading] = useState(false)
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
@@ -88,7 +103,13 @@ export function HostDashboard({
       }
       if (!g || cancelled) return
       setGame(g)
-      setLogoUrlInput((g as Game).logo_url ?? '')
+      const gg = g as Game
+      setLogoUrlInput(gg.logo_url ?? '')
+      setVenueNameInput(gg.venue_display_name ?? '')
+      setBrandPrimary(gg.brand_primary_hex ?? '#00FFFF')
+      setBrandAccent(gg.brand_accent_hex ?? '#10b981')
+      setHideLyricgrid(!!gg.brand_hide_lyricgrid)
+      setEntryFeeDollars(gg.entry_fee_cents != null ? String((gg.entry_fee_cents / 100).toFixed(2)) : '0')
       if (g.playlist_id) {
         const { data: s } = await supabase
           .from('playlist_songs')
@@ -135,12 +156,29 @@ export function HostDashboard({
         }
       )
       .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'game_events', filter: `game_id=eq.${gameId}` },
+        (payload) => {
+          const row = payload.new as {
+            event_type?: string
+            payload?: { playerName?: string; cardId?: string }
+          }
+          if (row.event_type === 'bingo_win') {
+            const p = row.payload
+            pushWinnerAlert({
+              playerName: p?.playerName ?? 'Player',
+              cardId: p?.cardId ?? '',
+            })
+          }
+        }
+      )
+      .on(
         'broadcast',
         { event: 'bingo_winner' },
         (payload: { payload?: { playerName?: string; cardId?: string } }) => {
           const p = payload?.payload
           if (p?.playerName != null || p?.cardId != null) {
-            setWinnerAlert({ playerName: p?.playerName ?? 'Player', cardId: p?.cardId ?? '' })
+            pushWinnerAlert({ playerName: p?.playerName ?? 'Player', cardId: p?.cardId ?? '' })
           }
         }
       )
@@ -148,7 +186,7 @@ export function HostDashboard({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [gameId, supabase])
+  }, [gameId, supabase, pushWinnerAlert])
 
   useEffect(() => {
     const ch = supabase.channel(`play-${gameId}`)
@@ -209,7 +247,7 @@ export function HostDashboard({
         signal: controller.signal,
       })
       clearTimeout(timeoutId)
-      let data: { ok?: boolean; error?: string }
+      let data: { ok?: boolean; error?: string } | undefined
       try {
         data = (await res.json()) as { ok?: boolean; error?: string }
       } catch {
@@ -364,11 +402,27 @@ export function HostDashboard({
     }
   }
 
-  async function handleSaveLogo() {
-    setLogoSaving(true)
+  async function handleSaveVenueBranding() {
+    setBrandingSaving(true)
     setActionError('')
-    const res = await updateGameSettings(gameId, { logoUrl: logoUrlInput.trim() || null })
-    setLogoSaving(false)
+    const res = await updateGameSettings(gameId, {
+      logoUrl: logoUrlInput.trim() || null,
+      venueDisplayName: venueNameInput.trim() || null,
+      brandPrimaryHex: brandPrimary.trim() || null,
+      brandAccentHex: brandAccent.trim() || null,
+      brandHideLyricgrid: hideLyricgrid,
+    })
+    setBrandingSaving(false)
+    if (res.error) setActionError(res.error)
+  }
+
+  async function handleSaveEntryFee() {
+    setBrandingSaving(true)
+    setActionError('')
+    const fee = Number.parseFloat(entryFeeDollars.replace(/,/g, ''))
+    const feeCents = Number.isFinite(fee) ? Math.round(fee * 100) : 0
+    const res = await updateGameSettings(gameId, { entryFeeCents: feeCents })
+    setBrandingSaving(false)
     if (res.error) setActionError(res.error)
   }
 
@@ -438,19 +492,30 @@ export function HostDashboard({
 
   return (
     <div className="w-full max-w-4xl space-y-8">
-      {winnerAlert && (
-        <div className="rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 p-4 flex items-center justify-between gap-4">
-          <p className="text-xl font-bold text-emerald-300">
-            🏆 WINNER: {winnerAlert.playerName}
-            {winnerAlert.cardId && <span className="text-slate-400 font-normal text-sm ml-2">(Card: {winnerAlert.cardId.slice(0, 8)}…)</span>}
-          </p>
-          <button
-            type="button"
-            onClick={() => setWinnerAlert(null)}
-            className="rounded-lg bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-sm text-slate-200"
-          >
-            Dismiss
-          </button>
+      {winnerAlerts.length > 0 && (
+        <div className="space-y-2">
+          {winnerAlerts.map((w) => (
+            <div
+              key={w.id}
+              className={`rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 p-4 flex items-center justify-between gap-4 transition-opacity duration-500 ease-out ${
+                w.fading ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
+              <p className="text-xl font-bold text-emerald-300">
+                🏆 WINNER: {w.playerName}
+                {w.cardId ? (
+                  <span className="text-slate-400 font-normal text-sm ml-2">(Card: {w.cardId.slice(0, 8)}…)</span>
+                ) : null}
+              </p>
+              <button
+                type="button"
+                onClick={() => dismissWinnerAlert(w.id)}
+                className="rounded-lg bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-sm text-slate-200 shrink-0 touch-manipulation"
+              >
+                Dismiss
+              </button>
+            </div>
+          ))}
         </div>
       )}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
@@ -536,6 +601,23 @@ export function HostDashboard({
           )}
         </p>
 
+        <FeatureGate flag="host_analytics">
+          <div className="mt-4 rounded-xl border border-cyan-500/20 bg-slate-900/50 p-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-semibold text-cyan-400/90 uppercase tracking-wide mb-2">Analytics</h4>
+              <p className="text-slate-300 text-sm">
+                Live player count: <span className="font-semibold text-white">{playerCount}</span>
+              </p>
+            </div>
+            <Link
+              href="/host/analytics"
+              className="rounded-full border border-cyan-500/50 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/10"
+            >
+              Open analytics dashboard
+            </Link>
+          </div>
+        </FeatureGate>
+
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <span className="text-slate-400 text-sm">Print mode:</span>
           <select
@@ -556,11 +638,20 @@ export function HostDashboard({
           </button>
         </div>
 
-        {game.tier === 'enterprise' && (
-          <div className="mt-6 pt-6 border-t border-slate-700">
-            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Custom branding (Enterprise)
-            </h4>
+        <FeatureGate flag="b2b_white_label">
+          <div className="mt-6 pt-6 border-t border-slate-700 space-y-4">
+            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Venue branding</h4>
+            <p className="text-slate-500 text-sm">
+              Shown on join, stage, and player cards. Enable “Hide LyricGrid branding” to show only your venue on
+              player-facing screens.
+            </p>
+            <input
+              type="text"
+              value={venueNameInput}
+              onChange={(e) => setVenueNameInput(e.target.value)}
+              placeholder="Venue display name"
+              className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-200 placeholder-slate-500 text-sm"
+            />
             <div className="flex flex-wrap items-center gap-2">
               <input
                 type="url"
@@ -569,17 +660,87 @@ export function HostDashboard({
                 placeholder="Logo image URL"
                 className="flex-1 min-w-[200px] rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-200 placeholder-slate-500 text-sm"
               />
+            </div>
+            <div className="flex flex-wrap gap-4 items-center">
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                Primary
+                <input
+                  type="color"
+                  value={brandPrimary.startsWith('#') ? brandPrimary : '#00FFFF'}
+                  onChange={(e) => setBrandPrimary(e.target.value)}
+                  className="h-9 w-14 cursor-pointer rounded border border-slate-600 bg-slate-800"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                Accent
+                <input
+                  type="color"
+                  value={brandAccent.startsWith('#') ? brandAccent : '#10b981'}
+                  onChange={(e) => setBrandAccent(e.target.value)}
+                  className="h-9 w-14 cursor-pointer rounded border border-slate-600 bg-slate-800"
+                />
+              </label>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={hideLyricgrid}
+                onChange={(e) => setHideLyricgrid(e.target.checked)}
+                className="rounded border-slate-600"
+              />
+              Hide LyricGrid branding on player join / stage / bingo card
+            </label>
+            <button
+              type="button"
+              onClick={handleSaveVenueBranding}
+              disabled={brandingSaving}
+              className="rounded-full bg-slate-600 hover:bg-slate-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {brandingSaving ? 'Saving…' : 'Save venue branding'}
+            </button>
+          </div>
+        </FeatureGate>
+
+        <FeatureGate flag="paid_entry_games">
+          <div className="mt-6 pt-6 border-t border-slate-700 space-y-3">
+            <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Paid entry</h4>
+            <p className="text-slate-500 text-sm">
+              Entry fee per player (added to the prize pool when someone joins). Players see a payment step before
+              receiving a card.
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Entry fee (USD)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={entryFeeDollars}
+                  onChange={(e) => setEntryFeeDollars(e.target.value)}
+                  className="w-32 rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-200 text-sm"
+                />
+              </div>
               <button
                 type="button"
-                onClick={handleSaveLogo}
-                disabled={logoSaving}
-                className="rounded-full bg-slate-600 hover:bg-slate-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                onClick={handleSaveEntryFee}
+                disabled={brandingSaving}
+                className="rounded-full bg-emerald-700 hover:bg-emerald-600 px-4 py-2 text-sm font-medium disabled:opacity-50"
               >
-                {logoSaving ? 'Saving…' : 'Save logo'}
+                Save entry fee
               </button>
             </div>
+            <p className="text-slate-500 text-xs">
+              Prize pool (accumulated): ${((game.prize_pool_cents ?? 0) / 100).toFixed(2)}
+            </p>
           </div>
-        )}
+        </FeatureGate>
+
+        <FeatureGate flag="sponsor_integration">
+          <GameSponsorsPanel gameId={gameId} />
+        </FeatureGate>
+
+        <FeatureGate flag="community_chat">
+          <HostChatModeration gameId={gameId} game={game} onGameRefresh={() => setRetryTrigger((n) => n + 1)} />
+        </FeatureGate>
 
         <div className="mt-6 pt-6 border-t border-slate-700">
           <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide mb-2">

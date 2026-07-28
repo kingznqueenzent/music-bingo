@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { ClientAppShell } from "@/components/ClientAppShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,8 +22,18 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "LyricGrid – Music Bingo",
-  description: "Interactive music bingo for livestreams and parties",
+  title: {
+    default: 'Kingz & Queenz Entertainment',
+    template: '%s | Kingz & Queenz Entertainment',
+  },
+  description: 'Premium DJ entertainment — weddings, corporate events, and parties in Brantford, ON.',
+};
+
+/** Device-width viewport + manipulation touch model reduces legacy tap delay on mobile. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({
@@ -35,7 +46,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
       >
-        {children}
+        <ClientAppShell>{children}</ClientAppShell>
       </body>
     </html>
   );

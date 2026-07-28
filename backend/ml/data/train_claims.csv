@@ -1,0 +1,33 @@
+label,artist,previous_claim_history,outcome
+Universal Music Group,Drake,8,blocked
+Universal Music Group,Taylor Swift,6,blocked
+Sony Music Entertainment,Beyoncé,7,blocked
+Warner Music Group,Ed Sheeran,5,monetized
+Independent,,0,allowed
+Self-released,DJ Shadow,0,allowed
+Independent,Local Band,0,allowed
+Universal Music Group,Unknown Artist,3,monetized
+Sony Music Entertainment,Indie Collab,2,monetized
+Warner Music Group,Remix Channel,4,blocked
+Independent,Hobby Producer,0,allowed
+UMG,Pop Star,9,blocked
+Sony,Latin Artist,5,monetized
+Indie Label,Cool Cats,1,allowed
+Major Label A,Hit Maker,10,blocked
+Major Label B,Rapper X,6,blocked
+Major Label C,Singer Y,4,monetized
+Small Label,Zebra,1,allowed
+No Label,Bedroom DJ,0,allowed
+Universal Music Group,DJ Mix Show,7,blocked
+Independent,DJ Mix Show,0,allowed
+Warner Music,Mashup King,3,monetized
+Sony Music,Karaoke Channel,8,blocked
+Independent,Karaoke Channel,0,allowed
+UMG,Orchestra,2,monetized
+Classical Indie,Quartet,0,allowed
+Big Three Alumni,Solo Act,5,monetized
+DIY,,0,allowed
+Netlabel,Electronic,0,allowed
+Netlabel,Electronic,2,monetized
+Corporate Media,News Clip,6,blocked
+Corporate Media,Commentary,1,allowed

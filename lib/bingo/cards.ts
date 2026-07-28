@@ -1,9 +1,16 @@
-/**
+﻿/**
  * Generates a unique N×N bingo card by shuffling a subset of playlist song IDs.
  * gridSize 5 = 5×5 (25 cells), gridSize 4 = 4×4 (16 cells). Each card is random.
  */
+import type { GridData } from '@/types/database-extras'
+
 const MIN_SONGS_5X5 = 45
 const MIN_SONGS_4X4 = 32
+
+/** Minimum playlist size to deal unique cards (variety across players). */
+export function minSongsForGrid(gridSize: 4 | 5): number {
+  return gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
+}
 
 function shuffle<T>(array: T[]): T[] {
   const out = [...array]
@@ -14,24 +21,47 @@ function shuffle<T>(array: T[]): T[] {
   return out
 }
 
-/**
- * Pick N×N random song IDs from the playlist (no duplicates per card).
- * gridSize 5: min 45 songs; gridSize 4: min 32 songs (for variety).
- */
+function pickGridIds(ids: string[], gridSize: 4 | 5): string[] {
+  const cellCount = gridSize * gridSize
+  const minSongs = minSongsForGrid(gridSize)
+  if (ids.length < minSongs) {
+    throw new Error(
+      `Need at least ${minSongs} songs for ${gridSize}×${gridSize} grid, got ${ids.length}`
+    )
+  }
+  return shuffle(ids).slice(0, cellCount)
+}
+
 export function generateCardLayout(
   songIds: string[],
   gridSize: 4 | 5 = 5
 ): { position: number; playlistSongId: string }[] {
-  const cellCount = gridSize * gridSize
-  const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
-  if (songIds.length < minSongs) {
-    throw new Error(
-      `Need at least ${minSongs} songs for ${gridSize}×${gridSize} grid, got ${songIds.length}`
-    )
-  }
-  const shuffled = shuffle(songIds)
-  return shuffled.slice(0, cellCount).map((playlistSongId, index) => ({
+  return pickGridIds(songIds, gridSize).map((playlistSongId, index) => ({
     position: index,
     playlistSongId,
   }))
+}
+
+export type TrackPoolEntry = {
+  trackId: string
+  title: string
+  artist?: string | null
+  playlistSongId?: string
+}
+
+/** Choice A: build cards.grid_data from bingo_game_tracks (jsonb). */
+export function generateGridFromTrackPool(entries: TrackPoolEntry[], gridSize: 4 | 5 = 5): GridData {
+  const ids = entries.map((e) => e.trackId)
+  const byId = new Map(entries.map((e) => [e.trackId, e]))
+  return pickGridIds(ids, gridSize).map((trackId, position) => {
+    const row = byId.get(trackId)!
+    return {
+      position,
+      track_id: trackId,
+      title: row.title,
+      artist: row.artist ?? null,
+      playlist_song_id: row.playlistSongId,
+      marked: false,
+    }
+  })
 }

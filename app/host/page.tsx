@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { HostCreateForm } from './HostCreateForm'
+import { HostMonetizationTeasers } from '@/components/HostMonetizationTeasers'
+import { HostTournamentsNavLink } from '@/components/HostTournamentsNavLink'
 
 export default function HostPage() {
   return (
@@ -9,6 +11,7 @@ export default function HostPage() {
       </h1>
 
       <div className="flex flex-wrap justify-center gap-4 mb-8 max-w-2xl">
+        <HostTournamentsNavLink />
         <a
           href="/host/create-from-media"
           className="rounded-2xl border border-slate-700 bg-slate-900/70 px-8 py-4 text-lg font-semibold text-slate-100 hover:border-emerald-500/50 hover:bg-slate-800/70 transition-colors"
@@ -106,6 +109,8 @@ export default function HostPage() {
         </div>
       </div>
 
+      <HostMonetizationTeasers />
+
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-12 max-w-2xl w-full">
         <h2 className="text-2xl font-bold mb-6 text-slate-50">Create with YouTube links</h2>
         <p className="text-slate-300 mb-8">
@@ -114,7 +119,7 @@ export default function HostPage() {
         <HostCreateForm />
       </div>
 
-      <Link href="/" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
+      <Link href="/lyricgrid" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
         ← Back to Home
       </Link>
     </main>

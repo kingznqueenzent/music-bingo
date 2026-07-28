@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-
-const POINTS_PER_WIN = 10
+import { notifyHostPrize, updateLeaderboardStats } from '@/lib/game-session'
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,55 +42,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    await supabase.from('wins').update({ claimed_at: new Date().toISOString() }).eq('id', win.id)
+    const progress = await updateLeaderboardStats(supabase, {
+      gameId,
+      cardId,
+      playerName: playerName.trim(),
+    })
 
-    const { data: card } = await supabase
-      .from('cards')
-      .select('player_identifier')
-      .eq('id', cardId)
-      .eq('game_id', gameId)
-      .single()
-
-    const identifier = (card?.player_identifier ?? cardId).trim() || cardId
-
-    const { data: existing } = await supabase
-      .from('leaderboard')
-      .select('id, wins, points')
-      .eq('identifier', identifier)
-      .single()
-
-    const now = new Date().toISOString()
-    if (existing) {
-      const { error: updateError } = await supabase
-        .from('leaderboard')
-        .update({
-          player_name: playerName.trim(),
-          wins: existing.wins + 1,
-          points: (existing.points ?? 0) + POINTS_PER_WIN,
-          last_played: now,
-          updated_at: now,
-        })
-        .eq('id', existing.id)
-
-      if (updateError) {
-        return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 })
-      }
-    } else {
-      const { error: insertError } = await supabase.from('leaderboard').insert({
-        player_name: playerName.trim(),
-        identifier,
-        wins: 1,
-        points: POINTS_PER_WIN,
-        last_played: now,
-        updated_at: now,
-      })
-
-      if (insertError) {
-        return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
-      }
+    if (!progress.ok) {
+      return NextResponse.json({ ok: false, error: progress.error }, { status: 400 })
     }
 
-    return NextResponse.json({ ok: true })
+    const now = new Date().toISOString()
+    const { error: claimErr } = await supabase.from('wins').update({ claimed_at: now }).eq('id', win.id)
+    if (claimErr) {
+      return NextResponse.json({ ok: false, error: claimErr.message }, { status: 500 })
+    }
+
+    await notifyHostPrize(supabase, gameId, {
+      cardId,
+      playerName: playerName.trim(),
+      prizeId: 'leaderboard_claim',
+    })
+
+    return NextResponse.json({
+      ok: true,
+      xpGained: progress.xpGained,
+      breakdown: progress.breakdown,
+      newBadges: progress.newBadges,
+    })
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 })
   }

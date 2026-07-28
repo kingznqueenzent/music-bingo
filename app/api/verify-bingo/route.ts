@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyBingo, verifyBingoWithMarks } from '@/app/actions/verify'
+import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
+import { notifyHostWin } from '@/lib/game-session'
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (result.valid) {
       const { data: card } = await supabase
         .from('cards')
-        .select('player_identifier')
+        .select('player_identifier, player_name')
         .eq('id', targetCardId)
         .single()
       const { data: game } = await supabase
@@ -53,11 +55,20 @@ export async function POST(request: NextRequest) {
           game_id: gameId,
           card_id: targetCardId,
           player_identifier: card?.player_identifier ?? null,
-          mode: game?.mode ?? 'line',
+          mode: normalizeWinPattern(game?.mode),
           round: 1,
         },
         { onConflict: 'game_id,card_id,round', ignoreDuplicates: true }
       )
+      const playerName =
+        (result as { playerName?: string }).playerName ??
+        (card as { player_name?: string })?.player_name ??
+        'Player'
+      await notifyHostWin(supabase, gameId, {
+        cardId: targetCardId,
+        playerName,
+        playerIdentifier: card?.player_identifier ?? null,
+      })
     }
 
     const r = result as { valid: boolean; error?: string; playerName?: string }

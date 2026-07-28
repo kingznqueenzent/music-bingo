@@ -15,8 +15,11 @@ create table if not exists public.prizes (
 create index if not exists idx_prizes_game on public.prizes(game_id);
 
 alter table public.prizes enable row level security;
+drop policy if exists "Allow read prizes" on public.prizes;
 create policy "Allow read prizes" on public.prizes for select using (true);
+drop policy if exists "Allow insert prizes" on public.prizes;
 create policy "Allow insert prizes" on public.prizes for insert with check (true);
+drop policy if exists "Allow update prizes" on public.prizes;
 create policy "Allow update prizes" on public.prizes for update using (true);
 
 -- Optional: link a win to a prize when host assigns it

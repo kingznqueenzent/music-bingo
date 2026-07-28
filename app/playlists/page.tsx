@@ -3,6 +3,21 @@ import { createClient } from '@/lib/supabase/server'
 import { getThemesDirect, getGenresDirect, getErasDirect } from '@/lib/db'
 import { ThemeFilterBar } from './ThemeFilterBar'
 import type { Theme, Genre, Era } from '@/lib/supabase/types'
+import { sortThemesChronologicalThenGenre } from '@/lib/sort-themes'
+
+/** Base44: playlist categories in order by year + genre (no duplicates). */
+const ORDERED_PLAYLIST_CATEGORIES: { eraName: string; genreName: string }[] = [
+  { eraName: '70s', genreName: 'Rock' },
+  { eraName: '80s', genreName: 'Rock' },
+  { eraName: '90s', genreName: 'Rock' },
+  { eraName: '2000s', genreName: 'Rock' },
+  { eraName: '70s', genreName: 'R&B & Soul' },
+  { eraName: '80s', genreName: 'R&B & Soul' },
+  { eraName: '80s', genreName: 'Reggae' },
+  { eraName: '90s', genreName: 'Reggae' },
+  { eraName: '80s', genreName: 'Pop' },
+  { eraName: '90s', genreName: 'Pop' },
+]
 
 async function getThemes(): Promise<{ themes: Theme[]; error?: { message: string; code?: string } }> {
   if (process.env.DATABASE_URL) {
@@ -90,21 +105,42 @@ export default async function PlaylistsPage({ searchParams }: PlaylistsPageProps
     themes = themes.filter((t) => t.era_id === eraId)
   }
 
-  const grouped: Record<string, Theme[]> = {
-    decade: [],
-    genre: [],
-    mood: [],
-  }
+  themes = sortThemesChronologicalThenGenre(themes, eras, genres)
+
+  // Base44: group by era + genre in fixed order (70's Rock, 80's Rock, … 90's Pop); rest in "Other"
+  const eraIdByName = new Map(eras.map((e) => [e.name, e.id]))
+  const genreIdByName = new Map(genres.map((g) => [g.name, g.id]))
+  const categoryByKey = new Map<string, { title: string; order: number }>()
+  ORDERED_PLAYLIST_CATEGORIES.forEach(({ eraName, genreName }, i) => {
+    const eid = eraIdByName.get(eraName)
+    const gid = genreIdByName.get(genreName)
+    if (eid && gid) categoryByKey.set(`${eid}:${gid}`, { title: `${eraName}'s ${genreName}`, order: i })
+  })
+  const orderedGroups: { title: string; order: number; themes: Theme[] }[] = []
+  const otherThemes: Theme[] = []
   for (const t of themes) {
-    const cat = (t.category as 'decade' | 'genre' | 'mood') ?? 'decade'
-    if (!grouped[cat]) grouped[cat] = []
-    grouped[cat].push(t)
+    const key = t.era_id && t.genre_id ? `${t.era_id}:${t.genre_id}` : null
+    const cat = key ? categoryByKey.get(key) : null
+    if (cat) {
+      let group = orderedGroups.find((g) => g.title === cat.title)
+      if (!group) {
+        group = { title: cat.title, order: cat.order, themes: [] }
+        orderedGroups.push(group)
+      }
+      group.themes.push(t)
+    } else {
+      otherThemes.push(t)
+    }
+  }
+  orderedGroups.sort((a, b) => a.order - b.order)
+  if (otherThemes.length > 0) {
+    orderedGroups.push({ title: 'Other', order: 999, themes: otherThemes })
   }
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-5xl mx-auto px-6 pt-6">
-        <Link href="/" className="text-slate-300 hover:text-white text-sm">
+        <Link href="/lyricgrid" className="text-slate-300 hover:text-white text-sm">
           ← Back to Home
         </Link>
       </div>
@@ -154,9 +190,9 @@ export default async function PlaylistsPage({ searchParams }: PlaylistsPageProps
           </div>
         )}
 
-        <CategorySection title="Decades" label="decade" themes={grouped.decade} />
-        <CategorySection title="Genres" label="genre" themes={grouped.genre} />
-        <CategorySection title="Mood & Events" label="mood" themes={grouped.mood} />
+        {orderedGroups.map((group) => (
+          <CategorySection key={group.title} title={group.title} themes={group.themes} genres={genres} eras={eras} />
+        ))}
 
         {!error && themes.length === 0 && (
           <p className="text-center text-slate-400">
@@ -171,30 +207,41 @@ export default async function PlaylistsPage({ searchParams }: PlaylistsPageProps
 
 function CategorySection({
   title,
-  label,
   themes,
+  genres,
+  eras,
 }: {
   title: string
-  label: string
   themes: Theme[]
+  genres: Genre[]
+  eras: Era[]
 }) {
   if (!themes || themes.length === 0) return null
   return (
     <div>
       <div className="flex items-baseline justify-between mb-4">
         <h2 className="text-xl md:text-2xl font-bold text-slate-50">{title}</h2>
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p>
       </div>
       <div className="grid gap-5 md:grid-cols-3">
         {themes.map((theme) => (
-          <ThemeCard key={theme.id} theme={theme} />
+          <ThemeCard key={theme.id} theme={theme} genres={genres} eras={eras} />
         ))}
       </div>
     </div>
   )
 }
 
-function ThemeCard({ theme }: { theme: Theme }) {
+function ThemeCard({
+  theme,
+  genres,
+  eras,
+}: {
+  theme: Theme
+  genres: Genre[]
+  eras: Era[]
+}) {
+  const genreName = theme.genre_name ?? (theme.genre_id ? genres.find((g) => g.id === theme.genre_id)?.name : null)
+  const eraName = theme.era_name ?? (theme.era_id ? eras.find((e) => e.id === theme.era_id)?.name : null)
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 flex flex-col overflow-hidden">
       {theme.artwork_url ? (
@@ -210,9 +257,9 @@ function ThemeCard({ theme }: { theme: Theme }) {
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div>
           <h3 className="text-lg font-semibold text-slate-50">{theme.name}</h3>
-          {(theme.genre_name || theme.era_name) && (
+          {(genreName || eraName) && (
             <p className="text-xs text-slate-500 mt-0.5">
-              {[theme.genre_name, theme.era_name].filter(Boolean).join(' · ')}
+              {[genreName, eraName].filter(Boolean).join(' · ')}
             </p>
           )}
           {theme.description && (

@@ -42,8 +42,11 @@ create index if not exists idx_media_library_created on public.media_library(cre
 alter table public.media_library add column if not exists file_url text;
 
 alter table public.media_library enable row level security;
+drop policy if exists "Allow read media_library" on public.media_library;
 create policy "Allow read media_library" on public.media_library for select using (true);
+drop policy if exists "Allow insert media_library" on public.media_library;
 create policy "Allow insert media_library" on public.media_library for insert with check (true);
+drop policy if exists "Allow delete media_library" on public.media_library;
 create policy "Allow delete media_library" on public.media_library for delete using (true);
 
 -- Notify PostgREST to reload schema (if using Supabase API)
