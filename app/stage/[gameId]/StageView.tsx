@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
+import { GameClipPlayer, gameClipSourceLabel } from '@/components/GameClipPlayer'
 import { SourceIndicator } from '@/components/SourceIndicator'
 import type { Game, PlaylistSong, LeaderboardEntry } from '@/lib/supabase/types'
 import { useFeatureFlags } from '@/components/FeatureFlagsProvider'
@@ -12,6 +12,7 @@ type Source = 'youtube' | 'local'
 
 function getSource(song: PlaylistSong | null): Source {
   if (!song) return 'youtube'
+  if (gameClipSourceLabel(song) === 'mp3') return 'local'
   if (song.source === 'local' && song.file_url) return 'local'
   return 'youtube'
 }
@@ -128,8 +129,10 @@ export function StageView({ gameId }: { gameId: string }) {
 
   const clipSeconds = game?.clip_seconds ?? 20
   const crossfadeSeconds = game?.crossfade_seconds ?? 0
-  const isYouTube = currentSong?.source !== 'local' && currentSong?.youtube_id
-  const isLocal = currentSong?.source === 'local' && currentSong?.file_url
+  const clipKind = gameClipSourceLabel(currentSong)
+  const isYouTube = clipKind === 'youtube'
+  const isMp3Clip = clipKind === 'mp3'
+  const isLegacyLocal = !isMp3Clip && currentSong?.source === 'local' && !!currentSong?.file_url
   const nowPlayingLabel = currentSong?.title || currentSong?.youtube_id || 'Music Bingo'
   const source = getSource(currentSong)
 
@@ -221,19 +224,18 @@ export function StageView({ gameId }: { gameId: string }) {
               className="w-32 h-32 md:w-40 md:h-40 rounded-xl object-cover shadow-2xl mb-4 shrink-0"
             />
           )}
-          {isYouTube && currentSong && (
-            <div className="w-full max-w-6xl aspect-video rounded-xl overflow-hidden bg-black shadow-2xl">
-              <YouTubeClipPlayer
-                videoId={currentSong.youtube_id!}
-                startSeconds={0}
-                endSeconds={clipSeconds}
+          {(isMp3Clip || isYouTube) && currentSong && (
+            <div className="w-full max-w-6xl aspect-video rounded-xl overflow-hidden bg-black shadow-2xl flex items-center justify-center p-4">
+              <GameClipPlayer
+                song={currentSong}
+                clipSeconds={clipSeconds}
                 crossfadeSeconds={crossfadeSeconds}
                 autoPlay
-                className="w-full h-full"
+                className="w-full"
               />
             </div>
           )}
-          {isLocal && currentSong && (
+          {isLegacyLocal && currentSong && (
             <div className="w-full max-w-6xl aspect-video rounded-xl overflow-hidden bg-black">
               {currentSong.file_url!.match(/\.(mp4|webm)$/i) ? (
                 <video
@@ -250,7 +252,7 @@ export function StageView({ gameId }: { gameId: string }) {
               )}
             </div>
           )}
-          {currentSong && !isYouTube && !isLocal && (
+          {currentSong && !isYouTube && !isMp3Clip && !isLegacyLocal && (
             <div className="w-full max-w-6xl aspect-video rounded-xl bg-[#1E1E1E] flex flex-col items-center justify-center border border-white/10 p-8">
               <p className="text-slate-400 text-lg mb-2" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>Now playing</p>
               <p className="text-white text-xl md:text-2xl font-bold text-center" style={{ fontFamily: 'var(--font-inter), sans-serif' }}>{nowPlayingLabel}</p>

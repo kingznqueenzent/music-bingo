@@ -14,6 +14,8 @@ export interface PlaylistSong {
   source?: PlaylistSongSource
   youtube_id: string | null
   file_url: string | null
+  audio_url?: string | null
+  start_time?: number | null
   spotify_track_id?: string | null
   album_art_url?: string | null
   title: string | null
@@ -151,6 +153,8 @@ export interface ThemeSong {
   theme_id: string
   youtube_id: string
   title: string | null
+  audio_url?: string | null
+  start_time?: number | null
   position: number
   created_at: string
 }

@@ -788,6 +788,8 @@ export type Database = {
           created_at: string | null
           source: string
           file_url: string | null
+          audio_url: string | null
+          start_time: number
           spotify_track_id: string | null
           album_art_url: string | null
         }
@@ -800,6 +802,8 @@ export type Database = {
           created_at?: string | null
           source?: string
           file_url?: string | null
+          audio_url?: string | null
+          start_time?: number
           spotify_track_id?: string | null
           album_art_url?: string | null
         }
@@ -812,6 +816,8 @@ export type Database = {
           created_at?: string | null
           source?: string | null
           file_url?: string | null
+          audio_url?: string | null
+          start_time?: number | null
           spotify_track_id?: string | null
           album_art_url?: string | null
         }
@@ -872,6 +878,8 @@ export type Database = {
           youtube_id: string
           title: string | null
           position: number
+          audio_url: string | null
+          start_time: number
           created_at: string | null
         }
         Insert: {
@@ -880,6 +888,8 @@ export type Database = {
           youtube_id: string
           title?: string | null
           position?: number
+          audio_url?: string | null
+          start_time?: number
           created_at?: string | null
         }
         Update: {
@@ -888,6 +898,8 @@ export type Database = {
           youtube_id?: string | null
           title?: string | null
           position?: number | null
+          audio_url?: string | null
+          start_time?: number | null
           created_at?: string | null
         }
         Relationships: []

@@ -33,6 +33,7 @@ const MIGRATION_FILES = [
   '20260429120000_players_username_column.sql',
   '20260626120000_bingo_game_tracks_library.sql',
   '20260628120000_game_events.sql',
+  '20260729120000_theme_songs_audio_url.sql',
 ]
 
 async function main() {

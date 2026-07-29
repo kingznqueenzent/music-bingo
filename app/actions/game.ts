@@ -229,7 +229,7 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
 
   const { data: themeSongs, error: songsError } = await supabase
     .from('theme_songs')
-    .select('youtube_id, title')
+    .select('youtube_id, title, audio_url, start_time')
     .eq('theme_id', theme.id)
     .order('position')
 
@@ -252,14 +252,19 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
     return { error: playlistError?.message ?? 'Failed to create playlist from theme' }
   }
 
-  const insertSongs = (themeSongs ?? []).map((s, index) => ({
-    playlist_id: playlist.id,
-    source: 'youtube' as const,
-    youtube_id: s.youtube_id,
-    file_url: null,
-    title: s.title,
-    position: index,
-  }))
+  const insertSongs = (themeSongs ?? []).map((s, index) => {
+    const hasMp3 = !!s.audio_url?.trim()
+    return {
+      playlist_id: playlist.id,
+      source: hasMp3 ? ('local' as const) : ('youtube' as const),
+      youtube_id: s.youtube_id,
+      audio_url: s.audio_url ?? null,
+      start_time: s.start_time ?? 0,
+      file_url: null,
+      title: s.title,
+      position: index,
+    }
+  })
 
   const { error: playlistSongsError } = await supabase.from('playlist_songs').insert(insertSongs)
   if (playlistSongsError) {

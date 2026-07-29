@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
+import { GameClipPlayer, gameClipSourceLabel } from '@/components/GameClipPlayer'
 import {
   updateGameSettings,
   getCardForVerification,
@@ -810,33 +810,31 @@ export function HostDashboard({
         {actionError && <p className="text-red-300 mt-2">{actionError}</p>}
       </div>
 
-      {currentSong && currentSong.source === 'local' ? null : currentSong?.youtube_id ? (
+      {currentSong && gameClipSourceLabel(currentSong) !== 'unknown' ? (
         <div ref={nowPlayingRef} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
           <div className="flex items-center gap-3 mb-4">
-            <SourceIndicator source="youtube" />
+            <SourceIndicator source={gameClipSourceLabel(currentSong) === 'mp3' ? 'local' : 'youtube'} />
             <h3 className="text-xl font-bold text-slate-50">
               Now playing ({clipSeconds}s hook{crossfadeSeconds ? `, ${crossfadeSeconds}s crossfade` : ''})
             </h3>
           </div>
-          <YouTubeClipPlayer
-            key={currentSong.id}
-            videoId={currentSong.youtube_id}
-            startSeconds={0}
-            endSeconds={clipSeconds}
+          <GameClipPlayer
+            song={currentSong}
+            clipSeconds={clipSeconds}
             crossfadeSeconds={crossfadeSeconds}
             autoPlay
             className="max-w-2xl mx-auto"
           />
         </div>
       ) : null}
-      {currentSong && !currentSong.youtube_id && !currentSong?.file_url ? (
+      {currentSong && gameClipSourceLabel(currentSong) === 'unknown' ? (
         <div ref={nowPlayingRef} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
           <h3 className="text-xl font-bold text-slate-50">Now playing</h3>
           <p className="text-slate-300 mt-2">{playlistSongLabel(currentSong)}</p>
         </div>
       ) : null}
 
-      {currentSong?.source === 'local' && currentSong?.file_url && (
+      {currentSong?.source === 'local' && currentSong?.file_url && !currentSong.audio_url ? (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
           <div className="flex items-center gap-3 mb-4">
             <SourceIndicator source="local" />
@@ -860,7 +858,7 @@ export function HostDashboard({
             />
           )}
         </div>
-      )}
+      ) : null}
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">

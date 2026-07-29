@@ -1,0 +1,11 @@
+[
+  {
+    "title": "Example Track",
+    "artist": "Example Artist",
+    "theme_tag": "90s Hits",
+    "audio_filename": "90s/example-track.mp3",
+    "youtube_id": "dQw4w9WgXcQ",
+    "start_time": 30,
+    "position": 0
+  }
+]

@@ -121,8 +121,13 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
     const theme = themeRes.rows[0]
     if (!theme) return { error: 'Theme not found' }
 
-    const songsRes = await client.query<{ youtube_id: string; title: string | null }>(
-      `SELECT youtube_id, title FROM public.theme_songs WHERE theme_id = $1 ORDER BY position`,
+    const songsRes = await client.query<{
+      youtube_id: string
+      title: string | null
+      audio_url: string | null
+      start_time: number | null
+    }>(
+      `SELECT youtube_id, title, audio_url, start_time FROM public.theme_songs WHERE theme_id = $1 ORDER BY position`,
       [themeId]
     )
     const themeSongs = songsRes.rows ?? []
@@ -140,9 +145,19 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
 
     for (let i = 0; i < themeSongs.length; i++) {
       const s = themeSongs[i]
+      const hasMp3 = !!s.audio_url?.trim()
       await client.query(
-        `INSERT INTO public.playlist_songs (playlist_id, youtube_id, title, position) VALUES ($1, $2, $3, $4)`,
-        [playlistId, s.youtube_id, s.title, i]
+        `INSERT INTO public.playlist_songs (playlist_id, youtube_id, title, position, source, audio_url, start_time)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          playlistId,
+          s.youtube_id,
+          s.title,
+          i,
+          hasMp3 ? 'local' : 'youtube',
+          s.audio_url,
+          s.start_time ?? 0,
+        ]
       )
     }
 
