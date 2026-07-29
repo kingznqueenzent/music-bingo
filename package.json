@@ -26,7 +26,9 @@
     "db:migrate-base44": "npx tsx scripts/migrate-base44-library.ts",
     "db:seed-from-theme-songs": "npx tsx scripts/seed-from-theme-songs.ts",
     "db:seed-theme-songs": "npm run db:seed-from-theme-songs",
-    "db:count-tracks": "node scripts/count-library-tracks.js"
+    "db:count-tracks": "node scripts/count-library-tracks.js",
+    "verify:win-patterns": "npx tsx scripts/verify-win-patterns.ts",
+    "verify:parity": "node scripts/verify-feature-parity.js"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

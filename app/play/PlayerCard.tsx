@@ -13,6 +13,7 @@ import type {
 } from '@/lib/supabase/types'
 import { ChatPanel, type ChatIdentity } from '@/components/chat/ChatPanel'
 import { normalizeWinPattern, hasWinningPatternFromMarks, type WinPattern } from '@/lib/bingo-win-pattern'
+import { triggerHaptic } from '@/lib/haptic-feedback'
 import { FeatureGate } from '@/components/FeatureGate'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
@@ -95,6 +96,7 @@ export function PlayerCard({
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
   const cellSkipClickRef = useRef(false)
   const bingoSkipClickRef = useRef(false)
+  const playedSongsSyncRef = useRef(0)
   const participationSentRef = useRef(false)
   const [profileIdentifier, setProfileIdentifier] = useState('')
   const [envelopeSponsor, setEnvelopeSponsor] = useState<GameSponsor | null>(null)
@@ -110,6 +112,7 @@ export function PlayerCard({
 
   const toggleMark = useCallback(
     (playlistSongId: string) => {
+      triggerHaptic('tap')
       setMarkedSongIds((prev) => {
         const next = new Set(prev)
         if (next.has(playlistSongId)) next.delete(playlistSongId)
@@ -406,6 +409,13 @@ export function PlayerCard({
           if (row.status === 'lobby' || row.status === 'playing' || row.status === 'ended') setGameStatus(row.status)
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
+        () => {
+          playedSongsSyncRef.current += 1
+        }
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
@@ -489,6 +499,7 @@ export function PlayerCard({
       })
       const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
       if (data.valid) {
+        triggerHaptic('success')
         const ch = supabase.channel(`game-${gameId}`)
         ch.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -501,10 +512,12 @@ export function PlayerCard({
         })
         setShowWinModal(true)
       } else {
+        triggerHaptic('error')
         setBingoMessage('invalid')
         setTimeout(() => setBingoMessage(null), 4000)
       }
     } catch {
+      triggerHaptic('error')
       setBingoMessage('invalid')
       setTimeout(() => setBingoMessage(null), 4000)
     } finally {

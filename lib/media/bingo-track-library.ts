@@ -34,6 +34,34 @@ export async function loadLibraryTracks(supabase: SupabaseClient): Promise<{
   return { tracks: (data ?? []) as BingoTrackLibraryRow[] }
 }
 
+/** Catalog summary for host media / parity checks (theme_songs source + library rows). */
+export async function loadTrackCatalogSummary(supabase: SupabaseClient): Promise<{
+  themeSongCount: number
+  libraryCount: number
+  error?: string
+}> {
+  const [{ count: themeSongCount, error: themeError }, libraryResult] = await Promise.all([
+    supabase.from('theme_songs').select('*', { count: 'exact', head: true }),
+    loadLibraryTracks(supabase),
+  ])
+
+  if (themeError) {
+    return { themeSongCount: 0, libraryCount: 0, error: themeError.message }
+  }
+  if (libraryResult.error) {
+    return {
+      themeSongCount: themeSongCount ?? 0,
+      libraryCount: 0,
+      error: libraryResult.error,
+    }
+  }
+
+  return {
+    themeSongCount: themeSongCount ?? 0,
+    libraryCount: libraryResult.tracks.length,
+  }
+}
+
 export function resolveGenreForTheme(
   themeId: string | null | undefined,
   themes: Theme[],
