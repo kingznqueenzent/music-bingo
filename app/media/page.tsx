@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { MediaLibrary } from './MediaManager'
+import { requireAdminSession } from '@/lib/admin-guard-server'
 
 export const dynamic = 'force-dynamic'
 
 type Props = { searchParams: Promise<{ theme?: string }> }
 
 export default async function MediaPage({ searchParams }: Props) {
+  await requireAdminSession('/media')
   const { theme } = await searchParams
   return (
     <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">

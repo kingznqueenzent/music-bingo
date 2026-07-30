@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { NextRequest } from 'next/server'
 import type { User } from '@supabase/supabase-js'
+import { isAdminUser } from '@/lib/admin-access'
 
 /** Resolve Supabase user from `Authorization: Bearer <access_token>` (browser session). */
 export async function getUserFromBearer(req: NextRequest): Promise<User | null> {
@@ -20,7 +21,5 @@ export async function getUserFromBearer(req: NextRequest): Promise<User | null> 
 }
 
 export function isAppAdmin(user: User | null): boolean {
-  if (!user) return false
-  const role = (user.app_metadata as { role?: string } | undefined)?.role
-  return role === 'admin'
+  return isAdminUser(user)
 }

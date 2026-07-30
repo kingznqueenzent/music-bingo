@@ -4,6 +4,7 @@ import { getThemesDirect, getGenresDirect, getErasDirect } from '@/lib/db'
 import { ThemeFilterBar } from './ThemeFilterBar'
 import type { Theme, Genre, Era } from '@/lib/supabase/types'
 import { sortThemesChronologicalThenGenre } from '@/lib/sort-themes'
+import { requireAdminSession } from '@/lib/admin-guard-server'
 
 /** Base44: playlist categories in order by year + genre (no duplicates). */
 const ORDERED_PLAYLIST_CATEGORIES: { eraName: string; genreName: string }[] = [
@@ -78,6 +79,7 @@ async function getEras(): Promise<Era[]> {
 type PlaylistsPageProps = { searchParams: Promise<{ hostError?: string; genre?: string; era?: string }> }
 
 export default async function PlaylistsPage({ searchParams }: PlaylistsPageProps) {
+  await requireAdminSession('/playlists')
   const params = await searchParams
   const hostError = params?.hostError
   const genreSlug = params?.genre ?? ''

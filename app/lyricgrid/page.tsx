@@ -1,6 +1,7 @@
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { HomeCtas } from '@/components/HomeCtas'
 import { TournamentLobbyHome } from '@/components/TournamentLobbyHome'
+import { StaffAccessFooterLink } from '@/components/layout/StaffAccessFooterLink'
 
 export default function LyricGridHome() {
   return (
@@ -113,6 +114,9 @@ export default function LyricGridHome() {
               Leaderboard
             </a>
           </div>
+        </div>
+        <div className="max-w-5xl mx-auto px-6 pb-8 text-center">
+          <StaffAccessFooterLink from="/host" />
         </div>
       </section>
     </main>

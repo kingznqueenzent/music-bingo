@@ -2,13 +2,20 @@ import Link from 'next/link'
 import { HostCreateForm } from './HostCreateForm'
 import { HostMonetizationTeasers } from '@/components/HostMonetizationTeasers'
 import { HostTournamentsNavLink } from '@/components/HostTournamentsNavLink'
+import { HostCommandCenter } from '@/components/host/HostCommandCenter'
+import { requireAdminSession } from '@/lib/admin-guard-server'
 
-export default function HostPage() {
+export default async function HostPage() {
+  await requireAdminSession('/host')
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center p-8 text-white">
-      <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-slate-100">
-        <span className="block">🖥️ Host Control Panel</span>
+    <main className="min-h-[calc(100vh-3rem)] bg-[#121212] flex flex-col items-center p-8 text-white">
+      <h1 className="text-4xl md:text-5xl font-extrabold mb-2 text-[#00FFFF]">
+        Host Control Panel
       </h1>
+      <p className="text-slate-400 text-sm mb-8">Create games, verify claims, and manage your room.</p>
+
+      <HostCommandCenter />
 
       <div className="flex flex-wrap justify-center gap-4 mb-8 max-w-2xl">
         <HostTournamentsNavLink />

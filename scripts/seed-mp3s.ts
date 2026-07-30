@@ -9,7 +9,7 @@
  * JSON row shape:
  * {
  *   "title": "Track Title",
- *   "artist": "Optional Artist",
+ *   "artist": "Artist Name",
  *   "theme_tag": "90s Hits",
  *   "audio_filename": "folder/track.mp3",
  *   "audio_url": "optional full URL override",
@@ -32,7 +32,18 @@ export type Mp3TrackInput = {
   theme_tag: string
   audio_filename?: string | null
   audio_url?: string | null
+  youtube_id?: string | null
+  start_time?: number | null
+  position?: number | null
+}
+
+type SanitizedRow = {
+  title: string
+  artist: string
+  theme_tag: string
   youtube_id: string
+  audio_filename?: string | null
+  audio_url?: string | null
   start_time?: number | null
   position?: number | null
 }
@@ -64,19 +75,30 @@ function loadRows(filePath: string): Mp3TrackInput[] {
   return raw as Mp3TrackInput[]
 }
 
-function displayTitle(row: Mp3TrackInput): string {
-  const title = row.title.trim()
-  const artist = row.artist?.trim()
-  if (artist) return `${title} — ${artist}`
-  return title
+function sanitizeRow(row: Mp3TrackInput): SanitizedRow {
+  return {
+    title: row.title?.trim() ?? '',
+    artist: row.artist?.trim() ?? '',
+    theme_tag: row.theme_tag?.trim() ?? '',
+    youtube_id: row.youtube_id?.trim() ?? '',
+    audio_filename: row.audio_filename?.trim() || null,
+    audio_url: row.audio_url?.trim() || null,
+    start_time: row.start_time,
+    position: row.position,
+  }
 }
 
-function resolveStoredAudioUrl(row: Mp3TrackInput): string | null {
-  const direct = row.audio_url?.trim()
-  if (direct) return direct
-  const filename = row.audio_filename?.trim()
-  if (!filename) return null
-  return resolveAudioClipUrl(filename)
+function validateRow(row: SanitizedRow): string | null {
+  if (!row.title) return 'missing title'
+  if (!row.artist) return 'missing artist'
+  if (!row.theme_tag) return 'missing theme_tag'
+  return null
+}
+
+function resolveStoredAudioUrl(row: SanitizedRow): string | null {
+  if (row.audio_url) return row.audio_url
+  if (row.audio_filename) return resolveAudioClipUrl(row.audio_filename)
+  return null
 }
 
 async function main(): Promise<void> {
@@ -97,45 +119,43 @@ async function main(): Promise<void> {
   const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } })
   await client.connect()
 
+  const themeCache = new Map<string, string>()
+  let seeded = 0
+  let skippedInvalid = 0
+  let duplicatesHandled = 0
+
   try {
-    await client.query(
-      `ALTER TABLE public.theme_songs ADD COLUMN IF NOT EXISTS audio_url text`
-    )
-    await client.query(
-      `ALTER TABLE public.theme_songs ADD COLUMN IF NOT EXISTS start_time int NOT NULL DEFAULT 0`
-    )
-
-    const themeCache = new Map<string, string>()
-    let inserted = 0
-    let skipped = 0
-
-    for (const row of rows) {
-      const themeTag = row.theme_tag?.trim()
-      const youtubeId = row.youtube_id?.trim()
-      if (!themeTag || !youtubeId || !row.title?.trim()) {
-        console.warn('Skipping row missing theme_tag, youtube_id, or title:', row)
-        skipped++
+    for (const raw of rows) {
+      const row = sanitizeRow(raw)
+      const validationError = validateRow(row)
+      if (validationError) {
+        console.warn(
+          `Skipping invalid row (${validationError}): title="${row.title || '(empty)'}", artist="${row.artist || '(empty)'}", theme_tag="${row.theme_tag || '(empty)'}"`
+        )
+        skippedInvalid++
         continue
       }
 
-      let themeId = themeCache.get(themeTag.toLowerCase())
+      let themeId = themeCache.get(row.theme_tag.toLowerCase())
       if (!themeId) {
         const themeRes = await client.query<{ id: string }>(
           `SELECT id FROM public.themes WHERE lower(name) = lower($1) LIMIT 1`,
-          [themeTag]
+          [row.theme_tag]
         )
         themeId = themeRes.rows[0]?.id
         if (!themeId) {
-          console.warn(`Theme not found for tag "${themeTag}" — skipping "${row.title}"`)
-          skipped++
+          console.warn(
+            `Skipping invalid row (theme not found): title="${row.title}", artist="${row.artist}", theme_tag="${row.theme_tag}"`
+          )
+          skippedInvalid++
           continue
         }
-        themeCache.set(themeTag.toLowerCase(), themeId)
+        themeCache.set(row.theme_tag.toLowerCase(), themeId)
       }
 
       const audioUrl = resolveStoredAudioUrl(row)
       const startTime = Math.max(0, Math.floor(row.start_time ?? 0))
-      const title = displayTitle(row)
+      const youtubeId = row.youtube_id || 'pending'
 
       let position = row.position
       if (position == null || !Number.isFinite(position)) {
@@ -146,22 +166,44 @@ async function main(): Promise<void> {
         position = (posRes.rows[0]?.max ?? -1) + 1
       }
 
+      const label = `${row.title} — ${row.artist} (${row.theme_tag})`
+
       if (dryRun) {
-        console.log(`[dry-run] ${title} → theme=${themeTag} pos=${position} mp3=${audioUrl ?? '(none)'}`)
-        inserted++
+        console.log(`[dry-run] ${label} pos=${position} mp3=${audioUrl ?? '(none)'}`)
+        seeded++
         continue
       }
 
-      await client.query(
-        `INSERT INTO public.theme_songs (theme_id, youtube_id, title, position, audio_url, start_time)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [themeId, youtubeId, title, position, audioUrl, startTime]
+      const upsertRes = await client.query<{ is_insert: boolean }>(
+        `INSERT INTO public.theme_songs (
+           theme_id, youtube_id, title, artist, theme_tag, position, audio_url, start_time
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (title, artist, theme_tag) DO UPDATE SET
+           theme_id = EXCLUDED.theme_id,
+           youtube_id = EXCLUDED.youtube_id,
+           position = EXCLUDED.position,
+           audio_url = COALESCE(EXCLUDED.audio_url, public.theme_songs.audio_url),
+           start_time = EXCLUDED.start_time
+         RETURNING (xmax = 0) AS is_insert`,
+        [themeId, youtubeId, row.title, row.artist, row.theme_tag, position, audioUrl, startTime]
       )
-      inserted++
+
+      const isInsert = upsertRes.rows[0]?.is_insert
+      if (isInsert) {
+        seeded++
+      } else {
+        duplicatesHandled++
+      }
     }
 
-    await client.query(`NOTIFY pgrst, 'reload schema'`)
-    console.log(`\nMP3 seed complete: ${inserted} row(s) processed, ${skipped} skipped${dryRun ? ' (dry-run)' : ''}.`)
+    if (!dryRun) {
+      await client.query(`NOTIFY pgrst, 'reload schema'`)
+    }
+
+    console.log(
+      `\nSuccessfully seeded: ${seeded} | Skipped invalid: ${skippedInvalid} | Updated/Duplicates handled: ${duplicatesHandled}${dryRun ? ' (dry-run)' : ''}.`
+    )
   } finally {
     await client.end()
   }

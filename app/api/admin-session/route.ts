@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-
-const ADMIN_COOKIE = 'admin_verified'
+import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 
 /** Lets the client show admin-only UI (cookie is httpOnly). */
 export async function GET() {
   const jar = await cookies()
-  const isAdmin = jar.get(ADMIN_COOKIE)?.value === '1'
+  const isAdmin = isAdminCookieValue(jar.get(ADMIN_COOKIE)?.value)
   return NextResponse.json({ isAdmin })
 }

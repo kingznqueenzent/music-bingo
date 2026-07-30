@@ -1,81 +1,16 @@
-import { createClient } from '@/lib/supabase/server'
-import { getFeatureFlagMap } from '@/lib/feature-flags'
-import { PlayerCard } from './PlayerCard'
-import type { GameSponsor } from '@/lib/supabase/types'
+import { PlayPageContent } from './PlayPageContent'
 
 export default async function PlayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cardId?: string; gameId?: string }>
+  searchParams: Promise<{ cardId?: string; gameId?: string; hint?: string }>
 }) {
   const params = await searchParams
-  const cardId = params.cardId ?? ''
-  const gameId = params.gameId ?? ''
-
-  if (!cardId || !gameId) {
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">
-        <p className="text-xl">Missing card or game. Join a game first.</p>
-        <a href="/join" className="mt-6 text-xl underline text-emerald-400 hover:text-emerald-300">
-          Join game
-        </a>
-      </main>
-    )
-  }
-
-  const supabase = createClient()
-  const flags = await getFeatureFlagMap(supabase)
-  const wl = flags.b2b_white_label
-  const sponsorOn = flags.sponsor_integration
-
-  let logoUrl: string | null = null
-  let venueDisplayName: string | null = null
-  let brandPrimaryHex: string | null = null
-  let brandAccentHex: string | null = null
-  let brandHideLyricgrid = false
-  let sponsors: GameSponsor[] = []
-
-  try {
-    const { data: game } = await supabase.from('games').select('*').eq('id', gameId).single()
-    if (game && wl) {
-      logoUrl = game.logo_url ?? null
-      venueDisplayName = game.venue_display_name ?? null
-      brandPrimaryHex = game.brand_primary_hex ?? null
-      brandAccentHex = game.brand_accent_hex ?? null
-      brandHideLyricgrid = !!game.brand_hide_lyricgrid
-    } else if (game) {
-      logoUrl = game.logo_url ?? null
-    }
-    if (sponsorOn) {
-      const { data: sp } = await supabase
-        .from('game_sponsors')
-        .select('*')
-        .eq('game_id', gameId)
-        .order('sort_order')
-      sponsors = (sp ?? []) as GameSponsor[]
-    }
-  } catch {
-    // ignore
-  }
-
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center p-8 text-white">
-      <PlayerCard
-        cardId={cardId}
-        gameId={gameId}
-        logoUrl={logoUrl}
-        whiteLabel={
-          wl
-            ? {
-                venueDisplayName,
-                brandPrimaryHex,
-                brandAccentHex,
-                brandHideLyricgrid,
-              }
-            : null
-        }
-        sponsors={sponsorOn ? sponsors : []}
-      />
-    </main>
+    <PlayPageContent
+      gameId={params.gameId ?? ''}
+      cardId={params.cardId ?? ''}
+      lyricHint={params.hint ?? null}
+    />
   )
 }

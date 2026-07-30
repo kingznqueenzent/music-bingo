@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const ADMIN_COOKIE = 'admin_verified'
+import { ADMIN_COOKIE } from '@/lib/admin-access'
 
 function normalize(s: string): string {
   return (s ?? '').replace(/\r/g, '').replace(/\s/g, '').replace(/^["']+|["']+$/g, '').toLowerCase().trim()

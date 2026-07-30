@@ -425,7 +425,7 @@ export async function startGame(gameId: string) {
   return { ok: true }
 }
 
-export type WinPattern = 'line' | 'x' | 'blackout'
+export type WinPattern = 'line' | 'x' | 'blackout' | 'corners'
 
 /** Host: update clip length, crossfade, logo (Enterprise), winning pattern, and stage leaderboard toggle */
 export async function updateGameSettings(

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { GameClipPlayer, gameClipSourceLabel } from '@/components/GameClipPlayer'
@@ -25,6 +25,22 @@ import Link from 'next/link'
 import { playlistSongLabel } from '@/lib/media-display'
 import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
 import { useAutoDismissStack } from '@/hooks/useAutoDismissStack'
+import {
+  subscribeHostGameChannel,
+  broadcastPlaybackState,
+  broadcastWinnerCrowned,
+  broadcastSpinWheelStart,
+  type BingoClaimPayload,
+} from '@/lib/supabase-realtime'
+import { resolveWheelSegments, pickWheelSegmentIndex } from '@/lib/stage-prize-wheel'
+import { getLevelFromXp } from '@/lib/xp-levels'
+import { toEvaluatorPattern, verifyBingoFromCells } from '@/lib/bingo-evaluator'
+import { getWinProgress } from '@/lib/bingo/player-progress'
+import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
+import { WinnersCircle } from '@/components/host/WinnersCircle'
+import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
+import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
+import { PlayerListPanel, type PlayerBoardStatus } from '@/components/host/PlayerListPanel'
 
 type HostDashboardProps = {
   gameId: string
@@ -79,6 +95,16 @@ export function HostDashboard({
     cardId: string
   }>(2)
   const [resetPlayedLoading, setResetPlayedLoading] = useState(false)
+  const [playbackPaused, setPlaybackPaused] = useState(false)
+  const [playerBoards, setPlayerBoards] = useState<PlayerBoardStatus[]>([])
+  const [winnersCircle, setWinnersCircle] = useState<{
+    open: boolean
+    playerName: string
+    cardId: string
+    pattern: string
+    verified: boolean
+  }>({ open: false, playerName: '', cardId: '', pattern: 'LINE', verified: false })
+  const [winConfirmLoading, setWinConfirmLoading] = useState(false)
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
   const playRowTouchHandledRef = useRef(false)
@@ -133,60 +159,147 @@ export function HostDashboard({
     return () => { cancelled = true }
   }, [gameId, supabase, retryTrigger, initialGame])
 
+  const refreshPlayerBoards = useCallback(async () => {
+    const gridSizeLocal = game?.grid_size === 4 ? 4 : 5
+    const mode = normalizeWinPattern(game?.mode)
+    const { data: cards } = await supabase
+      .from('cards')
+      .select('id, player_name, player_identifier, grid_data')
+      .eq('game_id', gameId)
+
+    const boards: PlayerBoardStatus[] = (cards ?? []).map((card) => {
+      const grid = Array.isArray(card.grid_data) ? card.grid_data : []
+      const cells = grid
+        .map((cell, idx) => {
+          const c = cell as {
+            position?: number
+            playlist_song_id?: string
+            track_id?: string
+            marked?: boolean
+          }
+          const songId = c.playlist_song_id ?? c.track_id
+          if (!songId) return null
+          return {
+            position: c.position ?? idx,
+            playlist_song_id: songId,
+            marked: !!c.marked,
+          }
+        })
+        .filter(Boolean) as { position: number; playlist_song_id: string; marked?: boolean }[]
+
+      const markedIds = new Set(
+        cells.filter((c) => c.marked).map((c) => c.playlist_song_id)
+      )
+      const progress =
+        cells.length > 0
+          ? getWinProgress(markedIds, cells, gridSizeLocal, mode)
+          : { current: 0, target: gridSizeLocal, label: `0 / ${gridSizeLocal}` }
+
+      let status: PlayerBoardStatus['status'] = 'playing'
+      if (progress.current >= progress.target) status = 'near_win'
+      if (progress.current >= progress.target - 1 && progress.target > 1) status = 'near_win'
+
+      return {
+        cardId: card.id,
+        playerName: card.player_name ?? 'Player',
+        playerIdentifier: card.player_identifier ?? null,
+        markedCount: progress.current,
+        target: progress.target,
+        status,
+      }
+    })
+    setPlayerBoards(boards)
+  }, [game?.grid_size, game?.mode, gameId, supabase])
+
   useEffect(() => {
-    const channel = supabase
-      .channel(`game-${gameId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` },
-        (payload) => setGame(payload.new as Game)
+    void refreshPlayerBoards()
+  }, [refreshPlayerBoards, playerCount])
+
+  const handleBingoClaim = useCallback(
+    async (payload: BingoClaimPayload) => {
+      const pattern = toEvaluatorPattern(String(payload.pattern))
+      const calledIds = played.map((p) => p.playlist_song_id)
+
+      const { data: cells } = await supabase
+        .from('card_cells')
+        .select('position, playlist_song_id')
+        .eq('card_id', payload.cardId)
+        .order('position')
+
+      let boardCells = cells ?? []
+      if (boardCells.length === 0) {
+        const { data: card } = await supabase
+          .from('cards')
+          .select('grid_data')
+          .eq('id', payload.cardId)
+          .single()
+        const grid = Array.isArray(card?.grid_data) ? card.grid_data : []
+        boardCells = grid
+          .map((cell, idx) => {
+            const c = cell as { position?: number; playlist_song_id?: string; track_id?: string }
+            const songId = c.playlist_song_id ?? c.track_id
+            if (!songId) return null
+            return { position: c.position ?? idx, playlist_song_id: songId }
+          })
+          .filter(Boolean) as { position: number; playlist_song_id: string }[]
+      }
+
+      const gridSizeLocal = game?.grid_size === 4 ? 4 : 5
+      const result = verifyBingoFromCells(
+        boardCells,
+        payload.markedPlaylistSongIds,
+        calledIds,
+        pattern,
+        gridSizeLocal
       )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
-        () => {
-          supabase.from('played_songs').select('*').eq('game_id', gameId).order('played_at').then(({ data }) => setPlayed(data ?? []))
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'cards', filter: `game_id=eq.${gameId}` },
-        () => {
-          supabase.from('cards').select('*', { count: 'exact', head: true }).eq('game_id', gameId).then(({ count }) => setPlayerCount(count ?? 0))
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'game_events', filter: `game_id=eq.${gameId}` },
-        (payload) => {
-          const row = payload.new as {
-            event_type?: string
-            payload?: { playerName?: string; cardId?: string }
-          }
-          if (row.event_type === 'bingo_win') {
-            const p = row.payload
-            pushWinnerAlert({
-              playerName: p?.playerName ?? 'Player',
-              cardId: p?.cardId ?? '',
-            })
-          }
-        }
-      )
-      .on(
-        'broadcast',
-        { event: 'bingo_winner' },
-        (payload: { payload?: { playerName?: string; cardId?: string } }) => {
-          const p = payload?.payload
-          if (p?.playerName != null || p?.cardId != null) {
-            pushWinnerAlert({ playerName: p?.playerName ?? 'Player', cardId: p?.cardId ?? '' })
-          }
-        }
-      )
-      .subscribe()
+
+      setWinnersCircle({
+        open: true,
+        playerName: payload.playerName ?? 'Player',
+        cardId: payload.cardId,
+        pattern,
+        verified: result.valid,
+      })
+      pushWinnerAlert({
+        playerName: payload.playerName ?? 'Player',
+        cardId: payload.cardId,
+      })
+    },
+    [game?.grid_size, played, pushWinnerAlert, supabase]
+  )
+
+  useEffect(() => {
+    const channel = subscribeHostGameChannel(supabase, gameId, {
+      onGameUpdate: (row) => setGame(row as unknown as Game),
+      onSongCalled: () => {
+        supabase
+          .from('played_songs')
+          .select('*')
+          .eq('game_id', gameId)
+          .order('played_at')
+          .then(({ data }) => setPlayed(data ?? []))
+      },
+      onPlayerJoined: () => {
+        supabase
+          .from('cards')
+          .select('*', { count: 'exact', head: true })
+          .eq('game_id', gameId)
+          .then(({ count }) => setPlayerCount(count ?? 0))
+      },
+      onBingoWinner: (p) => {
+        pushWinnerAlert({ playerName: p.playerName ?? 'Player', cardId: p.cardId ?? '' })
+      },
+      onBingoClaim: (payload) => {
+        void handleBingoClaim(payload)
+      },
+      onBoardUpdate: () => {
+        void refreshPlayerBoards()
+      },
+    })
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [gameId, supabase, pushWinnerAlert])
+  }, [gameId, supabase, pushWinnerAlert, handleBingoClaim, refreshPlayerBoards])
 
   useEffect(() => {
     const ch = supabase.channel(`play-${gameId}`)
@@ -358,6 +471,13 @@ export function HostDashboard({
           event: 'bingo_verified',
           payload: { cardId },
         })
+        const playerName =
+          (data as { playerName?: string }).playerName ?? verificationResult.card.player_name
+        await broadcastWinnerCrowned(supabase, gameId, {
+          playerName,
+          cardId,
+          pattern: normalizeWinPattern(game?.mode),
+        })
         setVerifyBingoSuccess('Bingo verified! Winner notified — they can claim on the leaderboard.')
       } else {
         setVerificationError(data.error ?? 'Verification failed')
@@ -490,8 +610,88 @@ export function HostDashboard({
   const upNext = songs.filter((s) => !playedIds.has(s.id))
   const playedSongs = songs.filter((s) => playedIds.has(s.id))
 
+  async function handleConfirmWinFromCircle() {
+    const cardId = winnersCircle.cardId
+    if (!cardId) return
+    setWinConfirmLoading(true)
+    try {
+      const res = await fetch('/api/verify-bingo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, cardId }),
+      })
+      const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
+      if (data.valid) {
+        playChannelRef.current?.send({
+          type: 'broadcast',
+          event: 'bingo_verified',
+          payload: { cardId },
+        })
+        const playerName = data.playerName ?? winnersCircle.playerName
+        let level: number | undefined
+        let levelTitle: string | undefined
+        const { data: lbRow } = await supabase
+          .from('leaderboard')
+          .select('points')
+          .eq('player_name', playerName)
+          .maybeSingle()
+        if (lbRow?.points != null) {
+          const lvl = getLevelFromXp(lbRow.points)
+          level = lvl.level
+          levelTitle = lvl.title
+        }
+        await broadcastWinnerCrowned(supabase, gameId, {
+          playerName,
+          cardId,
+          pattern: winnersCircle.pattern,
+          level,
+          levelTitle,
+        })
+        setWinnersCircle((w) => ({ ...w, open: false, verified: true }))
+        setVerifyBingoSuccess(`${playerName} verified!`)
+      } else {
+        setActionError(data.error ?? 'Verification failed')
+      }
+    } catch (e) {
+      setActionError(String(e))
+    } finally {
+      setWinConfirmLoading(false)
+    }
+  }
+
+  async function handleLaunchPrizeWheel() {
+    const segments = resolveWheelSegments(game)
+    const targetIndex = pickWheelSegmentIndex(segments)
+    const spinId = crypto.randomUUID()
+    await broadcastSpinWheelStart(supabase, gameId, {
+      segments,
+      targetIndex,
+      winnerName: winnersCircle.playerName || undefined,
+      spinId,
+    })
+    setWinnersCircle((w) => ({ ...w, open: false }))
+    window.open(`/stage/${gameId}`, '_blank', 'noopener,noreferrer')
+  }
+
+  async function handleTogglePlaybackPause() {
+    const next = !playbackPaused
+    setPlaybackPaused(next)
+    await broadcastPlaybackState(supabase, gameId, { paused: next })
+  }
+
   return (
     <div className="w-full max-w-4xl space-y-8">
+      <WinnersCircle
+        open={winnersCircle.open}
+        playerName={winnersCircle.playerName}
+        cardId={winnersCircle.cardId}
+        pattern={winnersCircle.pattern}
+        verified={winnersCircle.verified}
+        confirmLoading={winConfirmLoading}
+        onConfirmWin={handleConfirmWinFromCircle}
+        onLaunchPrizeWheel={handleLaunchPrizeWheel}
+        onDismiss={() => setWinnersCircle((w) => ({ ...w, open: false }))}
+      />
       {winnerAlerts.length > 0 && (
         <div className="space-y-2">
           {winnerAlerts.map((w) => (
@@ -750,6 +950,7 @@ export function HostDashboard({
             {(
               [
                 ['line', 'Single Line (horizontal, vertical, or diagonal)'],
+                ['corners', 'Four Corners'],
                 ['x', 'X-Shape (both diagonals)'],
                 ['blackout', 'Full House (Blackout)'],
               ] as const
@@ -810,6 +1011,29 @@ export function HostDashboard({
         {actionError && <p className="text-red-300 mt-2">{actionError}</p>}
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <HostSongControls
+          clipSeconds={clipSeconds}
+          paused={playbackPaused}
+          hasCurrentSong={!!currentSong}
+          hasUpNext={upNext.length > 0}
+          playing={!!playingSongId}
+          onTogglePause={handleTogglePlaybackPause}
+          onNext={() => upNext[0] && handleNextSong(upNext[0])}
+          onSkip={() => {
+            const next = upNext.find((s) => s.id !== currentSong?.id) ?? upNext[0]
+            if (next) void handleNextSong(next)
+          }}
+          onTimerChange={handleClipChange}
+        />
+        <CalledSongsLog songs={playedSongs} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <PlayerListPanel players={playerBoards} />
+        <ShoutoutConsole gameId={gameId} supabase={supabase} />
+      </div>
+
       {currentSong && gameClipSourceLabel(currentSong) !== 'unknown' ? (
         <div ref={nowPlayingRef} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
           <div className="flex items-center gap-3 mb-4">
@@ -822,7 +1046,7 @@ export function HostDashboard({
             song={currentSong}
             clipSeconds={clipSeconds}
             crossfadeSeconds={crossfadeSeconds}
-            autoPlay
+            autoPlay={!playbackPaused}
             className="max-w-2xl mx-auto"
           />
         </div>

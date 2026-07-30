@@ -24,16 +24,20 @@
     "db:reload-schema": "node scripts/run-reload-schema-cache.js",
     "db:seed-tracks": "npx tsx scripts/seed-tracks.ts",
     "db:migrate-base44": "npx tsx scripts/migrate-base44-library.ts",
+    "db:migrate-legacy": "npx tsx scripts/migrate-legacy-data.ts",
     "db:seed-from-theme-songs": "npx tsx scripts/seed-from-theme-songs.ts",
     "db:seed-theme-songs": "npm run db:seed-from-theme-songs",
     "db:seed-mp3s": "npx tsx scripts/seed-mp3s.ts",
     "db:count-tracks": "node scripts/count-library-tracks.js",
     "verify:win-patterns": "npx tsx scripts/verify-win-patterns.ts",
-    "verify:parity": "node scripts/verify-feature-parity.js"
+    "verify:parity": "node scripts/verify-feature-parity.js",
+    "test:gameflow": "npx tsx scripts/test-gameflow.ts",
+    "db:apply-migration": "npx tsx scripts/apply-migration.ts"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
     "@supabase/supabase-js": "^2.97.0",
+    "canvas-confetti": "^1.9.4",
     "gsap": "^3.15.0",
     "jspdf": "^4.2.0",
     "lucide-react": "^1.0.0",
@@ -45,6 +49,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/pg": "^8.11.0",
     "@types/react": "^19",

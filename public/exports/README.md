@@ -3,21 +3,28 @@
 Place Base44 entity exports here before running:
 
 ```bash
-npm run db:migrate-base44
+npm run db:migrate-legacy
 ```
 
 Expected filenames (any casing):
 
 | File | Entity |
 |------|--------|
-| `Themes.json` or `themes.json` | Playlist categories / themes |
-| `Songs.json` or `theme_songs.json` | Theme song rows (`theme_id`, `title`, …) |
-| `MediaLibrary.json` or `media_library.json` | Uploaded MP3/MP4 catalog |
-| `GameTemplates.json` | Optional — ignored unless rows include track data |
+| `Themes.json` / `Theme.json` | Playlist categories / themes |
+| `Songs.json` / `Song.json` | Theme song rows (`theme_id`, `title`, `artist`, …) |
+| `MediaLibrary.json` | Uploaded MP3/MP4 catalog |
+| `Genres.json` / `Genre.json` | Optional — linked from themes |
+| `Eras.json` / `Era.json` | Optional — linked from themes |
 
-The migration script maps each row's `theme_id` to a human-readable genre bucket (Dancehall, Reggae, 80's Pop, …) using theme + genre + era names, then inserts into `public.bingo_game_tracks` (`game_id` NULL = shared catalog).
+The legacy migration script:
 
-If this folder is empty, the script falls back to:
+- Maps theme names to `theme_tag` slugs (lowercase, underscored)
+- Sanitizes `title`, `artist`, `youtube_id`, `audio_url`, and `start_time`
+- Deduplicates `Songs.json` + `MediaLibrary.json` on `(title, artist, theme_tag)`
+- Upserts into `public.themes` and `public.theme_songs`
 
-1. `scripts/seed-tracks-library.json` (60-track starter catalog)
-2. Live `theme_songs` + `themes` from Supabase (when `DATABASE_URL` is set)
+For the bingo_game_tracks library catalog only, use:
+
+```bash
+npm run db:migrate-base44
+```

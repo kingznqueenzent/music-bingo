@@ -877,6 +877,8 @@ export type Database = {
           theme_id: string
           youtube_id: string
           title: string | null
+          artist: string | null
+          theme_tag: string | null
           position: number
           audio_url: string | null
           start_time: number
@@ -887,6 +889,8 @@ export type Database = {
           theme_id: string
           youtube_id: string
           title?: string | null
+          artist?: string | null
+          theme_tag?: string | null
           position?: number
           audio_url?: string | null
           start_time?: number
@@ -897,6 +901,8 @@ export type Database = {
           theme_id?: string | null
           youtube_id?: string | null
           title?: string | null
+          artist?: string | null
+          theme_tag?: string | null
           position?: number | null
           audio_url?: string | null
           start_time?: number | null

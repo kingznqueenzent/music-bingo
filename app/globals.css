@@ -107,3 +107,71 @@ input[type="button"],
   border-radius: 2px;
   animation: stage-confetti-fall 3.2s ease-in forwards;
 }
+
+/* Crowned winner overlay */
+@keyframes crown-pop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+@keyframes crown-glow {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.08); }
+}
+@keyframes crown-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+}
+.animate-crown-pop {
+  animation: crown-pop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.animate-crown-glow {
+  animation: crown-glow 2.4s ease-in-out infinite;
+}
+.animate-crown-breathe {
+  animation: crown-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes drawer-slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-drawer-slide-in {
+  animation: drawer-slide-in 0.28s ease-out forwards;
+}
+
+/* Bingo card: gold glow when a called song is marked */
+@keyframes bingo-gold-flash {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(255, 215, 0, 0);
+    border-color: rgba(255, 215, 0, 0.35);
+  }
+  45% {
+    transform: scale(1.06);
+    box-shadow: 0 0 28px rgba(255, 215, 0, 0.85), inset 0 0 18px rgba(255, 215, 0, 0.25);
+    border-color: #ffd700;
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+    border-color: rgba(255, 215, 0, 0.55);
+  }
+}
+.animate-bingo-gold-flash {
+  animation: bingo-gold-flash 0.45s ease-out;
+}
+
+/* Bingo card: red shake when tapping an uncalled song */
+@keyframes bingo-red-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+.animate-bingo-red-shake {
+  animation: bingo-red-shake 0.38s ease-in-out;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.55);
+  border-color: rgba(248, 113, 113, 0.85) !important;
+}

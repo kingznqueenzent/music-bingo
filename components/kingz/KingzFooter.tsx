@@ -2,6 +2,7 @@ import { KINGZ_CONTACT, NAV_LINKS } from '@/lib/kingz/data'
 import { PATREON_URL, BUY_ME_A_COFFEE_URL, PRINTIFY_STORE_URL } from '@/lib/kingz/integrations'
 import { integrationHref } from '@/lib/kingz/integrations'
 import { KingzLogo } from './KingzLogo'
+import { StaffAccessFooterLink } from '@/components/layout/StaffAccessFooterLink'
 
 export function KingzFooter() {
   const year = new Date().getFullYear()
@@ -136,6 +137,12 @@ export function KingzFooter() {
         <div className="kingz-deco-divider mb-8" aria-hidden />
         <p className="text-center text-[#b0b0b0] text-sm">
           © {year} Kingz &amp; Queenz Entertainment. All rights reserved.
+        </p>
+        <p className="text-center mt-3">
+          <StaffAccessFooterLink
+            from="/host"
+            className="text-xs text-[#b0b0b0]/70 hover:text-[#D4AF37]/90 transition-colors"
+          />
         </p>
       </div>
     </footer>

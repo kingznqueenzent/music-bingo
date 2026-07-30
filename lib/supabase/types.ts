@@ -25,6 +25,12 @@ export interface PlaylistSong {
 
 export type GameTier = 'free' | 'pro' | 'enterprise'
 
+export type WheelSegment = {
+  label: string
+  color?: string
+  weight?: number
+}
+
 export interface Game {
   id: string
   playlist_id: string
@@ -46,6 +52,7 @@ export interface Game {
   brand_hide_lyricgrid?: boolean
   entry_fee_cents?: number
   prize_pool_cents?: number
+  wheel_segments?: WheelSegment[] | null
   muted_players?: string[]
   chat_profanity_filter_enabled?: boolean
   created_at: string
@@ -56,6 +63,15 @@ export type ChatMessageType = 'text' | 'reaction' | 'system'
 export type CommunityChannel = 'general' | 'dancehall' | 'hiphop' | '90s' | 'throwbacks'
 
 export type ChatSenderRole = 'player' | 'host'
+
+export interface PlayerProfile {
+  id: string
+  email?: string | null
+  display_name?: string | null
+  role?: string | null
+  is_admin?: boolean | null
+  created_at?: string
+}
 
 export interface ChatMessage {
   id: string
@@ -153,6 +169,8 @@ export interface ThemeSong {
   theme_id: string
   youtube_id: string
   title: string | null
+  artist?: string | null
+  theme_tag?: string | null
   audio_url?: string | null
   start_time?: number | null
   position: number

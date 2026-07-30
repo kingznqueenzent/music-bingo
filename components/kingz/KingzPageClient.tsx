@@ -1,8 +1,14 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { SupabaseRealtimeAuth } from '@/components/SupabaseRealtimeAuth'
 
-/** Wraps kingz page — isolates client-only children from server page shell. */
+/** Wraps kingz page — auth sync for staff admin menu on marketing site. */
 export function KingzPageClient({ children }: { children: ReactNode }) {
-  return <>{children}</>
+  return (
+    <>
+      <SupabaseRealtimeAuth />
+      {children}
+    </>
+  )
 }

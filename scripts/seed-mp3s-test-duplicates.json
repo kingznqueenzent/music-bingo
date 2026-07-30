@@ -1,0 +1,24 @@
+[
+  {
+    "title": "Duplicate Test Track",
+    "artist": "Test Artist",
+    "theme_tag": "90s Hits",
+    "audio_filename": "90s/duplicate-test.mp3",
+    "youtube_id": "testDup001",
+    "start_time": 10
+  },
+  {
+    "title": "Duplicate Test Track",
+    "artist": "Test Artist",
+    "theme_tag": "90s Hits",
+    "audio_filename": "90s/duplicate-test-v2.mp3",
+    "youtube_id": "testDup002",
+    "start_time": 20
+  },
+  {
+    "title": "",
+    "artist": "Missing Title Artist",
+    "theme_tag": "90s Hits",
+    "youtube_id": "invalid001"
+  }
+]

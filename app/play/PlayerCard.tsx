@@ -12,8 +12,15 @@ import type {
   GameStatus,
 } from '@/lib/supabase/types'
 import { ChatPanel, type ChatIdentity } from '@/components/chat/ChatPanel'
+import { BingoCard } from '@/components/bingo/BingoCard'
+import { PatternMiniMap } from '@/components/bingo/PatternMiniMap'
+import { PlayerProgressBar } from '@/components/bingo/PlayerProgressBar'
 import { normalizeWinPattern, hasWinningPatternFromMarks, type WinPattern } from '@/lib/bingo-win-pattern'
+import { getMarkedPositions, getWinProgress } from '@/lib/bingo/player-progress'
 import { triggerHaptic } from '@/lib/haptic-feedback'
+import { broadcastBingoClaim } from '@/lib/supabase-realtime'
+import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
+import { roomCodeFromGame } from '@/types/database-extras'
 import { FeatureGate } from '@/components/FeatureGate'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
@@ -43,26 +50,13 @@ interface CellWithSong extends CardCell {
   song?: PlaylistSong | null
 }
 
-/** Row-major slots by `position` (0..size*size-1); handles out-of-order rows and missing holes. */
-function cellsToRows(size: number, cellsWithSongs: CellWithSong[]): (CellWithSong | null)[][] {
-  const map = new Map(cellsWithSongs.map((c) => [c.position, c]))
-  const rows: (CellWithSong | null)[][] = []
-  for (let r = 0; r < size; r++) {
-    const row: (CellWithSong | null)[] = []
-    for (let c = 0; c < size; c++) {
-      row.push(map.get(r * size + c) ?? null)
-    }
-    rows.push(row)
-  }
-  return rows
-}
-
-export function PlayerCard({
+export function PlayView({
   cardId,
   gameId,
   logoUrl = null,
   whiteLabel = null,
   sponsors = [],
+  lyricHint = null,
 }: {
   cardId: string
   gameId: string
@@ -74,6 +68,8 @@ export function PlayerCard({
     brandHideLyricgrid: boolean
   } | null
   sponsors?: GameSponsor[]
+  /** Optional lyric hint banner above the card (future host / AI hints). */
+  lyricHint?: string | null
 }) {
   const supabase = useMemo(() => createClient(), [])
   const [cells, setCells] = useState<CellWithSong[]>([])
@@ -94,14 +90,15 @@ export function PlayerCard({
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
-  const cellSkipClickRef = useRef(false)
-  const bingoSkipClickRef = useRef(false)
-  const playedSongsSyncRef = useRef(0)
-  const participationSentRef = useRef(false)
+  const [gameCode, setGameCode] = useState('')
+  const [playedSongIds, setPlayedSongIds] = useState<Set<string>>(new Set())
   const [profileIdentifier, setProfileIdentifier] = useState('')
+  const bingoSkipClickRef = useRef(false)
+  const participationSentRef = useRef(false)
   const [envelopeSponsor, setEnvelopeSponsor] = useState<GameSponsor | null>(null)
   const [gameStatus, setGameStatus] = useState<GameStatus>('lobby')
   const [chatEmail, setChatEmail] = useState('')
+  const [hostShoutout, setHostShoutout] = useState<{ kind: string; message: string } | null>(null)
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -110,13 +107,12 @@ export function PlayerCard({
     [gameId, cardId]
   )
 
-  const toggleMark = useCallback(
-    (playlistSongId: string) => {
-      triggerHaptic('tap')
+  const handleMarkChange = useCallback(
+    (playlistSongId: string, marked: boolean) => {
       setMarkedSongIds((prev) => {
         const next = new Set(prev)
-        if (next.has(playlistSongId)) next.delete(playlistSongId)
-        else next.add(playlistSongId)
+        if (marked) next.add(playlistSongId)
+        else next.delete(playlistSongId)
         persistMarks(next)
         void fetch('/api/game/update-board', {
           method: 'POST',
@@ -235,7 +231,7 @@ export function PlayerCard({
 
       const { data: game, error: gameError } = await supabase
         .from('games')
-        .select('mode, grid_size, status')
+        .select('mode, grid_size, status, code, room_code')
         .eq('id', gameId)
         .single()
 
@@ -250,6 +246,15 @@ export function PlayerCard({
         setGameMode(normalizeWinPattern(game.mode))
         setGridSize(game.grid_size === 4 ? 4 : 5)
         if (game.status) setGameStatus(game.status as GameStatus)
+        setGameCode(roomCodeFromGame(game))
+      }
+
+      const { data: playedRows } = await supabase
+        .from('played_songs')
+        .select('playlist_song_id')
+        .eq('game_id', gameId)
+      if (!cancelled && playedRows) {
+        setPlayedSongIds(new Set(playedRows.map((r) => r.playlist_song_id)))
       }
 
 
@@ -412,8 +417,11 @@ export function PlayerCard({
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
-        () => {
-          playedSongsSyncRef.current += 1
+        (payload) => {
+          const row = payload.new as { playlist_song_id?: string }
+          if (row.playlist_song_id) {
+            setPlayedSongIds((prev) => new Set([...prev, row.playlist_song_id!]))
+          }
         }
       )
       .subscribe()
@@ -453,6 +461,17 @@ export function PlayerCard({
           if (payload?.payload?.cardId === cardId) setShowWinModal(true)
         }
       )
+      .on(
+        'broadcast',
+        { event: 'host_shoutout' },
+        (payload: { payload?: { kind?: string; message?: string } }) => {
+          const p = payload?.payload
+          if (p?.message) {
+            setHostShoutout({ kind: p.kind ?? 'custom', message: p.message })
+            window.setTimeout(() => setHostShoutout(null), 12000)
+          }
+        }
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
@@ -488,6 +507,14 @@ export function PlayerCard({
     setBingoMessage(null)
     setBingoSubmitting(true)
     try {
+      void broadcastBingoClaim(supabase, gameId, {
+        cardId,
+        playerId: profileIdentifier || cardId,
+        playerName,
+        pattern: toEvaluatorPattern(gameMode),
+        markedPlaylistSongIds: [...markedSongIds],
+      })
+
       const res = await fetch('/api/verify-bingo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -552,7 +579,28 @@ export function PlayerCard({
   }
 
   const size = gridSize
-  const grid = cellsToRows(size, cells)
+
+  const bingoCardCells = useMemo(
+    () =>
+      cells.map((c) => ({
+        id: c.id,
+        position: c.position,
+        playlistSongId: c.playlist_song_id,
+        label: c.song?.title || c.song?.youtube_id || '—',
+        albumArtUrl: c.song?.album_art_url ?? null,
+      })),
+    [cells]
+  )
+
+  const progress = useMemo(
+    () => getWinProgress(markedSongIds, cells, size, gameMode),
+    [markedSongIds, cells, size, gameMode]
+  )
+
+  const markedPositions = useMemo(
+    () => getMarkedPositions(markedSongIds, cells, size),
+    [markedSongIds, cells, size]
+  )
 
   const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FFFF'
   const accent = whiteLabel?.brandAccentHex?.trim() || '#34d399'
@@ -571,14 +619,18 @@ export function PlayerCard({
       }
     >
       <div className="flex-1 min-w-0 max-w-3xl mx-auto w-full">
-      <div className="flex items-center justify-between gap-4 mb-2">
+      {/* Play header: game code + player */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           {!hideLyricgrid && (
             <>
               <LyricGridLogo size={48} className="shrink-0" />
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-[#00FFFF] to-cyan-300 bg-clip-text text-transparent">
-                Your Bingo Card
-              </h1>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-[#00FFFF] to-cyan-300 bg-clip-text text-transparent">
+                  Your Bingo Card
+                </h1>
+                <p className="text-slate-400 text-sm mt-0.5 truncate">{playerName}</p>
+              </div>
             </>
           )}
           {hideLyricgrid && (
@@ -596,19 +648,54 @@ export function PlayerCard({
                 >
                   {whiteLabel?.venueDisplayName?.trim() || 'Your Bingo Card'}
                 </h1>
-                {whiteLabel?.venueDisplayName ? (
-                  <p className="text-slate-400 text-sm mt-1">Your Bingo Card</p>
-                ) : null}
+                <p className="text-slate-400 text-sm mt-1 truncate">{playerName}</p>
               </div>
             </div>
           )}
         </div>
-        {!hideLyricgrid && logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt="Game logo" className="h-10 w-10 rounded object-contain shrink-0" />
-        ) : null}
+        <div className="flex items-center gap-2 shrink-0">
+          {gameCode ? (
+            <div
+              className="rounded-xl border border-[#00FFFF]/40 bg-[#1E1E1E] px-3 py-2 text-center"
+              aria-label={`Game code ${gameCode}`}
+            >
+              <p className="text-[10px] uppercase tracking-widest text-[#00FFFF]/70">Game code</p>
+              <p className="text-lg font-black text-[#00FFFF] tabular-nums tracking-wider">{gameCode}</p>
+            </div>
+          ) : null}
+          {!hideLyricgrid && logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt="Game logo" className="h-10 w-10 rounded object-contain shrink-0" />
+          ) : null}
+        </div>
       </div>
-      <p className="text-slate-400 mb-6">{playerName}</p>
+
+      {lyricHint ? (
+        <div
+          className="mb-4 rounded-xl border border-[#00FFFF]/35 bg-[#00FFFF]/5 px-4 py-3 text-sm text-cyan-100"
+          role="note"
+          aria-label="Lyric hint"
+        >
+          <p className="text-[10px] uppercase tracking-widest text-[#00FFFF]/80 font-semibold mb-1">Lyric hint</p>
+          <p>{lyricHint}</p>
+        </div>
+      ) : null}
+
+      {hostShoutout ? (
+        <div
+          className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+            hostShoutout.kind === 'warning'
+              ? 'border-red-500/50 bg-red-950/40 text-red-100'
+              : hostShoutout.kind === 'venue'
+                ? 'border-[#00FFFF]/40 bg-[#00FFFF]/10 text-cyan-100'
+                : 'border-amber-500/40 bg-amber-950/30 text-amber-100'
+          }`}
+          role="status"
+        >
+          <p className="text-[10px] uppercase tracking-widest opacity-80 font-semibold mb-1">Host message</p>
+          <p>{hostShoutout.message}</p>
+        </div>
+      ) : null}
 
       {songsFetchError ? (
         <p className="mb-4 text-amber-200/90 text-sm rounded-xl border border-amber-500/40 bg-amber-950/40 px-4 py-3">
@@ -616,76 +703,26 @@ export function PlayerCard({
         </p>
       ) : null}
 
-      <div className="bg-[#1E1E1E] rounded-2xl p-3 sm:p-5 border border-white/10 relative z-10">
-        <div
-          className="grid gap-1.5 sm:gap-3 relative"
-          style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
-        >
-          {grid.map((row, rowIndex) =>
-            row.map((cell, colIndex) => {
-              const slotKey = `${rowIndex}-${colIndex}`
-              if (!cell) {
-                return (
-                  <div
-                    key={`missing-${slotKey}`}
-                    className="aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-3 text-center text-base sm:text-lg font-medium border-2 border-dashed border-amber-600/50 text-amber-200/80 min-h-[4.5rem] min-w-[3rem]"
-                  >
-                    <span className="text-xs uppercase tracking-wide">Missing</span>
-                    <span className="text-slate-500 text-xs mt-1">square</span>
-                  </div>
-                )
-              }
-              const isMarked = markedSongIds.has(cell.playlist_song_id)
-              const songId = cell.playlist_song_id
-              const handleTap = () => toggleMark(songId)
-              const label = cell.song?.title || cell.song?.youtube_id || '—'
-              return (
-                <button
-                  key={cell.id}
-                  type="button"
-                  onPointerDown={(e) => {
-                    if (e.pointerType !== 'touch') return
-                    e.preventDefault()
-                    cellSkipClickRef.current = true
-                    handleTap()
-                    window.setTimeout(() => {
-                      cellSkipClickRef.current = false
-                    }, 600)
-                  }}
-                  onClick={() => {
-                    if (cellSkipClickRef.current) {
-                      cellSkipClickRef.current = false
-                      return
-                    }
-                    handleTap()
-                  }}
-                  className={`
-                    aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-3 text-center text-base sm:text-lg font-medium
-                    border-2 transition-all duration-200 overflow-hidden cursor-pointer touch-manipulation min-h-[4.5rem] min-w-[3rem]
-                    select-none active:scale-[0.98]
-                    ${isMarked
-                      ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 shadow-[inset_0_0_20px_rgba(16,185,129,0.15)]'
-                      : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-slate-400'}
-                  `}
-                  style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-                >
-                  {cell.song?.album_art_url && (
-                    <img
-                      src={cell.song.album_art_url}
-                      alt=""
-                      className="w-5 h-5 sm:w-7 sm:h-7 rounded object-cover shrink-0 mb-0.5 pointer-events-none"
-                    />
-                  )}
-                  <span className="line-clamp-5 leading-snug break-words pointer-events-none">{label}</span>
-                </button>
-              )
-            })
-          )}
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 mb-4">
+        <PlayerProgressBar
+          current={progress.current}
+          target={progress.target}
+          label={progress.label}
+          mode={gameMode}
+        />
+        <PatternMiniMap size={size} mode={gameMode} markedPositions={markedPositions} />
       </div>
 
+      <BingoCard
+        size={size}
+        cells={bingoCardCells}
+        markedSongIds={markedSongIds}
+        playedSongIds={playedSongIds}
+        onMarkChange={handleMarkChange}
+      />
+
       <p className="mt-4 text-white/70 text-sm text-center">
-        Tap a square to mark it when the host plays that song. Get a winning pattern, then tap BINGO!
+        Tap squares when the host plays that song. Gold flash = called · Red shake = not played yet.
       </p>
 
       <div className="mt-6 flex flex-col items-center gap-3">
@@ -709,7 +746,7 @@ export function PlayerCard({
             void handleBingoClick()
           }}
           disabled={!canClaimBingo || bingoSubmitting}
-          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-emerald-500 hover:bg-emerald-400 text-white shadow-lg shadow-emerald-500/40 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
+          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#00FFFF] hover:bg-cyan-300 text-[#121212] shadow-lg shadow-[#00FFFF]/30 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
         >
           {bingoSubmitting ? 'Checking…' : 'BINGO!'}
         </button>
@@ -876,3 +913,6 @@ export function PlayerCard({
     </div>
   )
 }
+
+/** @deprecated Use `PlayView` — kept for existing imports. */
+export const PlayerCard = PlayView

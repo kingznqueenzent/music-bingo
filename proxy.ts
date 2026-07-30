@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase().trim() // e.g. YOUR_EMAIL@HERE.COM
-const ADMIN_COOKIE = 'admin_verified'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase().trim()
 
-const ADMIN_PATHS = ['/host', '/media']
-const ADMIN_PATH_PREFIXES = ['/host/', '/media/']
+const ADMIN_EXACT_PATHS = new Set([
+  '/host',
+  '/media',
+  '/media-manager',
+  '/kingz-control',
+  '/sitemap',
+  '/playlists',
+])
+
+const ADMIN_PREFIXES = ['/host/', '/media/']
 
 const LYRICGRID_HOSTS = new Set(['lyricgrid.ca', 'www.lyricgrid.ca'])
 
-function isAdminPath(pathname: string): boolean {
-  if (ADMIN_PATHS.includes(pathname)) return true
-  return ADMIN_PATH_PREFIXES.some((p) => pathname.startsWith(p))
+function isProtectedAdminPath(pathname: string): boolean {
+  if (ADMIN_EXACT_PATHS.has(pathname)) return true
+  return ADMIN_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
 function hostName(request: NextRequest): string | null {
@@ -26,7 +34,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/lyricgrid', request.url))
   }
 
-  if (!isAdminPath(pathname)) {
+  if (!isProtectedAdminPath(pathname)) {
     return NextResponse.next()
   }
 
@@ -35,15 +43,23 @@ export function proxy(request: NextRequest) {
   }
 
   const cookie = request.cookies.get(ADMIN_COOKIE)?.value
-  if (cookie === '1') {
+  if (isAdminCookieValue(cookie)) {
     return NextResponse.next()
   }
 
-  const loginUrl = new URL('/admin-login', request.url)
+  const loginUrl = new URL('/login', request.url)
   loginUrl.searchParams.set('from', pathname)
   return NextResponse.redirect(loginUrl)
 }
 
 export const config = {
-  matcher: ['/', '/host/:path*', '/media/:path*'],
+  matcher: [
+    '/',
+    '/host/:path*',
+    '/media/:path*',
+    '/media-manager',
+    '/kingz-control',
+    '/sitemap',
+    '/playlists',
+  ],
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Menu, X } from 'lucide-react'
 import { NAV_LINKS } from '@/lib/kingz/data'
 import { KingzLogo } from './KingzLogo'
+import { StaffHeaderActions } from '@/components/layout/StaffHeaderActions'
 
 export function KingzNav() {
   const [open, setOpen] = useState(false)
@@ -57,33 +58,47 @@ export function KingzNav() {
           <KingzLogo size="nav" variant="full" priority />
         </button>
 
-        <ul className="hidden lg:flex items-center gap-8" role="list">
-          {NAV_LINKS.map(({ id, label }) => (
-            <li key={id}>
-              <button
-                type="button"
-                onClick={() => scrollTo(id)}
-                className={`text-sm font-medium transition-colors duration-300 ${
-                  active === id
-                    ? 'text-[#D4AF37] underline underline-offset-8 decoration-[#D4AF37]'
-                    : 'text-[#f5f5f5] hover:text-[#D4AF37]'
-                }`}
-              >
-                {label}
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="hidden lg:flex items-center gap-6">
+          <ul className="flex items-center gap-8" role="list">
+            {NAV_LINKS.map(({ id, label }) => (
+              <li key={id}>
+                <button
+                  type="button"
+                  onClick={() => scrollTo(id)}
+                  className={`text-sm font-medium transition-colors duration-300 ${
+                    active === id
+                      ? 'text-[#D4AF37] underline underline-offset-8 decoration-[#D4AF37]'
+                      : 'text-[#f5f5f5] hover:text-[#D4AF37]'
+                  }`}
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <StaffHeaderActions
+            loginFrom="/host"
+            loginClassName="text-xs text-[#f5f5f5]/45 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap"
+            menuButtonClassName="h-9 w-9 flex items-center justify-center rounded-lg border border-[#D4AF37]/25 text-[#D4AF37]/80 hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-colors touch-manipulation"
+          />
+        </div>
 
-        <button
-          type="button"
-          className="lg:hidden p-2 text-[#D4AF37]"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label={open ? 'Close menu' : 'Open menu'}
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="lg:hidden flex items-center gap-2">
+          <StaffHeaderActions
+            loginFrom="/host"
+            loginClassName="text-[10px] text-[#f5f5f5]/45 hover:text-[#D4AF37]/90 transition-colors"
+            menuButtonClassName="h-9 w-9 flex items-center justify-center rounded-lg border border-[#D4AF37]/25 text-[#D4AF37]/80 hover:text-[#D4AF37] transition-colors touch-manipulation"
+          />
+          <button
+            type="button"
+            className="p-2 text-[#D4AF37]"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? 'Close menu' : 'Open menu'}
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </nav>
 
       {open && (
