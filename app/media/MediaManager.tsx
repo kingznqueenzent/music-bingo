@@ -1,89 +1,48 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import {
-  loadLibraryTracks,
-  type BingoTrackLibraryRow,
-} from '@/lib/media/bingo-track-library'
-import type { MediaLibraryItem, Theme, Genre, Era } from '@/lib/supabase/types'
-import { sortThemesChronologicalThenGenre } from '@/lib/sort-themes'
+import { Loader2, RefreshCw, CopyMinus, FolderSync, Tags } from 'lucide-react'
+import { TRACK_GENRE_BUCKETS } from '@/lib/media/track-genres'
+import { LibraryImporter } from './LibraryImporter'
+import { useBingoTrackLibrary } from './hooks/useBingoTrackLibrary'
+import type { BingoTrackLibraryRow } from './types'
 
-type Tab = 'upload' | 'library'
+type Tab = 'library' | 'upload' | 'import'
+
 type ThemeOption = { id: string; name: string }
 
-/** Host media library UI — catalog from `bingo_game_tracks` (game_id IS NULL). */
+/** Host media library — Supabase-native replacement for Base44 MediaManager. */
 export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | null }) {
-  const supabase = createClient()
+  const {
+    tracks,
+    mediaItems,
+    themes,
+    loading,
+    uploading,
+    uploadingFileName,
+    busyAction,
+    error,
+    setError,
+    refetch,
+    updateTrack,
+    uploadFile,
+    removeDuplicates,
+    syncFromMediaLibrary,
+    backfillGenres,
+    importTrackLines,
+  } = useBingoTrackLibrary()
+
   const [tab, setTab] = useState<Tab>('library')
-  const [tracks, setTracks] = useState<BingoTrackLibraryRow[]>([])
-  const [items, setItems] = useState<MediaLibraryItem[]>([])
-  const [themes, setThemes] = useState<ThemeOption[]>([])
-  const [uploadThemeId, setUploadThemeId] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [uploading, setUploading] = useState(false)
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const [uploadThemeId, setUploadThemeId] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState('')
   const [editingArtist, setEditingArtist] = useState('')
   const [editingGenre, setEditingGenre] = useState('')
   const [editingUrl, setEditingUrl] = useState('')
-  const [editingThemeId, setEditingThemeId] = useState<string>('')
+  const [editingThemeId, setEditingThemeId] = useState('')
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [actionMessage, setActionMessage] = useState<string | null>(null)
   const initialThemeApplied = useRef(false)
-
-  async function loadTracks() {
-    setLoading(true)
-    setError('')
-    const { tracks: rows, error: trackError } = await loadLibraryTracks(supabase)
-    if (trackError) {
-      setError(trackError)
-      setTracks([])
-    } else {
-      setTracks(rows)
-    }
-    setLoading(false)
-  }
-
-  async function loadMediaUploads() {
-    const { data, error: e } = await supabase
-      .from('media_library')
-      .select('*')
-      .order('created_at', { ascending: false })
-    if (e) {
-      const isSchemaCache = /theme_id|schema cache|column.*media_library/i.test(e.message)
-      if (isSchemaCache) {
-        const { data: fallbackData, error: fallbackErr } = await supabase
-          .from('media_library')
-          .select('id, name, file_path, file_url, storage_bucket, file_type, file_size_bytes, created_at')
-          .order('created_at', { ascending: false })
-        if (!fallbackErr) setItems((fallbackData ?? []) as MediaLibraryItem[])
-      }
-    } else {
-      setItems((data ?? []) as MediaLibraryItem[])
-    }
-  }
-
-  useEffect(() => {
-    void loadTracks()
-    void loadMediaUploads()
-  }, [])
-
-  useEffect(() => {
-    Promise.all([
-      supabase.from('themes').select('id, name, genre_id, era_id'),
-      supabase.from('genres').select('id, name, slug, sort_order'),
-      supabase.from('eras').select('id, name, start_year, end_year, sort_order'),
-    ]).then(([{ data: themeRows }, { data: genreRows }, { data: eraRows }]) => {
-      const sorted = sortThemesChronologicalThenGenre(
-        (themeRows ?? []) as Theme[],
-        (eraRows ?? []) as Era[],
-        (genreRows ?? []) as Genre[]
-      )
-      setThemes(sorted.map((t) => ({ id: t.id, name: t.name })))
-    })
-  }, [supabase])
 
   useEffect(() => {
     if (initialThemeApplied.current || !initialThemeId || !themes.length) return
@@ -106,64 +65,8 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
 
   const genreOptions = useMemo(() => {
     const fromTracks = tracks.map((t) => t.genre).filter(Boolean) as string[]
-    return [...new Set(fromTracks)].sort((a, b) => a.localeCompare(b))
+    return [...new Set([...TRACK_GENRE_BUCKETS, ...fromTracks])].sort((a, b) => a.localeCompare(b))
   }, [tracks])
-
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const ext = file.name.split('.').pop()?.toLowerCase()
-    if (ext !== 'mp3' && ext !== 'mp4') {
-      setError('Only MP3 and MP4 files are allowed.')
-      return
-    }
-    const MAX_MB = 100
-    if (file.size > MAX_MB * 1024 * 1024) {
-      setError(`File too large. Max ${MAX_MB} MB.`)
-      return
-    }
-    setUploading(true)
-    setUploadingFileName(file.name)
-    setError('')
-    const name = file.name
-    const safeName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-    const path = `${ext}/${safeName}`
-    try {
-      const { error: uploadError } = await supabase.storage.from('media').upload(path, file, {
-        contentType: file.type,
-        upsert: false,
-      })
-      if (uploadError) throw new Error(uploadError.message)
-      const { data: urlData } = supabase.storage.from('media').getPublicUrl(path)
-      const fileUrl = urlData.publicUrl
-      const insertPayload: Record<string, unknown> = {
-        name,
-        file_path: path,
-        file_url: fileUrl,
-        storage_bucket: 'media',
-        file_type: ext as 'mp3' | 'mp4',
-        file_size_bytes: file.size,
-      }
-      if (uploadThemeId) insertPayload.theme_id = uploadThemeId
-      let { error: insertError } = await supabase.from('media_library').insert(insertPayload)
-      if (insertError && /theme_id|schema cache|column/i.test(insertError.message)) {
-        delete insertPayload.theme_id
-        const retry = await supabase.from('media_library').insert(insertPayload)
-        insertError = retry.error
-      }
-      if (insertError) {
-        await supabase.storage.from('media').remove([path])
-        throw new Error(insertError.message)
-      }
-      await loadMediaUploads()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
-    } finally {
-      setUploading(false)
-      setUploadingFileName(null)
-      e.target.value = ''
-    }
-  }
 
   function startEditTrack(track: BingoTrackLibraryRow) {
     setEditingId(track.id)
@@ -192,47 +95,70 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
     }
     setSavingId(editingId)
     setError('')
-    const { error: updateError } = await supabase
-      .from('bingo_game_tracks')
-      .update({
-        title,
-        artist: editingArtist.trim() || null,
-        genre: editingGenre.trim() || null,
-        file_url: editingUrl.trim() || null,
-        theme_id: editingThemeId || null,
-      })
-      .eq('id', editingId)
-
-    if (updateError) {
-      setError(updateError.message)
-    } else {
-      cancelEdit()
-      await loadTracks()
-    }
+    const ok = await updateTrack(editingId, {
+      title,
+      artist: editingArtist.trim() || null,
+      genre: editingGenre.trim() || null,
+      file_url: editingUrl.trim() || null,
+      theme_id: editingThemeId || null,
+    })
+    if (ok) cancelEdit()
     setSavingId(null)
   }
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setActionMessage(null)
+    await uploadFile(file, uploadThemeId || null)
+    e.target.value = ''
+  }
+
+  async function handleRemoveDupes() {
+    setActionMessage(null)
+    const removed = await removeDuplicates()
+    if (removed >= 0) setActionMessage(removed === 0 ? 'No duplicates found.' : `Removed ${removed} duplicate(s).`)
+  }
+
+  async function handleSync() {
+    setActionMessage(null)
+    const result = await syncFromMediaLibrary()
+    if (result) {
+      setActionMessage(`Synced ${result.inserted} track(s); skipped ${result.skipped} existing.`)
+    }
+  }
+
+  async function handleBackfill() {
+    setActionMessage(null)
+    const updated = await backfillGenres()
+    if (updated !== null) {
+      setActionMessage(updated === 0 ? 'All tracks already have genres.' : `Backfilled ${updated} genre(s).`)
+    }
+  }
+
+  const isBusy = Boolean(busyAction)
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2 border-b border-slate-700 pb-4">
-        <button
-          type="button"
-          onClick={() => setTab('library')}
-          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-            tab === 'library' ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-          }`}
-        >
-          Song library ({tracks.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('upload')}
-          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-            tab === 'upload' ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-          }`}
-        >
-          Upload file
-        </button>
+        {(
+          [
+            ['library', `Song library (${tracks.length})`],
+            ['upload', 'Upload file'],
+            ['import', 'Import lines'],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setTab(id)}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+              tab === id ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {tab === 'library' && (
@@ -241,24 +167,58 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
             <div>
               <h2 className="text-lg font-semibold text-slate-100">Song library</h2>
               <p className="text-slate-500 text-sm">
-                Loaded from Supabase <code className="text-emerald-300/90">bingo_game_tracks</code> — grouped by genre.
+                Loaded from Supabase <code className="text-emerald-300/90">bingo_game_tracks</code> — grouped by genre
+                (Dancehall, Reggae, 80&apos;s Pop, …).
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => void loadTracks()}
-              disabled={loading}
-              className="rounded-full border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
-            >
-              {loading ? 'Refreshing…' : 'Refresh'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleRemoveDupes()}
+                disabled={loading || isBusy}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              >
+                {busyAction === 'dedupe' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CopyMinus className="w-3.5 h-3.5" />}
+                Remove dupes
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSync()}
+                disabled={loading || isBusy}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              >
+                {busyAction === 'sync' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FolderSync className="w-3.5 h-3.5" />}
+                Sync uploads
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleBackfill()}
+                disabled={loading || isBusy}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              >
+                {busyAction === 'backfill' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Tags className="w-3.5 h-3.5" />}
+                Backfill genres
+              </button>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                disabled={loading || isBusy}
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-600 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Refresh
+              </button>
+            </div>
           </div>
+
+          {actionMessage ? <p className="text-sm text-emerald-300/90 mb-4">{actionMessage}</p> : null}
+
           {loading ? (
             <p className="text-slate-400">Loading tracks…</p>
           ) : tracks.length === 0 ? (
             <p className="text-slate-500">
-              No tracks in the catalog yet. Run <code className="text-slate-400">npm run db:seed-tracks</code> or upload
-              files.
+              No tracks in the catalog yet. Upload files, import lines, or run{' '}
+              <code className="text-slate-400">npm run db:migrate-base44</code>.
             </p>
           ) : (
             <div className="space-y-8">
@@ -306,6 +266,18 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
                                   <option key={g} value={g} />
                                 ))}
                               </datalist>
+                              <select
+                                value={editingThemeId}
+                                onChange={(e) => setEditingThemeId(e.target.value)}
+                                className="min-w-[160px] rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-100 text-sm"
+                              >
+                                <option value="">No theme</option>
+                                {themes.map((t: ThemeOption) => (
+                                  <option key={t.id} value={t.id}>
+                                    {t.name}
+                                  </option>
+                                ))}
+                              </select>
                               <input
                                 type="url"
                                 value={editingUrl}
@@ -317,7 +289,7 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
                             <div className="flex gap-2">
                               <button
                                 type="button"
-                                onClick={saveTrack}
+                                onClick={() => void saveTrack()}
                                 disabled={savingId === track.id || !editingTitle.trim()}
                                 className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-medium py-1.5 px-4 text-sm"
                               >
@@ -365,8 +337,9 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
         <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
           <h2 className="text-lg font-semibold text-slate-100 mb-2">Upload file</h2>
           <p className="text-slate-400 text-sm mb-4">
-            MP3 or MP4, max 100 MB. Files go to <code className="text-slate-300">media_library</code> storage; sync to
-            the song library from host tools when ready.
+            MP3 or MP4, max 100 MB. Files upload to Supabase Storage (<code className="text-slate-300">media</code>{' '}
+            bucket) and register in <code className="text-slate-300">media_library</code>. Use Sync uploads to copy into
+            the song library.
           </p>
           {themes.length > 0 && (
             <div className="mb-4">
@@ -374,6 +347,7 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
               <select
                 value={uploadThemeId}
                 onChange={(e) => setUploadThemeId(e.target.value)}
+                disabled={uploading}
                 className="rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
               >
                 <option value="">No theme</option>
@@ -389,7 +363,7 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
             <input
               type="file"
               accept=".mp3,.mp4"
-              onChange={handleUpload}
+              onChange={(e) => void handleUpload(e)}
               disabled={uploading}
               className="sr-only"
             />
@@ -399,9 +373,20 @@ export function MediaLibrary({ initialThemeId }: { initialThemeId?: string | nul
                 ? 'Uploading…'
                 : 'Choose MP3 or MP4'}
           </label>
-          {items.length > 0 && (
-            <p className="text-slate-500 text-xs mt-4">{items.length} file(s) in media_library uploads.</p>
+          {mediaItems.length > 0 && (
+            <p className="text-slate-500 text-xs mt-4">{mediaItems.length} file(s) in media_library uploads.</p>
           )}
+        </div>
+      )}
+
+      {tab === 'import' && (
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+          <h2 className="text-lg font-semibold text-slate-100 mb-2">Import track lines</h2>
+          <LibraryImporter
+            themes={themes}
+            busy={busyAction === 'import'}
+            onImport={importTrackLines}
+          />
         </div>
       )}
 

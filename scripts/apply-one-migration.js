@@ -2,9 +2,10 @@
 /** Apply a single migration file by name (uses DATABASE_URL from .env.local). */
 const fs = require('fs')
 const path = require('path')
-const { Client } = require('pg')
 
-require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') })
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local'), override: true })
+
+const { connectPg } = require('./lib/pg-connect')
 
 const file = process.argv[2]
 if (!file) {
@@ -13,8 +14,8 @@ if (!file) {
 }
 
 async function main() {
-  const connectionString = process.env.DATABASE_URL?.trim()?.replace(/^"+|"+$/g, '')
-  if (!connectionString) {
+  const rawUrl = process.env.DATABASE_URL?.trim()
+  if (!rawUrl) {
     console.error('DATABASE_URL is not set in .env.local.')
     process.exit(1)
   }
@@ -23,9 +24,9 @@ async function main() {
     console.error('Not found:', sqlPath)
     process.exit(1)
   }
-  const client = new Client({ connectionString, ssl: { rejectUnauthorized: false } })
+  const { client, label } = await connectPg(rawUrl)
   try {
-    await client.connect()
+    console.log('Connected via', label)
     console.log('Applying', file, '…')
     await client.query(fs.readFileSync(sqlPath, 'utf8'))
     await client.query(`NOTIFY pgrst, 'reload schema'`)

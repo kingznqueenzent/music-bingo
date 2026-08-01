@@ -589,6 +589,33 @@ export type Database = {
         }
         Relationships: []
       }
+      player_stats: {
+        Row: {
+          id: string
+          username: string
+          games_played: number
+          wins: number
+          score: number
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          username: string
+          games_played?: number
+          wins?: number
+          score?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: string | null
+          username?: string | null
+          games_played?: number | null
+          wins?: number | null
+          score?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       media_library: {
         Row: {
           id: string
@@ -1206,7 +1233,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_player_stats: {
+        Args: {
+          p_username: string
+          p_games?: number
+          p_wins?: number
+          p_score?: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

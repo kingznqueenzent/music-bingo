@@ -28,6 +28,10 @@
     "db:seed-from-theme-songs": "npx tsx scripts/seed-from-theme-songs.ts",
     "db:seed-theme-songs": "npm run db:seed-from-theme-songs",
     "db:seed-mp3s": "npx tsx scripts/seed-mp3s.ts",
+    "db:cleanup-songs": "npx tsx scripts/cleanup-songs-catalog.ts",
+    "db:import-kq-xlsx": "npx tsx scripts/import-kq-youtube-xlsx.ts",
+    "db:setup-media-catalog": "node scripts/setup-media-catalog.js",
+    "db:test-connection": "node scripts/lib/pg-connect.js",
     "db:count-tracks": "node scripts/count-library-tracks.js",
     "verify:win-patterns": "npx tsx scripts/verify-win-patterns.ts",
     "verify:parity": "node scripts/verify-feature-parity.js",
@@ -36,6 +40,7 @@
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.97.0",
     "canvas-confetti": "^1.9.4",
     "gsap": "^3.15.0",
@@ -58,6 +63,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
   }
 }

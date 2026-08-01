@@ -1,0 +1,61 @@
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
+import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
+
+async function requireHostCookie(): Promise<boolean> {
+  const jar = await cookies()
+  return isAdminCookieValue(jar.get(ADMIN_COOKIE)?.value)
+}
+
+/** Host catalog CRUD via service role (admin cookie gate). */
+export async function GET() {
+  if (!(await requireHostCookie())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('songs')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ songs: data ?? [] })
+}
+
+export async function POST(request: NextRequest) {
+  if (!(await requireHostCookie())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = (await request.json()) as Record<string, unknown>
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from('songs')
+    .insert([
+      {
+        title: String(body.title ?? '').trim(),
+        artist: body.artist ? String(body.artist).trim() : null,
+        year: body.year != null ? Number(body.year) : null,
+        theme_id: body.theme_id ? String(body.theme_id) : null,
+        youtube_url: body.youtube_url ? String(body.youtube_url).trim() : null,
+        media_url: body.media_url ? String(body.media_url).trim() : null,
+        storage_path: body.storage_path ? String(body.storage_path).trim() : null,
+        start_time_sec: Number(body.start_time_sec ?? 0),
+        duration_sec: Number(body.duration_sec ?? 35),
+        file_duration_sec:
+          body.file_duration_sec != null && body.file_duration_sec !== ''
+            ? Number(body.file_duration_sec)
+            : null,
+        media_type: body.youtube_url ? 'youtube' : String(body.media_type ?? 'audio'),
+      },
+    ])
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ song: data })
+}

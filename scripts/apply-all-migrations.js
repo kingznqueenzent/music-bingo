@@ -35,6 +35,11 @@ const MIGRATION_FILES = [
   '20260628120000_game_events.sql',
   '20260729120000_theme_songs_audio_url.sql',
   '20260729130000_unique_theme_songs.sql',
+  '20260730120000_game_wheel_segments.sql',
+  '20260730140000_player_profiles.sql',
+  '20260730160000_songs_catalog.sql',
+  '20260730170000_songs_delete_policy.sql',
+  '20260730180000_decade_themes_seed.sql',
 ]
 
 async function main() {
