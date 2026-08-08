@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { AuthError } from '@supabase/supabase-js'
 import { createClient, getSupabaseBrowserConfig } from '@/lib/supabase/client'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { refreshAdminAuth } from '@/lib/admin-auth-store'
+import { ensureHostSession } from '@/lib/ensure-host-session'
 import { AuthTimeoutError, withAuthTimeout } from '@/lib/auth-timeout'
 
 const AUTH_TIMEOUT_MS = 10_000
@@ -37,7 +38,6 @@ function friendlyAuthError(err: AuthError | Error | { message?: string } | null 
 }
 
 export function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('from') || '/host'
   const supabaseConfig = useMemo(() => getSupabaseBrowserConfig(), [])
@@ -62,13 +62,21 @@ export function LoginForm() {
   }, [supabaseConfig])
 
   useEffect(() => {
-    // Soft redirect once — hard window.location loops caused login ↔ media-manager flashes on mobile.
+    // Already-admin clients often lack admin_verified — mint cookie then hard-nav.
+    // Soft replace without host-session caused login ↔ media-manager bounce loops.
     if (adminLoading || !adminReady || !isAdmin || redirectedRef.current) return
     redirectedRef.current = true
     const target = redirectTo.startsWith('/') ? redirectTo : '/host'
-    console.log('[LyricGrid login] Already authenticated — redirecting to', target)
-    router.replace(target)
-  }, [adminLoading, adminReady, isAdmin, redirectTo, router])
+    console.log('[LyricGrid login] Already authenticated — ensuring host cookie then', target)
+    void (async () => {
+      const { ok } = await ensureHostSession()
+      if (!ok) {
+        redirectedRef.current = false
+        return
+      }
+      window.location.replace(target)
+    })()
+  }, [adminLoading, adminReady, isAdmin, redirectTo])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

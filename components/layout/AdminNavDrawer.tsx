@@ -1,10 +1,11 @@
 'use client'
 
-import { useCallback, type RefObject } from 'react'
+import { useCallback, useState, type RefObject } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { ADMIN_NAV_LINKS, isAdminNavActive } from '@/components/layout/admin-nav-links'
 import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
 import { MENU_TOKENS } from '@/components/ui/menu/tokens'
+import { ensureHostSession, isCookieProtectedPath } from '@/lib/ensure-host-session'
 
 export type AdminNavDrawerProps = {
   open: boolean
@@ -15,23 +16,43 @@ export type AdminNavDrawerProps = {
 
 /**
  * Admin navigation — mobile bottom sheet / desktop anchored popover.
- * Closes and unmounts *before* client navigation to avoid Media Manager flash.
+ * For Media Manager / Host etc., mint admin_verified before navigating so
+ * proxy + layout never bounce through /login.
  */
 export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [navigating, setNavigating] = useState(false)
 
   const navigate = useCallback(
-    (href: string) => {
-      // 1) Close + purge portal synchronously
+    async (href: string) => {
+      if (navigating) return
       onClose()
-      // 2) Navigate on next frame so the sheet is gone before the route paints
-      window.requestAnimationFrame(() => {
-        if (href === pathname) return
-        router.push(href)
-      })
+
+      if (href === pathname || href === `${pathname}/`) {
+        return
+      }
+
+      // Public-ish destinations can soft-navigate.
+      if (!isCookieProtectedPath(href)) {
+        window.requestAnimationFrame(() => router.push(href))
+        return
+      }
+
+      setNavigating(true)
+      try {
+        const { ok } = await ensureHostSession()
+        if (!ok) {
+          window.location.assign(`/login?from=${encodeURIComponent(href)}`)
+          return
+        }
+        // Hard navigation so the just-set cookie is always on the next document request.
+        window.location.assign(href)
+      } finally {
+        setNavigating(false)
+      }
     },
-    [onClose, pathname, router]
+    [navigating, onClose, pathname, router]
   )
 
   return (
@@ -39,7 +60,7 @@ export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps
       open={open}
       onClose={onClose}
       title="Admin menu"
-      description="LyricGrid controls"
+      description={navigating ? 'Opening…' : 'LyricGrid controls'}
       anchorRef={anchorRef}
       placement="bottom-end"
       desktopWidthClass="w-[22rem]"
@@ -51,10 +72,11 @@ export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps
             <li key={href}>
               <button
                 type="button"
-                onClick={() => navigate(href)}
+                disabled={navigating}
+                onClick={() => void navigate(href)}
                 className={`${MENU_TOKENS.itemBaseClass} ${
                   active ? MENU_TOKENS.itemActiveClass : MENU_TOKENS.itemIdleClass
-                }`}
+                } disabled:opacity-50`}
               >
                 <Icon className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
                 <span className="truncate">{label}</span>
