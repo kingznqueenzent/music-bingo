@@ -77,20 +77,62 @@ function MediaSongRowInner({
 
   return (
     <div
-      className={`p-3 grid grid-cols-12 gap-3 items-start transition-all ${
+      className={`p-3 sm:p-3 grid grid-cols-1 md:grid-cols-12 gap-3 md:gap-3 items-start transition-all min-w-0 ${
         isPlaying ? 'bg-[#00FFFF]/5 ring-1 ring-inset ring-[#00FFFF]/30' : 'hover:bg-white/[0.02]'
       } ${isEditing ? 'bg-[#00FFFF]/5' : ''} ${isSelected ? 'bg-white/[0.03]' : ''}`}
     >
-      <div className="col-span-1 pt-1">
+      <div className="md:col-span-1 flex items-start gap-3 min-w-0">
         <input
           type="checkbox"
           checked={isSelected}
           onChange={() => onToggleSelect(s.id)}
           aria-label={`Select ${s.title}`}
-          className="rounded border-white/20"
+          className="rounded border-white/20 mt-1 min-h-5 min-w-5"
         />
+        <div className="md:hidden flex-1 min-w-0 space-y-1">
+          {isEditing ? (
+            <>
+              <input
+                type="url"
+                value={editForm.media_url || ''}
+                onChange={(e) => onEditFormChange({ ...editForm, media_url: e.target.value })}
+                placeholder="Storage / media URL"
+                className="w-full border border-white/20 rounded px-2 py-2 text-xs text-gray-400 font-mono"
+                style={{ backgroundColor: BG }}
+              />
+              <input
+                type="url"
+                value={editForm.youtube_url || ''}
+                onChange={(e) => onEditFormChange({ ...editForm, youtube_url: e.target.value })}
+                placeholder="YouTube URL"
+                className="w-full border border-white/20 rounded px-2 py-2 text-xs text-gray-400 font-mono"
+                style={{ backgroundColor: BG }}
+              />
+            </>
+          ) : (
+            <>
+              <InlineEditableField
+                value={s.title}
+                placeholder="Add title…"
+                required
+                saving={inlineSavingKey === `${s.id}:title`}
+                className="font-medium text-sm text-white break-words"
+                onSave={(next) => onInlineFieldSave(s.id, 'title', next)}
+              />
+              <InlineEditableField
+                value={s.artist ?? ''}
+                placeholder="Add artist…"
+                saving={inlineSavingKey === `${s.id}:artist`}
+                className="text-xs text-gray-500 break-words"
+                inputClassName="text-gray-300"
+                onSave={(next) => onInlineFieldSave(s.id, 'artist', next)}
+              />
+            </>
+          )}
+        </div>
       </div>
-      <div className="col-span-3 min-w-0 space-y-1">
+
+      <div className="hidden md:block md:col-span-3 min-w-0 space-y-1">
         {isEditing ? (
           <>
             <input
@@ -148,110 +190,134 @@ function MediaSongRowInner({
         )}
       </div>
 
-      <div className="col-span-1 text-sm text-gray-400 tabular-nums" title="Full file duration">
-        {formatDuration(fullDur)}
+      <div className="flex flex-wrap items-center gap-2 md:contents min-w-0">
+        <div
+          className="text-sm text-gray-400 tabular-nums md:col-span-1"
+          title="Full file duration"
+        >
+          <span className="md:hidden text-[10px] uppercase text-gray-500 mr-1">Dur</span>
+          {formatDuration(fullDur)}
+        </div>
+
+        <div className="md:col-span-1">
+          <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${badge.className}`}>
+            {badge.label}
+          </span>
+        </div>
+
+        <div className="w-full md:w-auto md:col-span-3 min-w-0">
+          {isEditing ? (
+            <select
+              value={editForm.theme_id || ''}
+              onChange={(e) => onEditFormChange({ ...editForm, theme_id: e.target.value || null })}
+              className="w-full border border-white/20 rounded px-2 py-2 text-xs text-gray-300 min-h-10"
+              style={{ backgroundColor: BG }}
+            >
+              <option value="">Unassigned</option>
+              {themes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={s.theme_id || ''}
+              disabled={isTagging}
+              onChange={(e) => onInlineThemeChange(s.id, e.target.value)}
+              className="w-full max-w-full border border-white/10 rounded px-2 py-2 text-[11px] text-gray-300 truncate focus:border-[#00FFFF]/50 outline-none disabled:opacity-50 min-h-10"
+              style={{ backgroundColor: BG }}
+              title={themeName ?? 'Assign theme'}
+            >
+              <option value="">Unassigned</option>
+              {themes.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div className="w-full md:w-auto md:col-span-3 flex items-center justify-end gap-1 flex-wrap">
+          {isEditing ? (
+            <>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => onSaveEdit(s.id)}
+                className="p-2.5 min-h-11 min-w-11 rounded hover:bg-[#00FFFF]/20 disabled:opacity-50 touch-manipulation"
+                style={{ color: NEON }}
+                aria-label="Save"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={onCancelEdit}
+                className="p-2.5 min-h-11 min-w-11 rounded hover:bg-white/10 text-gray-400 touch-manipulation"
+                aria-label="Cancel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => onStartEdit(s)}
+                className="p-2.5 min-h-11 min-w-11 rounded hover:bg-white/10 text-gray-400 hover:text-[#00FFFF] touch-manipulation"
+                aria-label="Edit media URLs"
+                title="Edit media URLs"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                disabled={!hasPreview}
+                onClick={() => onTogglePlayback(s)}
+                className={`p-2.5 min-h-11 min-w-11 rounded-full border transition-all disabled:opacity-30 touch-manipulation ${
+                  isPlaying
+                    ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
+                    : 'border-white/10 text-gray-400 hover:border-[#00FFFF]/50 hover:text-[#00FFFF]'
+                }`}
+                aria-label={isPlaying ? 'Pause' : 'Play preview'}
+                title={hasPreview ? 'Play preview' : 'No storage URL'}
+              >
+                {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(s.id)}
+                className="p-2.5 min-h-11 min-w-11 rounded hover:bg-red-500/20 text-red-400/40 hover:text-red-400 touch-manipulation"
+                aria-label="Delete"
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="col-span-1">
-        <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${badge.className}`}>
-          {badge.label}
-        </span>
-      </div>
-
-      <div className="col-span-3 min-w-0">
-        {isEditing ? (
-          <select
-            value={editForm.theme_id || ''}
-            onChange={(e) => onEditFormChange({ ...editForm, theme_id: e.target.value || null })}
-            className="w-full border border-white/20 rounded px-2 py-1 text-xs text-gray-300"
-            style={{ backgroundColor: BG }}
+      {showCleanYoutube && !isEditing ? (
+        <div className="md:hidden">
+          <button
+            type="button"
+            disabled={inlineSavingKey === `${s.id}:youtube`}
+            onClick={() => onCleanYoutubeUrl(s)}
+            className="inline-flex items-center gap-1 text-[10px] text-amber-300/90 hover:text-amber-200 disabled:opacity-50 min-h-9"
           >
-            <option value="">Unassigned</option>
-            {themes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <select
-            value={s.theme_id || ''}
-            disabled={isTagging}
-            onChange={(e) => onInlineThemeChange(s.id, e.target.value)}
-            className="w-full max-w-full border border-white/10 rounded px-2 py-1 text-[11px] text-gray-300 truncate focus:border-[#00FFFF]/50 outline-none disabled:opacity-50"
-            style={{ backgroundColor: BG }}
-            title={themeName ?? 'Assign theme'}
-          >
-            <option value="">Unassigned</option>
-            {themes.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      <div className="col-span-3 flex items-center justify-end gap-1">
-        {isEditing ? (
-          <>
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={() => onSaveEdit(s.id)}
-              className="p-1.5 rounded hover:bg-[#00FFFF]/20 disabled:opacity-50"
-              style={{ color: NEON }}
-              aria-label="Save"
-            >
-              <Check className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={onCancelEdit}
-              className="p-1.5 rounded hover:bg-white/10 text-gray-400"
-              aria-label="Cancel"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={() => onStartEdit(s)}
-              className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-[#00FFFF]"
-              aria-label="Edit media URLs"
-              title="Edit media URLs"
-            >
-              <Pencil className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              disabled={!hasPreview}
-              onClick={() => onTogglePlayback(s)}
-              className={`p-1.5 rounded-full border transition-all disabled:opacity-30 ${
-                isPlaying
-                  ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
-                  : 'border-white/10 text-gray-400 hover:border-[#00FFFF]/50 hover:text-[#00FFFF]'
-              }`}
-              aria-label={isPlaying ? 'Pause' : 'Play preview'}
-              title={hasPreview ? 'Play preview' : 'No storage URL'}
-            >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete(s.id)}
-              className="p-1.5 rounded hover:bg-red-500/20 text-red-400/40 hover:text-red-400"
-              aria-label="Delete"
-              title="Delete"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </>
-        )}
-      </div>
+            {inlineSavingKey === `${s.id}:youtube` ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <Wand2 className="w-3 h-3" />
+            )}
+            Clean YouTube URL
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }

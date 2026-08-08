@@ -1,6 +1,6 @@
 'use client'
 
-import { Search, SlidersHorizontal } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import type { CatalogTheme } from './types'
 
 const BG = '#121212'
@@ -28,6 +28,7 @@ export type MediaManagerFilterBarProps = {
   resultCount: number
   totalCount: number
   loading?: boolean
+  onClearSearch?: () => void
 }
 
 export function MediaManagerFilterBar({
@@ -42,6 +43,7 @@ export function MediaManagerFilterBar({
   resultCount,
   totalCount,
   loading = false,
+  onClearSearch,
 }: MediaManagerFilterBarProps) {
   const themesWithTracks = [...themes]
     .filter((t) => (themeCounts[t.id] ?? 0) > 0)
@@ -50,27 +52,37 @@ export function MediaManagerFilterBar({
   return (
     <section
       aria-label="Search and filter library"
-      className="p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4"
+      className="p-3 sm:p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4 sticky top-12 z-20"
       style={{ backgroundColor: SURFACE }}
     >
       <div className="flex flex-col lg:flex-row lg:items-end gap-4">
         <div className="flex-1 min-w-0 space-y-2">
           <label htmlFor="media-manager-search" className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Search tracks
+            Search library
           </label>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 pointer-events-none" />
             <input
               id="media-manager-search"
               type="search"
-              placeholder="Filter by title, artist, theme, or URL…"
+              placeholder="Search titles, artists, genres…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full border border-white/15 rounded-xl pl-12 pr-4 py-3 text-base focus:border-[#00FFFF] outline-none ring-0 focus:ring-2 focus:ring-[#00FFFF]/20"
+              className="w-full border border-white/15 rounded-xl pl-12 pr-12 py-3.5 text-base focus:border-[#00FFFF] outline-none ring-0 focus:ring-2 focus:ring-[#00FFFF]/20 min-h-12"
               style={{ backgroundColor: BG, color: '#fff' }}
               autoComplete="off"
               spellCheck={false}
             />
+            {searchQuery.trim() && onClearSearch ? (
+              <button
+                type="button"
+                onClick={onClearSearch}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 min-h-10 min-w-10 touch-manipulation"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -107,7 +119,7 @@ export function MediaManagerFilterBar({
                 type="button"
                 aria-pressed={active}
                 onClick={() => onBatchFilterChange(pill.id)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                className={`px-3 py-2 min-h-10 rounded-full text-xs font-semibold border transition-colors touch-manipulation ${
                   active
                     ? 'border-[#00FFFF]/60 bg-[#00FFFF]/10 text-[#00FFFF]'
                     : 'border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'

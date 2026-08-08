@@ -114,6 +114,7 @@ export function HostDashboard({
     markedPlaylistSongIds: [],
   })
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
+  const [trackSearch, setTrackSearch] = useState('')
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
   const playRowTouchHandledRef = useRef(false)
@@ -644,6 +645,18 @@ export function HostDashboard({
   const winPattern = (game.mode as WinPattern) || 'line'
   const upNext = songs.filter((s) => !playedIds.has(s.id))
   const playedSongs = songs.filter((s) => playedIds.has(s.id))
+  const trackSearchQ = trackSearch.trim().toLowerCase()
+  const songMatchesSearch = (song: PlaylistSong) => {
+    if (!trackSearchQ) return true
+    const parts = playlistSongDisplayParts(song)
+    return (
+      parts.title.toLowerCase().includes(trackSearchQ) ||
+      (parts.artist ?? '').toLowerCase().includes(trackSearchQ) ||
+      parts.full.toLowerCase().includes(trackSearchQ)
+    )
+  }
+  const filteredUpNext = upNext.filter(songMatchesSearch)
+  const filteredPlayedSongs = playedSongs.filter(songMatchesSearch)
 
   async function handleConfirmWinFromCircle() {
     const cardId = winnersCircle.cardId
@@ -719,7 +732,7 @@ export function HostDashboard({
   }
 
   return (
-    <div className="w-full max-w-4xl space-y-8">
+    <div className="w-full max-w-4xl min-w-0 space-y-5 sm:space-y-8 overflow-x-hidden px-0">
       <WinnersCircle
         open={winnersCircle.open}
         playerName={winnersCircle.playerName}
@@ -736,20 +749,22 @@ export function HostDashboard({
           {winnerAlerts.map((w) => (
             <div
               key={w.id}
-              className={`rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 p-4 flex items-center justify-between gap-4 transition-opacity duration-500 ease-out ${
+              className={`rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-opacity duration-500 ease-out ${
                 w.fading ? 'opacity-0' : 'opacity-100'
               }`}
             >
-              <p className="text-xl font-bold text-emerald-300">
+              <p className="text-base sm:text-xl font-bold text-emerald-300 min-w-0 break-words">
                 🏆 WINNER: {w.playerName}
                 {w.cardId ? (
-                  <span className="text-slate-400 font-normal text-sm ml-2">(Card: {w.cardId.slice(0, 8)}…)</span>
+                  <span className="text-slate-400 font-normal text-sm ml-2 block sm:inline">
+                    (Card: {w.cardId.slice(0, 8)}…)
+                  </span>
                 ) : null}
               </p>
               <button
                 type="button"
                 onClick={() => dismissWinnerAlert(w.id)}
-                className="rounded-lg bg-slate-700 hover:bg-slate-600 px-3 py-1.5 text-sm text-slate-200 shrink-0 touch-manipulation"
+                className="rounded-lg bg-slate-700 hover:bg-slate-600 px-4 py-2.5 text-sm text-slate-200 shrink-0 touch-manipulation min-h-11 w-full sm:w-auto"
               >
                 Dismiss
               </button>
@@ -757,31 +772,32 @@ export function HostDashboard({
           ))}
         </div>
       )}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
-        <div className="flex flex-wrap items-center gap-4 mb-6">
-          <LyricGridLogo size={52} className="shrink-0" />
-          <div>
-            <h2 className="text-2xl font-bold text-[#00FFFF]/90">LyricGrid</h2>
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-4 sm:p-6 md:p-8 min-w-0">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <LyricGridLogo size={44} className="shrink-0 sm:hidden" />
+          <LyricGridLogo size={52} className="shrink-0 hidden sm:block" />
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#00FFFF]/90">LyricGrid</h2>
             <p className="text-slate-400 text-sm">Host Control</p>
           </div>
         </div>
-        <div className="flex flex-wrap items-start justify-between gap-6 mb-4">
-          <div>
-            <h2 className="text-3xl font-bold mb-2 text-slate-50">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-start justify-between gap-4 sm:gap-6 mb-4">
+          <div className="min-w-0 w-full sm:flex-1 text-center sm:text-left">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-slate-50 break-words">
               Game: <span className="text-emerald-400">{code || game.code}</span>
             </h2>
-            <p className="text-lg text-slate-300">
-              Share this code with players, or they can scan the QR code to open the Join page with the code pre-filled.
+            <p className="text-sm sm:text-lg text-slate-300">
+              Share this code with players, or scan the QR to open Join with the code pre-filled.
             </p>
           </div>
-          <JoinGameQRCode gameCode={code || game.code} size={140} />
+          <JoinGameQRCode gameCode={code || game.code} size={112} className="mx-auto sm:mx-0 shrink-0" />
         </div>
-        <div className="flex flex-wrap gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4 mb-4">
           <button
             type="button"
             onClick={handleStart}
             disabled={game.status !== 'lobby'}
-            className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-xl font-semibold py-4 px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100 cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-[48px]"
+            className="w-full sm:w-auto rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-lg sm:text-xl font-semibold py-3.5 sm:py-4 px-6 sm:px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100 cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-12"
           >
             ▶️ Start game
           </button>
@@ -790,7 +806,7 @@ export function HostDashboard({
               href={stageUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full border border-slate-500 px-6 py-4 text-lg font-semibold text-slate-200 hover:border-emerald-500 hover:text-emerald-400 transition-colors"
+              className="w-full sm:w-auto text-center rounded-full border border-slate-500 px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-slate-200 hover:border-emerald-500 hover:text-emerald-400 transition-colors min-h-12 inline-flex items-center justify-center touch-manipulation"
             >
               🖥️ Open Stage View
             </a>
@@ -799,7 +815,7 @@ export function HostDashboard({
             href="/leaderboard"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-full border-2 border-[#00FFFF]/70 bg-transparent px-6 py-4 text-lg font-semibold text-[#00FFFF] hover:bg-[#00FFFF]/10 hover:border-[#00FFFF] transition-all duration-300"
+            className="w-full sm:w-auto text-center rounded-full border-2 border-[#00FFFF]/70 bg-transparent px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FFFF] hover:bg-[#00FFFF]/10 hover:border-[#00FFFF] transition-all duration-300 min-h-12 inline-flex items-center justify-center touch-manipulation"
           >
             🏆 View Leaderboard
           </a>
@@ -1152,14 +1168,14 @@ export function HostDashboard({
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h3 className="text-2xl font-bold text-slate-50">Playlist</h3>
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-4 sm:p-6 md:p-8 min-w-0 overflow-x-hidden">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+          <h3 className="text-xl sm:text-2xl font-bold text-slate-50">Playlist</h3>
           <button
             type="button"
             onClick={handleResetPlayed}
             disabled={resetPlayedLoading || played.length === 0}
-            className="rounded-full border border-slate-500 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold py-2 px-4 text-sm text-slate-200"
+            className="w-full sm:w-auto rounded-full border border-slate-500 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold py-2.5 px-4 text-sm text-slate-200 min-h-11 touch-manipulation"
           >
             {resetPlayedLoading ? 'Resetting…' : 'Reset played list'}
           </button>
@@ -1172,13 +1188,28 @@ export function HostDashboard({
             )}
           </div>
         )}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+        <div className="mb-4">
+          <label htmlFor="host-track-search" className="sr-only">
+            Search playlist tracks
+          </label>
+          <input
+            id="host-track-search"
+            type="search"
+            value={trackSearch}
+            onChange={(e) => setTrackSearch(e.target.value)}
+            placeholder="Search playlist by title or artist…"
+            className="w-full rounded-xl bg-slate-800/80 border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 min-h-11"
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
+          <div className="min-w-0">
             <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide mb-2">
               Up next – click to play
             </h4>
             <ul className="space-y-1.5 max-h-72 overflow-y-auto overscroll-contain">
-              {upNext.map((song, idx) => {
+              {filteredUpNext.map((song, idx) => {
                 const parts = playlistSongDisplayParts(song)
                 const isPlaying = playingSongId === song.id
                 return (
@@ -1216,17 +1247,34 @@ export function HostDashboard({
                   </li>
                 )
               })}
-              {upNext.length === 0 && (
-                <li className="text-slate-500 text-sm py-2">All tracks played</li>
+              {filteredUpNext.length === 0 && (
+                <li className="text-slate-500 text-sm py-3 px-1">
+                  {upNext.length === 0
+                    ? 'All tracks played'
+                    : trackSearchQ
+                      ? (
+                          <span className="flex flex-col gap-2">
+                            No up-next matches.
+                            <button
+                              type="button"
+                              onClick={() => setTrackSearch('')}
+                              className="text-emerald-400 hover:text-emerald-300 text-left font-medium min-h-10"
+                            >
+                              Clear search
+                            </button>
+                          </span>
+                        )
+                      : 'No tracks'}
+                </li>
               )}
             </ul>
           </div>
-          <div>
+          <div className="min-w-0">
             <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
               Recently Played (Master list)
             </h4>
             <ul className="space-y-1.5 max-h-72 overflow-y-auto overscroll-contain">
-              {playedSongs.map((song) => {
+              {filteredPlayedSongs.map((song) => {
                 const parts = playlistSongDisplayParts(song)
                 return (
                   <li key={song.id} className="flex items-center gap-2 opacity-70 min-w-0">
@@ -1240,8 +1288,10 @@ export function HostDashboard({
                   </li>
                 )
               })}
-              {playedSongs.length === 0 && (
-                <li className="text-slate-500 text-sm py-2">No tracks played yet</li>
+              {filteredPlayedSongs.length === 0 && (
+                <li className="text-slate-500 text-sm py-2">
+                  {playedSongs.length === 0 ? 'No tracks played yet' : 'No played matches for search.'}
+                </li>
               )}
             </ul>
           </div>

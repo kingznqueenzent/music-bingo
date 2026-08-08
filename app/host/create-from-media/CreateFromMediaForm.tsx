@@ -16,6 +16,7 @@ import {
 } from '@/app/media-manager/MediaManagerFilterBar'
 import type { CatalogSong } from '@/app/media-manager/types'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
+import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { type GameTier } from '@/lib/tiers'
 
 const MIN_5X5 = 45
@@ -56,7 +57,8 @@ export function CreateFromMediaForm() {
     return byTheme.filter((s) => {
       const title = s.title.toLowerCase()
       const artist = (s.artist ?? '').toLowerCase()
-      return title.includes(q) || artist.includes(q)
+      const theme = (s.theme_id ? themeNameById.get(s.theme_id) ?? '' : '').toLowerCase()
+      return title.includes(q) || artist.includes(q) || theme.includes(q)
     })
   }, [items, search, batchFilter, themeNameById])
 
@@ -214,7 +216,7 @@ export function CreateFromMediaForm() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-6 min-w-0 overflow-hidden">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="text-lg font-semibold text-slate-100">Select tracks</h2>
           <div className="flex items-center gap-3 flex-wrap">
@@ -228,19 +230,33 @@ export function CreateFromMediaForm() {
               type="button"
               onClick={() => void loadLibrary()}
               disabled={loadingList}
-              className="text-sm font-medium px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:opacity-50"
+              className="text-sm font-medium px-3 py-2 min-h-10 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 disabled:opacity-50 touch-manipulation"
             >
               {loadingList ? 'Loading…' : 'Refresh list'}
             </button>
             <button
               type="button"
               onClick={selectAllFiltered}
-              className="text-sm font-medium text-emerald-400 hover:text-emerald-300"
+              className="text-sm font-medium text-emerald-400 hover:text-emerald-300 min-h-10 touch-manipulation"
             >
               Select all playable (filtered)
             </button>
           </div>
         </div>
+
+        <label htmlFor="create-media-search" className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Search library
+        </label>
+        <input
+          id="create-media-search"
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search titles, artists, genres…"
+          className="w-full mt-1 mb-3 p-3.5 min-h-12 rounded-xl bg-slate-800/60 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+          autoComplete="off"
+          spellCheck={false}
+        />
 
         <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Theme filter">
           {BATCH_THEME_PILLS.map((pill) => {
@@ -250,7 +266,7 @@ export function CreateFromMediaForm() {
                 key={pill.id}
                 type="button"
                 onClick={() => setBatchFilter(pill.id)}
-                className={`rounded-full px-3 py-1.5 text-sm font-medium border transition-colors ${
+                className={`rounded-full px-3 py-2 min-h-10 text-sm font-medium border transition-colors touch-manipulation ${
                   active
                     ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
                     : 'bg-slate-800/60 border-slate-600 text-slate-300 hover:border-slate-500'
@@ -261,14 +277,6 @@ export function CreateFromMediaForm() {
             )
           })}
         </div>
-
-        <input
-          type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter by title or artist…"
-          className="w-full mb-4 p-3 rounded-xl bg-slate-800/60 border border-slate-600 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-        />
 
         {loadError ? <p className="text-red-300 text-sm mb-4">{loadError}</p> : null}
         {items.length === 0 && !loadError && !loadingList ? (
@@ -284,40 +292,57 @@ export function CreateFromMediaForm() {
           <p className="text-slate-500 py-4">Loading full catalog (may take a moment)…</p>
         ) : null}
 
-        <ul className="max-h-[28rem] overflow-y-auto space-y-1">
-          {filteredItems.map((item) => {
-            const playable = songHasPlayableSource(item)
-            const label = item.artist ? `${item.title} — ${item.artist}` : item.title
-            return (
-              <li
-                key={item.id}
-                className={`flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-800/50 ${
-                  !playable ? 'opacity-50' : ''
-                }`}
-              >
-                <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(item.id)}
-                    onChange={() => toggle(item.id)}
-                    disabled={!playable}
-                    className="rounded border-slate-500 text-emerald-500 focus:ring-emerald-500 shrink-0 disabled:opacity-40"
-                  />
-                  <span className="text-slate-200 truncate" title={label}>
-                    {label}
-                  </span>
-                  <span className="text-slate-500 text-sm shrink-0 uppercase">
-                    {playable ? item.media_type : 'no media'}
-                  </span>
-                </label>
-              </li>
-            )
-          })}
-        </ul>
+        {!loadingList && items.length > 0 && filteredItems.length === 0 ? (
+          <LibrarySearchEmpty
+            query={search}
+            onClear={() => {
+              setSearch('')
+              setBatchFilter('all')
+            }}
+            message="No catalog tracks match your search or theme filter."
+          />
+        ) : (
+          <ul className="max-h-[min(28rem,55dvh)] overflow-y-auto overscroll-contain space-y-1 -mx-1 px-1">
+            {filteredItems.map((item) => {
+              const playable = songHasPlayableSource(item)
+              const label = item.artist ? `${item.title} — ${item.artist}` : item.title
+              const theme = item.theme_id ? themeNameById.get(item.theme_id) : null
+              return (
+                <li
+                  key={item.id}
+                  className={`flex items-center gap-2 py-2.5 px-3 rounded-lg hover:bg-slate-800/50 min-w-0 ${
+                    !playable ? 'opacity-50' : ''
+                  }`}
+                >
+                  <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggle(item.id)}
+                      disabled={!playable}
+                      className="rounded border-slate-500 text-emerald-500 focus:ring-emerald-500 shrink-0 disabled:opacity-40 min-h-5 min-w-5"
+                    />
+                    <span className="flex-1 min-w-0">
+                      <span className="text-slate-200 block truncate" title={label}>
+                        {label}
+                      </span>
+                      {theme ? (
+                        <span className="text-slate-500 text-xs truncate block">{theme}</span>
+                      ) : null}
+                    </span>
+                    <span className="text-slate-500 text-xs shrink-0 uppercase">
+                      {playable ? item.media_type : 'no media'}
+                    </span>
+                  </label>
+                </li>
+              )
+            })}
+          </ul>
+        )}
         {filteredItems.length > 0 ? (
           <p className="text-slate-500 text-xs mt-3">
             Showing {filteredItems.length} of {items.length} catalog tracks
-            {search.trim() ? ' (filtered)' : ''}
+            {search.trim() || batchFilter !== 'all' ? ' (filtered)' : ''}
           </p>
         ) : null}
       </div>

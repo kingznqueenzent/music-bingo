@@ -266,7 +266,7 @@ export function MediaUploadDropzone({
     progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
 
   return (
-    <section className="rounded-xl border border-white/10 p-4 space-y-4" style={{ backgroundColor: SURFACE }}>
+    <section className="rounded-xl border border-white/10 p-3 sm:p-4 space-y-4 overflow-hidden min-w-0" style={{ backgroundColor: SURFACE }}>
       <div>
         <label htmlFor="upload-theme" className="text-xs font-semibold uppercase tracking-wider text-gray-400">
           Theme / genre for this batch
@@ -307,7 +307,7 @@ export function MediaUploadDropzone({
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
         }}
-        className={`relative rounded-xl border-2 border-dashed p-10 text-center cursor-pointer transition-all ${
+        className={`relative rounded-xl border-2 border-dashed p-6 sm:p-10 text-center cursor-pointer transition-all touch-manipulation overflow-hidden min-w-0 ${
           isDragging ? 'border-[#00FFFF] bg-[#00FFFF]/5' : 'border-white/15 hover:border-[#00FFFF]/40 hover:bg-white/[0.02]'
         } ${uploading ? 'pointer-events-none opacity-70' : ''}`}
       >

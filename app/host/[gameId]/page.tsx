@@ -32,8 +32,8 @@ export default async function HostGamePage({ params }: { params: Promise<{ gameI
   }
 
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center p-8 text-white">
-      <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-slate-100">
+    <main className="min-h-dvh w-full overflow-x-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center px-3 py-6 sm:p-6 md:p-8 text-white">
+      <h1 className="text-2xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-8 text-slate-100 text-center px-2">
         <span className="block">🖥️ Host Control Panel</span>
       </h1>
       <HostDashboard
@@ -44,7 +44,10 @@ export default async function HostGamePage({ params }: { params: Promise<{ gameI
         initialPlayerCount={initialPlayerCount}
         serverError={serverError || undefined}
       />
-      <Link href="/lyricgrid" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
+      <Link
+        href="/lyricgrid"
+        className="mt-8 sm:mt-12 text-slate-300 hover:text-white text-base sm:text-lg transition-colors min-h-11 inline-flex items-center"
+      >
         ← Back to Home
       </Link>
     </main>

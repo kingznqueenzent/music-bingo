@@ -29,6 +29,7 @@ import { MediaManagerFilterTabs, MediaManagerFiltersPanel } from './MediaManager
 import { MediaSongRow } from './MediaSongRow'
 import { useMediaCatalog } from './hooks/useMediaCatalog'
 import { useAudioPreview } from './hooks/useAudioPreview'
+import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = '#121212'
@@ -421,7 +422,10 @@ function MediaManagerDashboardInner() {
     displayedSongs.length > 0 && displayedSongs.every((s) => selectedIds.has(s.id))
 
   return (
-    <main className="min-h-[calc(100dvh-3rem)] text-white p-6 max-w-[1600px] mx-auto space-y-6" style={{ backgroundColor: BG }}>
+    <main
+      className="min-h-dvh text-white p-3 sm:p-5 md:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-6 overflow-x-hidden pb-28"
+      style={{ backgroundColor: BG }}
+    >
       <Link href="/host" className="text-slate-400 hover:text-[#00FFFF] text-sm transition-colors inline-block">
         ← Host dashboard
       </Link>
@@ -489,6 +493,14 @@ function MediaManagerDashboardInner() {
         resultCount={filteredSongs.length}
         totalCount={songs.length}
         loading={loading}
+        onClearSearch={() => {
+          setSearchInput('')
+          setSearchQuery('')
+          setBatchFilter('all')
+          setSelectedThemeFilter('')
+          setSelectedGenreFilter('')
+          setLibraryView('all')
+        }}
       />
 
       {error ? (
@@ -549,8 +561,8 @@ function MediaManagerDashboardInner() {
             {filteredSongs.length !== songs.length ? ` (${songs.length} total)` : ''}
           </p>
 
-          <div className="rounded-xl border border-white/10 overflow-hidden" style={{ backgroundColor: SURFACE }}>
-            <div className="p-3 border-b border-white/10 text-[10px] font-semibold text-gray-500 uppercase tracking-wider grid grid-cols-12 gap-3 items-center">
+          <div className="rounded-xl border border-white/10 overflow-hidden min-w-0" style={{ backgroundColor: SURFACE }}>
+            <div className="p-3 border-b border-white/10 text-[10px] font-semibold text-gray-500 uppercase tracking-wider hidden md:grid grid-cols-12 gap-3 items-center">
               <div className="col-span-1 flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -567,15 +579,39 @@ function MediaManagerDashboardInner() {
               <div className="col-span-3">Theme / Genre</div>
               <div className="col-span-3 text-right">Actions</div>
             </div>
+            <div className="md:hidden p-3 border-b border-white/10 flex items-center gap-3">
+              <input
+                type="checkbox"
+                checked={allDisplayedSelected}
+                onChange={toggleSelectAllDisplayed}
+                aria-label="Select all loaded tracks"
+                className="rounded border-white/20 min-h-5 min-w-5"
+              />
+              <span className="text-xs text-gray-400">Select all loaded</span>
+            </div>
 
             {loading ? (
               <div className="p-10 text-center text-gray-500 flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" /> Loading library…
               </div>
             ) : filteredSongs.length === 0 ? (
-              <div className="p-10 text-center text-gray-500">
-                {hasActiveFilters ? 'No tracks match your search or filter.' : 'No tracks yet — upload MP3 or MP4 files above.'}
-              </div>
+              hasActiveFilters ? (
+                <LibrarySearchEmpty
+                  query={searchQuery}
+                  onClear={() => {
+                    setSearchInput('')
+                    setSearchQuery('')
+                    setBatchFilter('all')
+                    setSelectedThemeFilter('')
+                    setSelectedGenreFilter('')
+                    setLibraryView('all')
+                  }}
+                />
+              ) : (
+                <div className="p-10 text-center text-gray-500">
+                  No tracks yet — upload MP3 or MP4 files above.
+                </div>
+              )
             ) : (
               <>
                 <div className="divide-y divide-white/5">

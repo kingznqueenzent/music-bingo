@@ -29,7 +29,7 @@ export function BulkThemeToolbar({
 
   return (
     <div
-      className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 w-[min(100%,42rem)] mx-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#00FFFF]/40 bg-[#1E1E1E]/95 backdrop-blur-md px-4 py-3 shadow-2xl shadow-black/50"
+      className="fixed bottom-4 sm:bottom-6 left-1/2 z-50 -translate-x-1/2 w-[calc(100%-1.5rem)] sm:w-[min(100%,42rem)] max-w-[42rem] flex flex-wrap items-center gap-2 sm:gap-3 rounded-xl border border-[#00FFFF]/40 bg-[#1E1E1E] md:bg-[#1E1E1E]/95 md:backdrop-blur-md px-3 sm:px-4 py-3 shadow-2xl shadow-black/50 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       role="toolbar"
       aria-label="Bulk theme assignment"
     >
