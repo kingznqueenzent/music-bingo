@@ -46,14 +46,18 @@ export function MediaManagerFilterBar({
   loading = false,
   onClearSearch,
 }: MediaManagerFilterBarProps) {
-  const themesWithTracks = [...themes]
-    .filter((t) => (themeCounts[t.id] ?? 0) > 0)
-    .sort((a, b) => a.name.localeCompare(b.name))
+  // Include all themes (including 0 tracks) so selected empty themes keep a correct label.
+  const themesForSelect = [...themes].sort((a, b) => {
+    const ca = themeCounts[a.id] ?? 0
+    const cb = themeCounts[b.id] ?? 0
+    if (ca > 0 !== cb > 0) return ca > 0 ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
 
   return (
     <section
       aria-label="Search and filter library"
-      className="p-3 sm:p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4 md:sticky md:top-14 md:z-20"
+      className="p-3 sm:p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4 md:sticky md:top-[calc(3.5rem+env(safe-area-inset-top,0px))] md:z-20"
       style={{ backgroundColor: SURFACE }}
     >
       <div className="flex flex-col lg:flex-row lg:items-end gap-4">
@@ -96,7 +100,7 @@ export function MediaManagerFilterBar({
             id="media-manager-theme"
             value={selectedThemeId}
             onChange={onThemeChange}
-            themes={themesWithTracks}
+            themes={themesForSelect}
             themeCounts={themeCounts}
             emptyLabel="All themes"
             aria-label="Filter by theme"

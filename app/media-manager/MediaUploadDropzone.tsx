@@ -66,17 +66,28 @@ export function MediaUploadDropzone({
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  const { items, stats, running, enqueueFiles, retryItem, retryAllFailed, clearFinished, bucket } =
-    useMediaUploadQueue({
-      supabase,
-      themes,
-      uploadThemeId,
-      onBatchComplete: onUploaded,
-      onError,
-    })
+  const {
+    items,
+    stats,
+    batchStats,
+    running,
+    enqueueFiles,
+    retryItem,
+    retryAllFailed,
+    clearFinished,
+    bucket,
+  } = useMediaUploadQueue({
+    supabase,
+    themes,
+    uploadThemeId,
+    onBatchComplete: onUploaded,
+    onError,
+  })
 
   const progressPct =
-    stats.total > 0 ? Math.round(((stats.completed + stats.error) / stats.total) * 100) : 0
+    batchStats.total > 0
+      ? Math.round(((batchStats.completed + batchStats.error) / batchStats.total) * 100)
+      : 0
 
   return (
     <section
@@ -119,7 +130,10 @@ export function MediaUploadDropzone({
         }}
         onClick={() => !running && inputRef.current?.click()}
         onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !running) inputRef.current?.click()
+          if ((e.key === 'Enter' || e.key === ' ') && !running) {
+            e.preventDefault()
+            inputRef.current?.click()
+          }
         }}
         className={`relative rounded-xl border-2 border-dashed p-6 sm:p-10 text-center cursor-pointer transition-all touch-manipulation overflow-hidden min-w-0 ${
           isDragging
@@ -145,7 +159,8 @@ export function MediaUploadDropzone({
           <div className="flex flex-col items-center gap-3 text-gray-300 w-full max-w-md mx-auto">
             <Loader2 className="w-10 h-10 animate-spin" style={{ color: NEON }} />
             <p className="text-sm font-semibold text-white">
-              Uploading {stats.completed} of {stats.total} file{stats.total === 1 ? '' : 's'}…
+              Uploading {batchStats.completed} of {batchStats.total} file
+              {batchStats.total === 1 ? '' : 's'}…
             </p>
             <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
               <div

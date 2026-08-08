@@ -76,7 +76,8 @@ export function ResponsiveMenu({
   const closeBtnRef = useRef<HTMLButtonElement>(null)
   const portalIdRef = useRef(`lyric-menu-${Math.random().toString(36).slice(2)}`)
 
-  useBodyScrollLock(open && layoutReady)
+  // Sheet mode only — desktop popovers must not freeze page scroll.
+  useBodyScrollLock(open && layoutReady && !usePopover)
 
   const { refs, floatingStyles, context } = useFloating({
     open: open && usePopover,
@@ -111,8 +112,9 @@ export function ResponsiveMenu({
     refs.setReference(anchorRef.current)
   }, [open, usePopover, anchorRef, refs])
 
+  // Escape for sheet mode; desktop popover uses Floating UI useDismiss.
   useEffect(() => {
-    if (!open) return
+    if (!open || usePopover) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -121,7 +123,7 @@ export function ResponsiveMenu({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, usePopover, onClose])
 
   useEffect(() => {
     if (!open || usePopover || !layoutReady) return

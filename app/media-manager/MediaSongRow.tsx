@@ -95,6 +95,8 @@ function MediaSongRowInner({
         <div className="md:hidden flex-1 min-w-0 space-y-1">
           {isEditing ? (
             <>
+              <p className="font-medium text-sm text-white break-words">{editForm.title || s.title}</p>
+              <p className="text-xs text-gray-500 break-words">{editForm.artist || s.artist || '—'}</p>
               <input
                 type="url"
                 value={editForm.media_url || ''}
@@ -138,6 +140,8 @@ function MediaSongRowInner({
       <div className="hidden md:block md:col-span-3 min-w-0 space-y-1">
         {isEditing ? (
           <>
+            <p className="font-medium text-sm text-white">{editForm.title || s.title}</p>
+            <p className="text-xs text-gray-500">{editForm.artist || s.artist || '—'}</p>
             <input
               type="url"
               value={editForm.media_url || ''}

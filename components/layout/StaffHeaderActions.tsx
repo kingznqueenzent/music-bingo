@@ -19,11 +19,6 @@ export type StaffHeaderActionsProps = {
 const DEFAULT_MENU_BUTTON =
   'inline-flex items-center justify-center gap-2 min-h-12 min-w-12 md:min-w-0 md:h-12 md:px-4 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-[#00FFFF] hover:border-[#00FFFF]/40 hover:bg-[#00FFFF]/5 active:bg-[#00FFFF]/10 transition-colors touch-manipulation shadow-sm'
 
-function purgeOrphanMenus() {
-  if (typeof document === 'undefined') return
-  document.querySelectorAll('[data-lyric-menu="open"]').forEach((el) => el.remove())
-}
-
 export function StaffHeaderActions({
   loginFrom = '/host',
   loginClassName = 'text-sm text-white/50 hover:text-[#00FFFF]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center px-2',
@@ -40,27 +35,19 @@ export function StaffHeaderActions({
 
   const handleClose = useCallback(() => {
     setOpen(false)
-    purgeOrphanMenus()
   }, [])
 
   // Close synchronously before paint on every client navigation (Media Manager, Host, etc.).
   useLayoutEffect(() => {
     setOpen(false)
-    purgeOrphanMenus()
   }, [pathname])
 
   // bfcache restore can revive open menu state — force closed.
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        setOpen(false)
-        purgeOrphanMenus()
-      }
+      if (e.persisted) setOpen(false)
     }
-    const onPageHide = () => {
-      setOpen(false)
-      purgeOrphanMenus()
-    }
+    const onPageHide = () => setOpen(false)
     window.addEventListener('pageshow', onPageShow)
     window.addEventListener('pagehide', onPageHide)
     return () => {

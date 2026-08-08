@@ -120,7 +120,12 @@ function MediaManagerDashboardInner() {
 
   useEffect(() => {
     if (!themeFromUrl) return
-    if (themes.length > 0 && !themes.some((t) => t.id === themeFromUrl)) return
+    if (themes.length === 0) return
+    if (!themes.some((t) => t.id === themeFromUrl)) {
+      setSelectedThemeFilter('')
+      setUploadThemeId('')
+      return
+    }
     setSelectedThemeFilter(themeFromUrl)
     setUploadThemeId(themeFromUrl)
     setLibraryView('all')

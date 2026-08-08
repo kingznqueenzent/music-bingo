@@ -142,6 +142,8 @@ export function useMediaUploadQueue({
 }) {
   const [items, setItems] = useState<UploadQueueItem[]>([])
   const [running, setRunning] = useState(false)
+  /** Ids in the active batch — progress UI ignores leftover completed/error rows. */
+  const [activeBatchIds, setActiveBatchIds] = useState<string[]>([])
   const itemsRef = useRef(items)
   itemsRef.current = items
   const themeIdRef = useRef(uploadThemeId)
@@ -262,6 +264,8 @@ export function useMediaUploadQueue({
 
       if (next.length === 0) return
 
+      const batchIds = next.map((it) => it.id)
+      setActiveBatchIds(batchIds)
       setItems((prev) => {
         const keep = prev.filter((it) => it.status === 'error' || it.status === 'completed')
         const merged = [...keep, ...next]
@@ -330,9 +334,20 @@ export function useMediaUploadQueue({
     return { pending, uploading, completed, error, total: items.length }
   }, [items])
 
+  const batchStats = useMemo(() => {
+    const idSet = new Set(activeBatchIds)
+    const batch = idSet.size > 0 ? items.filter((i) => idSet.has(i.id)) : items
+    const pending = batch.filter((i) => i.status === 'pending').length
+    const uploading = batch.filter((i) => i.status === 'uploading').length
+    const completed = batch.filter((i) => i.status === 'completed').length
+    const error = batch.filter((i) => i.status === 'error').length
+    return { pending, uploading, completed, error, total: batch.length }
+  }, [items, activeBatchIds])
+
   return {
     items,
     stats,
+    batchStats,
     running,
     enqueueFiles,
     retryItem,

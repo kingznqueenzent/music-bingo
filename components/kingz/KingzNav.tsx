@@ -14,7 +14,6 @@ export function KingzNav() {
 
   const closeMenu = useCallback(() => {
     setOpen(false)
-    document.querySelectorAll('[data-lyric-menu="open"]').forEach((el) => el.remove())
   }, [])
 
   useEffect(() => {
@@ -94,23 +93,19 @@ export function KingzNav() {
               </li>
             ))}
           </ul>
-          <StaffHeaderActions
-            loginFrom="/host"
-            loginClassName="text-sm text-[#f5f5f5]/55 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center"
-            menuButtonClassName="inline-flex items-center justify-center gap-2 min-h-12 h-12 px-4 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10 active:bg-[#D4AF37]/15 transition-colors touch-manipulation shadow-sm"
-          />
         </div>
 
-        <div className="lg:hidden flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Single StaffHeaderActions instance — responsive chrome only via CSS */}
           <StaffHeaderActions
             loginFrom="/host"
-            showAdminLabel={false}
-            loginClassName="text-xs text-[#f5f5f5]/50 hover:text-[#D4AF37]/90 transition-colors min-h-12 inline-flex items-center"
-            menuButtonClassName="inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 transition-colors touch-manipulation"
+            showAdminLabel
+            loginClassName="text-xs sm:text-sm text-[#f5f5f5]/50 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center"
+            menuButtonClassName="inline-flex items-center justify-center gap-2 min-h-12 min-w-12 lg:min-w-0 lg:h-12 lg:px-4 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10 active:bg-[#D4AF37]/15 transition-colors touch-manipulation shadow-sm"
           />
           <button
             type="button"
-            className="inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/25 active:bg-[#D4AF37]/10 touch-manipulation"
+            className="lg:hidden inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/25 active:bg-[#D4AF37]/10 touch-manipulation"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? 'Close menu' : 'Open menu'}
