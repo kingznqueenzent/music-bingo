@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   Pencil,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { formatDuration } from '@/lib/media/probe-media-duration'
 import { filterCatalogSongs } from '@/lib/media/filter-catalog-songs'
+import { filterSongsByBatchTheme } from '@/lib/media/filter-songs-by-batch-theme'
 import { filterSongsBySearchQuery } from '@/lib/media/filter-songs-by-search'
 import {
   getSongYoutubeCandidate,
@@ -28,6 +29,7 @@ import { MediaUploadDropzone } from './MediaUploadDropzone'
 import { ThemeCoverageGrid } from './ThemeCoverageGrid'
 import { BulkThemeToolbar } from './BulkThemeToolbar'
 import { InlineEditableField } from './InlineEditableField'
+import { MediaManagerFilterBar, type BatchThemeFilter } from './MediaManagerFilterBar'
 import { MediaManagerFilterTabs, MediaManagerFiltersPanel } from './MediaManagerFilterTabs'
 import { useMediaCatalog } from './hooks/useMediaCatalog'
 import { useAudioPreview } from './hooks/useAudioPreview'
@@ -73,23 +75,11 @@ function buildUpdatePayload(form: Partial<CatalogSong>): SongUpdatePayload {
 }
 
 /** Client shell for `/media-manager` — search, filters, table selection, bulk toolbar. */
-export function MediaManagerPageClient({
-  searchQuery,
-  searchInput,
-}: {
-  searchQuery: string
-  searchInput: ReactNode
-}) {
-  return <MediaManagerDashboardInner searchQuery={searchQuery} searchInput={searchInput} />
+export function MediaManagerPageClient() {
+  return <MediaManagerDashboardInner />
 }
 
-function MediaManagerDashboardInner({
-  searchQuery,
-  searchInput,
-}: {
-  searchQuery: string
-  searchInput: ReactNode
-}) {
+function MediaManagerDashboardInner() {
   const {
     songs,
     themes,
@@ -110,6 +100,8 @@ function MediaManagerDashboardInner({
 
   const { playingSongId, togglePlayback, stop } = useAudioPreview()
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
   const [selectedThemeFilter, setSelectedThemeFilter] = useState('')
   const [selectedGenreFilter, setSelectedGenreFilter] = useState('')
   const [uploadThemeId, setUploadThemeId] = useState('')
@@ -136,14 +128,40 @@ function MediaManagerDashboardInner({
       selectedGenreFilter,
       searchQuery: '',
     })
-    return filterSongsBySearchQuery(byFilters, themeNameById, searchQuery)
-  }, [songs, selectedThemeFilter, selectedGenreFilter, searchQuery, themeNameById, libraryView])
+    const byBatch = filterSongsByBatchTheme(byFilters, themeNameById, batchFilter)
+    return filterSongsBySearchQuery(byBatch, themeNameById, searchQuery)
+  }, [
+    songs,
+    selectedThemeFilter,
+    selectedGenreFilter,
+    batchFilter,
+    searchQuery,
+    themeNameById,
+    libraryView,
+  ])
 
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
     selectedThemeFilter !== '' ||
     selectedGenreFilter !== '' ||
+    batchFilter !== 'all' ||
     libraryView === 'uncategorized'
+
+  function handleBatchFilterChange(next: BatchThemeFilter) {
+    setBatchFilter(next)
+    if (next !== 'all') {
+      setSelectedThemeFilter('')
+      setSelectedGenreFilter('')
+      setLibraryView('all')
+    }
+  }
+
+  function handleThemeDropdownChange(themeId: string) {
+    setSelectedThemeFilter(themeId)
+    setBatchFilter('all')
+    setSelectedGenreFilter('')
+    setLibraryView('all')
+  }
 
   function showUncategorizedOnly() {
     setLibraryView((v) => (v === 'uncategorized' ? 'all' : 'uncategorized'))
@@ -164,12 +182,14 @@ function MediaManagerDashboardInner({
       return
     }
     setLibraryView('all')
+    setBatchFilter('all')
     setSelectedThemeFilter((prev) => (prev === themeId ? '' : themeId))
   }
 
   function handleSelectGenre(genreLabel: string) {
     setLibraryView('all')
     setSelectedGenreFilter(genreLabel)
+    setBatchFilter('all')
     if (genreLabel) setSelectedThemeFilter('')
   }
 
@@ -380,7 +400,19 @@ function MediaManagerDashboardInner({
         </div>
       </header>
 
-      {searchInput}
+      <MediaManagerFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        batchFilter={batchFilter}
+        onBatchFilterChange={handleBatchFilterChange}
+        selectedThemeId={selectedThemeFilter}
+        onThemeChange={handleThemeDropdownChange}
+        themes={themes}
+        themeCounts={themeCounts.counts}
+        resultCount={visibleSongs.length}
+        totalCount={songs.length}
+        loading={loading}
+      />
 
       {error ? (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3 text-red-300 text-sm" role="alert">
@@ -433,6 +465,8 @@ function MediaManagerDashboardInner({
             {libraryView === 'uncategorized' ? 'Uncategorized view · ' : ''}
             {selectedThemeFilter && selectedThemeFilter !== 'uncategorized' ? 'Theme filter active · ' : ''}
             {selectedGenreFilter ? 'Genre filter active · ' : ''}
+            {batchFilter !== 'all' ? `${batchFilter} batch · ` : ''}
+            {searchQuery.trim() ? 'Search active · ' : ''}
             {visibleSongs.length} track{visibleSongs.length === 1 ? '' : 's'} visible
           </p>
 
@@ -681,23 +715,7 @@ function MediaManagerDashboardInner({
   )
 }
 
-/** @deprecated Use MediaManagerPageClient with searchQuery from page.tsx */
+/** @deprecated Use MediaManagerPageClient */
 export function MediaManagerDashboard() {
-  const [searchQuery, setSearchQuery] = useState('')
-  return (
-    <MediaManagerDashboardInner
-      searchQuery={searchQuery}
-      searchInput={
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search songs, artists, or URLs..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
-        </div>
-      }
-    />
-  )
+  return <MediaManagerDashboardInner />
 }

@@ -29,8 +29,9 @@
     "db:seed-theme-songs": "npm run db:seed-from-theme-songs",
     "db:seed-mp3s": "npx tsx scripts/seed-mp3s.ts",
     "db:cleanup-songs": "npx tsx scripts/cleanup-songs-catalog.ts",
-    "db:import-kq-xlsx": "npx tsx scripts/import-kq-youtube-xlsx.ts",
     "db:setup-media-catalog": "node scripts/setup-media-catalog.js",
+    "db:import-backup": "npx tsx scripts/import-backup-tracks.ts",
+    "db:import-library": "npx tsx scripts/import-local-library.ts",
     "db:test-connection": "node scripts/lib/pg-connect.js",
     "db:count-tracks": "node scripts/count-library-tracks.js",
     "verify:win-patterns": "npx tsx scripts/verify-win-patterns.ts",
@@ -63,7 +64,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "xlsx": "^0.18.5"
+    "typescript": "^5"
   }
 }
