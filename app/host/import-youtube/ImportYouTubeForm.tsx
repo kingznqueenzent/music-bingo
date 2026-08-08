@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Theme } from '@/lib/supabase/types'
+import { useThemeTrackCounts } from '@/hooks/useThemeTrackCounts'
+import { formatTrackCountLabel } from '@/lib/media/theme-track-counts'
 
 export function ImportYouTubeForm({
   themes,
@@ -21,6 +23,13 @@ export function ImportYouTubeForm({
   const [importUrlsLoading, setImportUrlsLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const { countById, refetch: refetchCounts } = useThemeTrackCounts()
+
+  useEffect(() => {
+    if (initialThemeId && themes.some((t) => t.id === initialThemeId)) {
+      setThemeId(initialThemeId)
+    }
+  }, [initialThemeId, themes])
 
   async function handleImportPlaylist(e: React.FormEvent) {
     e.preventDefault()
@@ -48,6 +57,7 @@ export function ImportYouTubeForm({
       }
       setSuccess(`Imported ${data.count} songs from the playlist.`)
       setPlaylistUrl('')
+      void refetchCounts()
     } finally {
       setImportPlaylistLoading(false)
     }
@@ -79,6 +89,7 @@ export function ImportYouTubeForm({
       }
       setSuccess(`Added ${data.count} songs to the theme.`)
       setUrlsText('')
+      void refetchCounts()
     } finally {
       setImportUrlsLoading(false)
     }
@@ -92,8 +103,13 @@ export function ImportYouTubeForm({
     )
   }
 
+  const selectedCount = countById.get(themeId) ?? 0
+
   return (
     <div className="space-y-8">
+      {error ? <p className="text-red-300 text-sm">{error}</p> : null}
+      {success ? <p className="text-emerald-400 text-sm">{success}</p> : null}
+
       {/* Import from playlist URL */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <h3 className="text-lg font-semibold text-slate-100 mb-2">Import from a YouTube playlist</h3>
@@ -106,12 +122,21 @@ export function ImportYouTubeForm({
             <select
               value={themeId}
               onChange={(e) => setThemeId(e.target.value)}
-              className="w-full rounded-xl bg-slate-800 border border-slate-600 px-4 py-2 text-slate-100"
+              className="w-full rounded-xl bg-slate-800 border border-slate-600 px-4 py-2 text-slate-100 min-h-11"
             >
-              {themes.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {themes.map((t) => {
+                const n = countById.get(t.id) ?? 0
+                return (
+                  <option key={t.id} value={t.id}>
+                    {t.name} — {formatTrackCountLabel(n)}
+                  </option>
+                )
+              })}
             </select>
+            <p className="text-slate-500 text-xs mt-1.5">
+              Selected theme currently has{' '}
+              <span className="text-emerald-400 font-medium">{formatTrackCountLabel(selectedCount)}</span>
+            </p>
           </div>
           <div>
             <label className="block text-slate-300 text-sm mb-1">Playlist URL or ID</label>
@@ -126,7 +151,7 @@ export function ImportYouTubeForm({
           <button
             type="submit"
             disabled={importPlaylistLoading}
-            className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-semibold py-2 px-6"
+            className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-semibold py-2 px-6 min-h-11"
           >
             {importPlaylistLoading ? 'Importing…' : 'Import up to 60 songs'}
           </button>
@@ -145,11 +170,16 @@ export function ImportYouTubeForm({
             <select
               value={themeId}
               onChange={(e) => setThemeId(e.target.value)}
-              className="w-full rounded-xl bg-slate-800 border border-slate-600 px-4 py-2 text-slate-100"
+              className="w-full rounded-xl bg-slate-800 border border-slate-600 px-4 py-2 text-slate-100 min-h-11"
             >
-              {themes.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
+              {themes.map((t) => {
+                const n = countById.get(t.id) ?? 0
+                return (
+                  <option key={t.id} value={t.id}>
+                    {t.name} — {formatTrackCountLabel(n)}
+                  </option>
+                )
+              })}
             </select>
           </div>
           <div>
@@ -165,23 +195,12 @@ export function ImportYouTubeForm({
           <button
             type="submit"
             disabled={importUrlsLoading}
-            className="rounded-full bg-sky-500 hover:bg-sky-400 disabled:opacity-50 font-semibold py-2 px-6"
+            className="rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 font-semibold py-2 px-6 min-h-11"
           >
             {importUrlsLoading ? 'Adding…' : 'Add these songs to theme'}
           </button>
         </form>
       </div>
-
-      {error && (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-red-200 text-sm">
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200 text-sm">
-          {success}
-        </div>
-      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import {
   Trash2,
   RefreshCw,
@@ -93,12 +94,15 @@ function MediaManagerDashboardInner() {
 
   const { playingSongId, togglePlayback, stop } = useAudioPreview()
 
+  const searchParams = useSearchParams()
+  const themeFromUrl = searchParams.get('theme')?.trim() ?? ''
+
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
-  const [selectedThemeFilter, setSelectedThemeFilter] = useState('')
+  const [selectedThemeFilter, setSelectedThemeFilter] = useState(themeFromUrl)
   const [selectedGenreFilter, setSelectedGenreFilter] = useState('')
-  const [uploadThemeId, setUploadThemeId] = useState('')
+  const [uploadThemeId, setUploadThemeId] = useState(themeFromUrl)
   const [removingDupes, setRemovingDupes] = useState(false)
   const [cleaningUnassigned, setCleaningUnassigned] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
@@ -113,6 +117,15 @@ function MediaManagerDashboardInner() {
   const [savingId, setSavingId] = useState<string | null>(null)
   const [inlineSavingKey, setInlineSavingKey] = useState<string | null>(null)
   const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE)
+
+  useEffect(() => {
+    if (!themeFromUrl) return
+    if (themes.length > 0 && !themes.some((t) => t.id === themeFromUrl)) return
+    setSelectedThemeFilter(themeFromUrl)
+    setUploadThemeId(themeFromUrl)
+    setLibraryView('all')
+    setSelectedGenreFilter('')
+  }, [themeFromUrl, themes])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
