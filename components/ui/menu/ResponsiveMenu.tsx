@@ -150,39 +150,14 @@ export function ResponsiveMenu({
   // Instant unmount when closed — never leave AnimatePresence exit over the next route.
   if (!open || !layoutReady) return null
 
-  const header = (
-    <div className="flex items-start justify-between gap-3 px-1 pb-3 mb-1 border-b border-white/10 shrink-0">
-      <div className="min-w-0 pt-0.5 flex items-start gap-2">
-        {titleIcon ? <span className="mt-0.5 shrink-0 text-[#00FFFF]">{titleIcon}</span> : null}
-        <div className="min-w-0">
-          <p id={titleId} className={MENU_TOKENS.titleClass}>
-            {title}
-          </p>
-          {description ? (
-            <p className={`${MENU_TOKENS.subtitleClass} mt-0.5 truncate`}>{description}</p>
-          ) : null}
-        </div>
-      </div>
-      <button
-        ref={closeBtnRef}
-        type="button"
-        onClick={onClose}
-        className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-white/15 text-white/70 hover:text-white hover:border-[#00FFFF]/40 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation shrink-0"
-        aria-label="Close menu"
-      >
-        <X className="h-5 w-5" />
-      </button>
-    </div>
-  )
-
   const isRightSheet = !usePopover && sheetSide === 'right'
   const sheetClass = isRightSheet
     ? [
         'absolute top-0 right-0 bottom-0 flex flex-col',
-        'w-[min(18rem,88vw)] border-l border-white/10',
+        'w-56 max-w-[88vw] border-l border-white/10',
         'bg-[#1E1E1E] shadow-2xl shadow-black/60',
-        'pt-[max(0.75rem,env(safe-area-inset-top))] px-4',
-        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+        'pt-[max(1.25rem,env(safe-area-inset-top))] px-5',
+        'pb-[max(1.25rem,env(safe-area-inset-bottom))]',
       ].join(' ')
     : [
         'absolute inset-x-0 bottom-0 flex flex-col',
@@ -198,6 +173,46 @@ export function ResponsiveMenu({
       ? { x: '100%' }
       : { y: '100%' }
   const sheetAnimate = isRightSheet ? { x: 0 } : { y: 0 }
+
+  const header = (
+    <div
+      className={`flex items-center justify-between gap-3 shrink-0 ${
+        isRightSheet ? 'mb-8 px-0' : 'items-start px-1 pb-3 mb-1 border-b border-white/10'
+      }`}
+    >
+      <div className={`min-w-0 flex items-center gap-2 ${isRightSheet ? '' : 'items-start pt-0.5'}`}>
+        {titleIcon ? <span className="shrink-0">{titleIcon}</span> : null}
+        <div className="min-w-0">
+          <p
+            id={titleId}
+            className={
+              isRightSheet
+                ? 'text-xs font-semibold uppercase tracking-wider text-white/40'
+                : MENU_TOKENS.titleClass
+            }
+          >
+            {title}
+          </p>
+          {description ? (
+            <p className={`${MENU_TOKENS.subtitleClass} mt-0.5 truncate`}>{description}</p>
+          ) : null}
+        </div>
+      </div>
+      <button
+        ref={closeBtnRef}
+        type="button"
+        onClick={onClose}
+        className={
+          isRightSheet
+            ? 'h-7 w-7 min-h-7 min-w-7 rounded-md border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/5 transition-colors touch-manipulation shrink-0'
+            : 'inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-white/15 text-white/70 hover:text-white hover:border-[#00FFFF]/40 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation shrink-0'
+        }
+        aria-label="Close menu"
+      >
+        <X className={isRightSheet ? 'h-4 w-4' : 'h-5 w-5'} />
+      </button>
+    </div>
+  )
 
   return createPortal(
     <div

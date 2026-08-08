@@ -2,10 +2,9 @@
 
 import { useCallback, useState, type RefObject } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { ChevronRight, Shield } from 'lucide-react'
+import { Shield } from 'lucide-react'
 import { ADMIN_NAV_LINKS, isAdminNavActive } from '@/components/layout/admin-nav-links'
 import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
-import { MENU_TOKENS } from '@/components/ui/menu/tokens'
 import { ensureHostSession, isCookieProtectedPath } from '@/lib/ensure-host-session'
 
 export type AdminNavDrawerProps = {
@@ -16,8 +15,8 @@ export type AdminNavDrawerProps = {
 }
 
 /**
- * Admin navigation — clean right-edge drawer on all viewports.
- * Mints admin_verified before navigating to cookie-protected routes.
+ * Clean right-edge Admin Menu — visual intent of the Layout mock,
+ * with host-session minting and instant close (no exit flash).
  */
 export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
   const pathname = usePathname()
@@ -58,17 +57,15 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
       open={open}
       onClose={onClose}
       title="Admin Menu"
-      description={navigating ? 'Opening…' : 'Host · Media · Stage'}
-      titleIcon={<Shield className="w-3.5 h-3.5" aria-hidden />}
+      description={navigating ? 'Opening…' : undefined}
+      titleIcon={<Shield className="w-3.5 h-3.5 text-[#00FFFF]" aria-hidden />}
       forceSheet
       sheetSide="right"
       footer={
-        <p className="text-[11px] text-white/30 text-center tracking-wide">
-          Kingz &amp; Queenz Ent.
-        </p>
+        <p className="text-[11px] text-white/30 text-center">Kingz &amp; Queenz Ent.</p>
       }
     >
-      <nav className="flex flex-col gap-1 py-1" aria-label="Admin destinations">
+      <nav className="space-y-1.5 flex-1 py-1" aria-label="Admin destinations">
         {ADMIN_NAV_LINKS.map(({ label, href, icon: Icon, match }) => {
           const active = isAdminNavActive(pathname, match, href)
           return (
@@ -77,18 +74,14 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
               type="button"
               disabled={navigating}
               onClick={() => void navigate(href)}
-              className={`${MENU_TOKENS.itemBaseClass} justify-between ${
-                active ? MENU_TOKENS.itemActiveClass : MENU_TOKENS.itemIdleClass
-              } disabled:opacity-50`}
+              className={`flex w-full items-center gap-3 px-3 py-2.5 min-h-11 rounded-xl text-sm font-medium transition-colors touch-manipulation disabled:opacity-50 ${
+                active
+                  ? 'bg-[#00FFFF]/10 text-[#00FFFF]'
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
             >
-              <span className="flex items-center gap-3 min-w-0">
-                <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
-                <span className="truncate text-sm font-medium">{label}</span>
-              </span>
-              <ChevronRight
-                className={`h-4 w-4 shrink-0 ${active ? 'text-[#00FFFF]/80' : 'text-white/25'}`}
-                aria-hidden
-              />
+              <Icon className="w-4 h-4 shrink-0" aria-hidden />
+              <span className="truncate">{label}</span>
             </button>
           )
         })}
