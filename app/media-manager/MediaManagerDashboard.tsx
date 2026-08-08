@@ -1,25 +1,21 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
-  Pencil,
   Trash2,
-  Check,
-  X,
   RefreshCw,
   AlertCircle,
   Loader2,
-  Play,
-  Pause,
   CopyMinus,
   Eraser,
-  Wand2,
 } from 'lucide-react'
-import { formatDuration } from '@/lib/media/probe-media-duration'
 import { filterCatalogSongs } from '@/lib/media/filter-catalog-songs'
 import { filterSongsByBatchTheme } from '@/lib/media/filter-songs-by-batch-theme'
-import { filterSongsBySearchQuery } from '@/lib/media/filter-songs-by-search'
+import {
+  buildSongSearchHaystack,
+  filterSongsBySearchQuery,
+} from '@/lib/media/filter-songs-by-search'
 import {
   getSongYoutubeCandidate,
   isYoutubeUrl,
@@ -28,9 +24,9 @@ import {
 import { MediaUploadDropzone } from './MediaUploadDropzone'
 import { ThemeCoverageGrid } from './ThemeCoverageGrid'
 import { BulkThemeToolbar } from './BulkThemeToolbar'
-import { InlineEditableField } from './InlineEditableField'
 import { MediaManagerFilterBar, type BatchThemeFilter } from './MediaManagerFilterBar'
 import { MediaManagerFilterTabs, MediaManagerFiltersPanel } from './MediaManagerFilterTabs'
+import { MediaSongRow } from './MediaSongRow'
 import { useMediaCatalog } from './hooks/useMediaCatalog'
 import { useAudioPreview } from './hooks/useAudioPreview'
 import type { CatalogSong, SongUpdatePayload } from './types'
@@ -38,12 +34,8 @@ import type { CatalogSong, SongUpdatePayload } from './types'
 const BG = '#121212'
 const SURFACE = '#1E1E1E'
 const NEON = '#00FFFF'
-
-function mediaTypeBadge(type: string): { label: string; className: string } {
-  if (type === 'video') return { label: 'video', className: 'bg-purple-500/15 text-purple-300 border-purple-500/30' }
-  if (type === 'youtube') return { label: 'youtube', className: 'bg-red-500/15 text-red-300 border-red-500/30' }
-  return { label: 'audio', className: 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' }
-}
+const PAGE_SIZE = 50
+const SEARCH_DEBOUNCE_MS = 300
 
 function buildUpdatePayload(form: Partial<CatalogSong>): SongUpdatePayload {
   const mediaUrl = form.media_url?.trim() || null
@@ -100,6 +92,7 @@ function MediaManagerDashboardInner() {
 
   const { playingSongId, togglePlayback, stop } = useAudioPreview()
 
+  const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
   const [selectedThemeFilter, setSelectedThemeFilter] = useState('')
@@ -118,10 +111,30 @@ function MediaManagerDashboardInner() {
   const [editSnapshot, setEditSnapshot] = useState<CatalogSong | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [inlineSavingKey, setInlineSavingKey] = useState<string | null>(null)
+  const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchInput)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [searchInput])
+
+  useEffect(() => {
+    setDisplayLimit(PAGE_SIZE)
+  }, [searchQuery, batchFilter, selectedThemeFilter, selectedGenreFilter, libraryView])
 
   const themeNameById = useMemo(() => new Map(themes.map((t) => [t.id, t.name])), [themes])
 
-  const visibleSongs = useMemo(() => {
+  const searchHaystackById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const song of songs) {
+      map.set(song.id, buildSongSearchHaystack(song, themeNameById))
+    }
+    return map
+  }, [songs, themeNameById])
+
+  const filteredSongs = useMemo(() => {
     const byFilters = filterCatalogSongs(songs, themeNameById, {
       libraryView,
       selectedThemeFilter,
@@ -129,7 +142,7 @@ function MediaManagerDashboardInner() {
       searchQuery: '',
     })
     const byBatch = filterSongsByBatchTheme(byFilters, themeNameById, batchFilter)
-    return filterSongsBySearchQuery(byBatch, themeNameById, searchQuery)
+    return filterSongsBySearchQuery(byBatch, themeNameById, searchQuery, searchHaystackById)
   }, [
     songs,
     selectedThemeFilter,
@@ -138,7 +151,15 @@ function MediaManagerDashboardInner() {
     searchQuery,
     themeNameById,
     libraryView,
+    searchHaystackById,
   ])
+
+  const displayedSongs = useMemo(
+    () => filteredSongs.slice(0, displayLimit),
+    [filteredSongs, displayLimit]
+  )
+
+  const hasMore = displayLimit < filteredSongs.length
 
   const hasActiveFilters =
     searchQuery.trim() !== '' ||
@@ -147,29 +168,29 @@ function MediaManagerDashboardInner() {
     batchFilter !== 'all' ||
     libraryView === 'uncategorized'
 
-  function handleBatchFilterChange(next: BatchThemeFilter) {
+  const handleBatchFilterChange = useCallback((next: BatchThemeFilter) => {
     setBatchFilter(next)
     if (next !== 'all') {
       setSelectedThemeFilter('')
       setSelectedGenreFilter('')
       setLibraryView('all')
     }
-  }
+  }, [])
 
-  function handleThemeDropdownChange(themeId: string) {
+  const handleThemeDropdownChange = useCallback((themeId: string) => {
     setSelectedThemeFilter(themeId)
     setBatchFilter('all')
     setSelectedGenreFilter('')
     setLibraryView('all')
-  }
+  }, [])
 
-  function showUncategorizedOnly() {
+  const showUncategorizedOnly = useCallback(() => {
     setLibraryView((v) => (v === 'uncategorized' ? 'all' : 'uncategorized'))
     setSelectedThemeFilter('')
     setSelectedGenreFilter('')
-  }
+  }, [])
 
-  function handleSelectTheme(themeId: string) {
+  const handleSelectTheme = useCallback((themeId: string) => {
     if (themeId === '') {
       setLibraryView('all')
       setSelectedThemeFilter('')
@@ -184,78 +205,86 @@ function MediaManagerDashboardInner() {
     setLibraryView('all')
     setBatchFilter('all')
     setSelectedThemeFilter((prev) => (prev === themeId ? '' : themeId))
-  }
+  }, [])
 
-  function handleSelectGenre(genreLabel: string) {
+  const handleSelectGenre = useCallback((genreLabel: string) => {
     setLibraryView('all')
     setSelectedGenreFilter(genreLabel)
     setBatchFilter('all')
     if (genreLabel) setSelectedThemeFilter('')
-  }
+  }, [])
 
-  function toggleSelect(id: string) {
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
       return next
     })
-  }
+  }, [])
 
-  function toggleSelectAllVisible() {
-    if (visibleSongs.every((s) => selectedIds.has(s.id))) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        visibleSongs.forEach((s) => next.delete(s.id))
-        return next
-      })
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        visibleSongs.forEach((s) => next.add(s.id))
-        return next
-      })
-    }
-  }
+  const toggleSelectAllDisplayed = useCallback(() => {
+    setSelectedIds((prev) => {
+      const allSelected =
+        displayedSongs.length > 0 && displayedSongs.every((s) => prev.has(s.id))
+      const next = new Set(prev)
+      if (allSelected) {
+        displayedSongs.forEach((s) => next.delete(s.id))
+      } else {
+        displayedSongs.forEach((s) => next.add(s.id))
+      }
+      return next
+    })
+  }, [displayedSongs])
 
-  function startEdit(song: CatalogSong) {
+  const startEdit = useCallback((song: CatalogSong) => {
     setEditingId(song.id)
     setEditForm({ ...song })
     setEditSnapshot(song)
-  }
+  }, [])
 
-  function cancelEdit() {
+  const cancelEdit = useCallback(() => {
     setEditingId(null)
     setEditForm({})
     setEditSnapshot(null)
-  }
+  }, [])
 
-  async function handleSaveEdit(id: string) {
-    setSavingId(id)
-    setError('')
-    const ok = await updateSong(id, buildUpdatePayload(editForm))
-    setSavingId(null)
-    if (ok) cancelEdit()
-  }
+  const handleEditFormChange = useCallback((next: Partial<CatalogSong>) => {
+    setEditForm(next)
+  }, [])
 
-  async function handleDelete(id: string) {
-    if (!confirm('Remove this track from the library?')) return
-    setError('')
-    if (playingSongId === id) stop()
-    if (editingId === id) cancelEdit()
-    await deleteSong(id)
-  }
+  const handleSaveEdit = useCallback(
+    async (id: string) => {
+      setSavingId(id)
+      setError('')
+      const ok = await updateSong(id, buildUpdatePayload(editForm))
+      setSavingId(null)
+      if (ok) cancelEdit()
+    },
+    [updateSong, editForm, setError, cancelEdit]
+  )
 
-  async function handleRemoveDupes() {
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!confirm('Remove this track from the library?')) return
+      setError('')
+      if (playingSongId === id) stop()
+      if (editingId === id) cancelEdit()
+      await deleteSong(id)
+    },
+    [playingSongId, stop, editingId, cancelEdit, deleteSong, setError]
+  )
+
+  const handleRemoveDupes = useCallback(async () => {
     setRemovingDupes(true)
     setError('')
     const removed = await removeDuplicates()
     setRemovingDupes(false)
     if (removed === 0) window.alert('No duplicate tracks found (matched by title + artist).')
     else if (removed > 0 && playingSongId && !songs.some((s) => s.id === playingSongId)) stop()
-  }
+  }, [removeDuplicates, setError, playingSongId, songs, stop])
 
-  async function handleClearUnassigned() {
+  const handleClearUnassigned = useCallback(async () => {
     const count = themeCounts.uncategorized
     if (count === 0) {
       window.alert('No uncategorized tracks to remove.')
@@ -267,9 +296,9 @@ function MediaManagerDashboardInner() {
     const deleted = await deleteUnassignedSongs()
     setCleaningUnassigned(false)
     if (deleted > 0) setSelectedIds(new Set())
-  }
+  }, [themeCounts.uncategorized, deleteUnassignedSongs, setError])
 
-  async function handleBulkDelete() {
+  const handleBulkDelete = useCallback(async () => {
     const ids = [...selectedIds]
     if (ids.length === 0) return
     if (!confirm(`Delete ${ids.length} selected track(s)?`)) return
@@ -279,9 +308,9 @@ function MediaManagerDashboardInner() {
     const ok = await bulkDeleteSongs(ids)
     setBulkDeleting(false)
     if (ok) setSelectedIds(new Set())
-  }
+  }, [selectedIds, playingSongId, stop, bulkDeleteSongs, setError])
 
-  async function handleBulkApplyTheme() {
+  const handleBulkApplyTheme = useCallback(async () => {
     const ids = [...selectedIds]
     if (ids.length === 0 || !bulkThemeId) return
     setBulkApplyingTheme(true)
@@ -293,55 +322,103 @@ function MediaManagerDashboardInner() {
       setBulkThemeId('')
       await refetch()
     }
-  }
+  }, [selectedIds, bulkThemeId, bulkAssignTheme, setError, refetch])
 
-  async function handleInlineThemeChange(songId: string, themeId: string) {
-    setTaggingId(songId)
-    setError('')
-    await assignTheme(songId, themeId || null)
-    setTaggingId(null)
-  }
+  const handleInlineThemeChange = useCallback(
+    async (songId: string, themeId: string) => {
+      setTaggingId(songId)
+      setError('')
+      await assignTheme(songId, themeId || null)
+      setTaggingId(null)
+    },
+    [assignTheme, setError]
+  )
 
-  async function handleInlineFieldSave(
-    songId: string,
-    field: 'title' | 'artist',
-    value: string
-  ): Promise<boolean> {
-    const key = `${songId}:${field}`
-    setInlineSavingKey(key)
-    setError('')
-    const ok = await patchSongFields(
-      songId,
-      field === 'title' ? { title: value } : { artist: value || null }
-    )
-    setInlineSavingKey(null)
-    return ok
-  }
+  const handleInlineFieldSave = useCallback(
+    async (songId: string, field: 'title' | 'artist', value: string): Promise<boolean> => {
+      const key = `${songId}:${field}`
+      setInlineSavingKey(key)
+      setError('')
+      const ok = await patchSongFields(
+        songId,
+        field === 'title' ? { title: value } : { artist: value || null }
+      )
+      setInlineSavingKey(null)
+      return ok
+    },
+    [patchSongFields, setError]
+  )
 
-  async function handleCleanYoutubeUrl(song: CatalogSong) {
-    const candidate = getSongYoutubeCandidate(song)
-    if (!candidate) return
+  const handleCleanYoutubeUrl = useCallback(
+    async (song: CatalogSong) => {
+      const candidate = getSongYoutubeCandidate(song)
+      if (!candidate) return
 
-    const cleaned = normalizeYoutubeUrl(candidate)
-    if (!cleaned) {
-      setError('Could not parse YouTube URL.')
-      return
-    }
+      const cleaned = normalizeYoutubeUrl(candidate)
+      if (!cleaned) {
+        setError('Could not parse YouTube URL.')
+        return
+      }
 
-    setInlineSavingKey(`${song.id}:youtube`)
-    setError('')
+      setInlineSavingKey(`${song.id}:youtube`)
+      setError('')
 
-    const fields: Partial<Pick<CatalogSong, 'youtube_url' | 'media_url' | 'media_type'>> = {
-      youtube_url: cleaned,
-      media_type: 'youtube',
-    }
-    if (song.media_url?.trim() && isYoutubeUrl(song.media_url)) {
-      fields.media_url = null
-    }
+      const fields: Partial<Pick<CatalogSong, 'youtube_url' | 'media_url' | 'media_type'>> = {
+        youtube_url: cleaned,
+        media_type: 'youtube',
+      }
+      if (song.media_url?.trim() && isYoutubeUrl(song.media_url)) {
+        fields.media_url = null
+      }
 
-    await patchSongFields(song.id, fields)
-    setInlineSavingKey(null)
-  }
+      await patchSongFields(song.id, fields)
+      setInlineSavingKey(null)
+    },
+    [patchSongFields, setError]
+  )
+
+  const handleTogglePlayback = useCallback(
+    (song: CatalogSong) => {
+      void togglePlayback(song, setError)
+    },
+    [togglePlayback, setError]
+  )
+
+  const handleCancelEditClick = useCallback(() => {
+    if (editSnapshot) setEditForm(editSnapshot)
+    cancelEdit()
+  }, [editSnapshot, cancelEdit])
+
+  const handleCleanYoutubeUrlClick = useCallback(
+    (song: CatalogSong) => {
+      void handleCleanYoutubeUrl(song)
+    },
+    [handleCleanYoutubeUrl]
+  )
+
+  const handleInlineThemeChangeClick = useCallback(
+    (id: string, themeId: string) => {
+      void handleInlineThemeChange(id, themeId)
+    },
+    [handleInlineThemeChange]
+  )
+
+  const handleSaveEditClick = useCallback(
+    (id: string) => {
+      void handleSaveEdit(id)
+    },
+    [handleSaveEdit]
+  )
+
+  const handleDeleteClick = useCallback(
+    (id: string) => {
+      void handleDelete(id)
+    },
+    [handleDelete]
+  )
+
+  const allDisplayedSelected =
+    displayedSongs.length > 0 && displayedSongs.every((s) => selectedIds.has(s.id))
 
   return (
     <main className="min-h-[calc(100vh-3rem)] text-white p-6 max-w-[1600px] mx-auto space-y-6" style={{ backgroundColor: BG }}>
@@ -401,15 +478,15 @@ function MediaManagerDashboardInner() {
       </header>
 
       <MediaManagerFilterBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
+        searchQuery={searchInput}
+        onSearchChange={setSearchInput}
         batchFilter={batchFilter}
         onBatchFilterChange={handleBatchFilterChange}
         selectedThemeId={selectedThemeFilter}
         onThemeChange={handleThemeDropdownChange}
         themes={themes}
         themeCounts={themeCounts.counts}
-        resultCount={visibleSongs.length}
+        resultCount={filteredSongs.length}
         totalCount={songs.length}
         loading={loading}
       />
@@ -467,7 +544,9 @@ function MediaManagerDashboardInner() {
             {selectedGenreFilter ? 'Genre filter active · ' : ''}
             {batchFilter !== 'all' ? `${batchFilter} batch · ` : ''}
             {searchQuery.trim() ? 'Search active · ' : ''}
-            {visibleSongs.length} track{visibleSongs.length === 1 ? '' : 's'} visible
+            Showing {displayedSongs.length} of {filteredSongs.length} match
+            {filteredSongs.length === 1 ? '' : 'es'}
+            {filteredSongs.length !== songs.length ? ` (${songs.length} total)` : ''}
           </p>
 
           <div className="rounded-xl border border-white/10 overflow-hidden" style={{ backgroundColor: SURFACE }}>
@@ -475,9 +554,9 @@ function MediaManagerDashboardInner() {
               <div className="col-span-1 flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={visibleSongs.length > 0 && visibleSongs.every((s) => selectedIds.has(s.id))}
-                  onChange={toggleSelectAllVisible}
-                  aria-label="Select all visible tracks"
+                  checked={allDisplayedSelected}
+                  onChange={toggleSelectAllDisplayed}
+                  aria-label="Select all loaded tracks"
                   className="rounded border-white/20"
                 />
                 <span className="hidden sm:inline normal-case tracking-normal text-gray-400">Select all</span>
@@ -493,208 +572,65 @@ function MediaManagerDashboardInner() {
               <div className="p-10 text-center text-gray-500 flex items-center justify-center gap-2">
                 <Loader2 className="w-5 h-5 animate-spin" /> Loading library…
               </div>
-            ) : visibleSongs.length === 0 ? (
+            ) : filteredSongs.length === 0 ? (
               <div className="p-10 text-center text-gray-500">
                 {hasActiveFilters ? 'No tracks match your search or filter.' : 'No tracks yet — upload MP3 or MP4 files above.'}
               </div>
             ) : (
-              <div className="divide-y divide-white/5">
-                {visibleSongs.map((s) => {
-                  const isEditing = editingId === s.id
-                  const themeName = themes.find((t) => t.id === s.theme_id)?.name
-                  const isSaving = savingId === s.id
-                  const isPlaying = playingSongId === s.id
-                  const hasPreview = Boolean(s.media_url?.trim())
-                  const badge = mediaTypeBadge(s.media_type)
-                  const isSelected = selectedIds.has(s.id)
-                  const isTagging = taggingId === s.id
-                  const fullDur = s.file_duration_sec ?? s.duration_sec
-
-                  return (
-                    <div
+              <>
+                <div className="divide-y divide-white/5">
+                  {displayedSongs.map((s) => (
+                    <MediaSongRow
                       key={s.id}
-                      className={`p-3 grid grid-cols-12 gap-3 items-start transition-all ${
-                        isPlaying ? 'bg-[#00FFFF]/5 ring-1 ring-inset ring-[#00FFFF]/30' : 'hover:bg-white/[0.02]'
-                      } ${isEditing ? 'bg-[#00FFFF]/5' : ''} ${isSelected ? 'bg-white/[0.03]' : ''}`}
+                      song={s}
+                      themes={themes}
+                      themeName={s.theme_id ? themeNameById.get(s.theme_id) : undefined}
+                      isSelected={selectedIds.has(s.id)}
+                      isEditing={editingId === s.id}
+                      isPlaying={playingSongId === s.id}
+                      isSaving={savingId === s.id}
+                      isTagging={taggingId === s.id}
+                      inlineSavingKey={
+                        inlineSavingKey?.startsWith(`${s.id}:`) ? inlineSavingKey : null
+                      }
+                      editForm={editingId === s.id ? editForm : {}}
+                      onToggleSelect={toggleSelect}
+                      onEditFormChange={handleEditFormChange}
+                      onInlineFieldSave={handleInlineFieldSave}
+                      onCleanYoutubeUrl={handleCleanYoutubeUrlClick}
+                      onInlineThemeChange={handleInlineThemeChangeClick}
+                      onStartEdit={startEdit}
+                      onSaveEdit={handleSaveEditClick}
+                      onCancelEdit={handleCancelEditClick}
+                      onTogglePlayback={handleTogglePlayback}
+                      onDelete={handleDeleteClick}
+                    />
+                  ))}
+                </div>
+                {hasMore ? (
+                  <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setDisplayLimit((n) => n + PAGE_SIZE)}
+                      className="px-4 py-2 rounded-lg text-sm font-semibold border border-[#00FFFF]/40 text-[#00FFFF] hover:bg-[#00FFFF]/10 transition-colors"
                     >
-                      <div className="col-span-1 pt-1">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelect(s.id)}
-                          aria-label={`Select ${s.title}`}
-                          className="rounded border-white/20"
-                        />
-                      </div>
-                      <div className="col-span-3 min-w-0 space-y-1">
-                        {isEditing ? (
-                          <>
-                            <input
-                              type="url"
-                              value={editForm.media_url || ''}
-                              onChange={(e) => setEditForm({ ...editForm, media_url: e.target.value })}
-                              placeholder="Storage / media URL"
-                              className="w-full border border-white/20 rounded px-2 py-1 text-[10px] text-gray-400 font-mono"
-                              style={{ backgroundColor: BG }}
-                            />
-                            <input
-                              type="url"
-                              value={editForm.youtube_url || ''}
-                              onChange={(e) => setEditForm({ ...editForm, youtube_url: e.target.value })}
-                              placeholder="YouTube URL"
-                              className="w-full border border-white/20 rounded px-2 py-1 text-[10px] text-gray-400 font-mono"
-                              style={{ backgroundColor: BG }}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <InlineEditableField
-                              value={s.title}
-                              placeholder="Add title…"
-                              required
-                              saving={inlineSavingKey === `${s.id}:title`}
-                              className="font-medium text-sm text-white"
-                              onSave={(next) => handleInlineFieldSave(s.id, 'title', next)}
-                            />
-                            <InlineEditableField
-                              value={s.artist ?? ''}
-                              placeholder="Add artist…"
-                              saving={inlineSavingKey === `${s.id}:artist`}
-                              className="text-xs text-gray-500"
-                              inputClassName="text-gray-300"
-                              onSave={(next) => handleInlineFieldSave(s.id, 'artist', next)}
-                            />
-                            {getSongYoutubeCandidate(s) ? (
-                              <button
-                                type="button"
-                                disabled={inlineSavingKey === `${s.id}:youtube`}
-                                onClick={() => void handleCleanYoutubeUrl(s)}
-                                className="inline-flex items-center gap-1 text-[10px] text-amber-300/90 hover:text-amber-200 disabled:opacity-50"
-                                title="Strip tracking params and normalize YouTube URL"
-                              >
-                                {inlineSavingKey === `${s.id}:youtube` ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Wand2 className="w-3 h-3" />
-                                )}
-                                Clean YouTube URL
-                              </button>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
-
-                      <div className="col-span-1 text-sm text-gray-400 tabular-nums" title="Full file duration">
-                        {formatDuration(fullDur)}
-                      </div>
-
-                      <div className="col-span-1">
-                        <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded border ${badge.className}`}>
-                          {badge.label}
-                        </span>
-                      </div>
-
-                      <div className="col-span-3 min-w-0">
-                        {isEditing ? (
-                          <select
-                            value={editForm.theme_id || ''}
-                            onChange={(e) => setEditForm({ ...editForm, theme_id: e.target.value || null })}
-                            className="w-full border border-white/20 rounded px-2 py-1 text-xs text-gray-300"
-                            style={{ backgroundColor: BG }}
-                          >
-                            <option value="">Unassigned</option>
-                            {themes.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <select
-                            value={s.theme_id || ''}
-                            disabled={isTagging}
-                            onChange={(e) => void handleInlineThemeChange(s.id, e.target.value)}
-                            className="w-full max-w-full border border-white/10 rounded px-2 py-1 text-[11px] text-gray-300 truncate focus:border-[#00FFFF]/50 outline-none disabled:opacity-50"
-                            style={{ backgroundColor: BG }}
-                            title={themeName ?? 'Assign theme'}
-                          >
-                            <option value="">Unassigned</option>
-                            {themes.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-
-                      <div className="col-span-3 flex items-center justify-end gap-1">
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() => void handleSaveEdit(s.id)}
-                              className="p-1.5 rounded hover:bg-[#00FFFF]/20 disabled:opacity-50"
-                              style={{ color: NEON }}
-                              aria-label="Save"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={isSaving}
-                              onClick={() => {
-                                if (editSnapshot) setEditForm(editSnapshot)
-                                cancelEdit()
-                              }}
-                              className="p-1.5 rounded hover:bg-white/10 text-gray-400"
-                              aria-label="Cancel"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => startEdit(s)}
-                              className="p-1.5 rounded hover:bg-white/10 text-gray-400 hover:text-[#00FFFF]"
-                              aria-label="Edit media URLs"
-                              title="Edit media URLs"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!hasPreview}
-                              onClick={() => void togglePlayback(s, setError)}
-                              className={`p-1.5 rounded-full border transition-all disabled:opacity-30 ${
-                                isPlaying
-                                  ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
-                                  : 'border-white/10 text-gray-400 hover:border-[#00FFFF]/50 hover:text-[#00FFFF]'
-                              }`}
-                              aria-label={isPlaying ? 'Pause' : 'Play preview'}
-                              title={hasPreview ? 'Play preview' : 'No storage URL'}
-                            >
-                              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void handleDelete(s.id)}
-                              className="p-1.5 rounded hover:bg-red-500/20 text-red-400/40 hover:text-red-400"
-                              aria-label="Delete"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+                      Load more ({Math.min(PAGE_SIZE, filteredSongs.length - displayLimit)} of{' '}
+                      {filteredSongs.length - displayLimit} remaining)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDisplayLimit(filteredSongs.length)}
+                      className="px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white border border-white/10 hover:border-white/25 transition-colors"
+                    >
+                      Show all {filteredSongs.length}
+                    </button>
+                  </div>
+                ) : filteredSongs.length > PAGE_SIZE ? (
+                  <p className="p-3 text-center text-[11px] text-gray-500 border-t border-white/10">
+                    All {filteredSongs.length} matching tracks loaded
+                  </p>
+                ) : null}
+              </>
             )}
           </div>
         </div>

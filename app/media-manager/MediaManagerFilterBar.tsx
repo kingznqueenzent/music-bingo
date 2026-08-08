@@ -63,12 +63,13 @@ export function MediaManagerFilterBar({
             <input
               id="media-manager-search"
               type="search"
-              placeholder="Filter by title or artist…"
+              placeholder="Filter by title, artist, theme, or URL…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full border border-white/15 rounded-xl pl-12 pr-4 py-3 text-base focus:border-[#00FFFF] outline-none ring-0 focus:ring-2 focus:ring-[#00FFFF]/20"
               style={{ backgroundColor: BG, color: '#fff' }}
               autoComplete="off"
+              spellCheck={false}
             />
           </div>
         </div>
