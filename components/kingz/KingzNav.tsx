@@ -38,14 +38,14 @@ export function KingzNav() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-[10000] transition-all duration-300 ${
         scrolled ? 'bg-[#050505]/92 backdrop-blur-md shadow-lg shadow-[#5A2D91]/10' : 'bg-transparent'
       }`}
       role="banner"
     >
       <div className="kingz-deco-divider absolute bottom-0 left-0 right-0" aria-hidden />
       <nav
-        className="kingz-container flex items-center justify-between px-6 py-3 md:py-4"
+        className="kingz-container flex items-center justify-between gap-3 px-4 sm:px-6 py-3 md:py-4"
         aria-label="Main navigation"
       >
         <button
@@ -78,20 +78,21 @@ export function KingzNav() {
           </ul>
           <StaffHeaderActions
             loginFrom="/host"
-            loginClassName="text-xs text-[#f5f5f5]/45 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap"
-            menuButtonClassName="h-9 w-9 flex items-center justify-center rounded-lg border border-[#D4AF37]/25 text-[#D4AF37]/80 hover:text-[#D4AF37] hover:border-[#D4AF37]/50 transition-colors touch-manipulation"
+            loginClassName="text-sm text-[#f5f5f5]/55 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap min-h-11 inline-flex items-center"
+            menuButtonClassName="inline-flex items-center justify-center gap-2 min-h-11 h-11 px-3.5 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10 transition-colors touch-manipulation shadow-sm"
           />
         </div>
 
-        <div className="lg:hidden flex items-center gap-2">
+        <div className="lg:hidden flex items-center gap-2 shrink-0">
           <StaffHeaderActions
             loginFrom="/host"
-            loginClassName="text-[10px] text-[#f5f5f5]/45 hover:text-[#D4AF37]/90 transition-colors"
-            menuButtonClassName="h-9 w-9 flex items-center justify-center rounded-lg border border-[#D4AF37]/25 text-[#D4AF37]/80 hover:text-[#D4AF37] transition-colors touch-manipulation"
+            showAdminLabel={false}
+            loginClassName="text-xs text-[#f5f5f5]/50 hover:text-[#D4AF37]/90 transition-colors min-h-11 inline-flex items-center"
+            menuButtonClassName="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 transition-colors touch-manipulation"
           />
           <button
             type="button"
-            className="p-2 text-[#D4AF37]"
+            className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/25 touch-manipulation"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? 'Close menu' : 'Open menu'}
