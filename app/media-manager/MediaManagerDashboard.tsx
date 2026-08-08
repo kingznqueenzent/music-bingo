@@ -3,13 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
+import { motion } from 'motion/react'
 import {
+  ArrowLeft,
   Trash2,
   RefreshCw,
   AlertCircle,
   Loader2,
   CopyMinus,
   Eraser,
+  Music,
 } from 'lucide-react'
 import { filterCatalogSongs } from '@/lib/media/filter-catalog-songs'
 import { filterSongsByBatchTheme } from '@/lib/media/filter-songs-by-batch-theme'
@@ -35,7 +38,6 @@ import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = '#121212'
 const SURFACE = '#1E1E1E'
-const NEON = '#00FFFF'
 const PAGE_SIZE = 50
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -441,63 +443,80 @@ function MediaManagerDashboardInner() {
 
   return (
     <main
-      className="min-h-dvh text-white p-3 sm:p-5 md:p-6 max-w-[1600px] mx-auto space-y-4 sm:space-y-6 overflow-x-hidden pb-28"
+      className="min-h-dvh text-white overflow-x-hidden pb-28"
       style={{ backgroundColor: BG }}
     >
-      <Link href="/host" className="text-slate-400 hover:text-[#00FFFF] text-sm transition-colors inline-block">
-        ← Host dashboard
-      </Link>
-
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-white/10 pb-5">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
-            Media Manager
-            <span className="text-gray-500 font-normal text-lg md:text-xl ml-2">
-              — {loading ? '…' : songs.length} file{songs.length === 1 ? '' : 's'}
-            </span>
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">Upload, tag, preview, and manage LyricGrid catalog media</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={cleaningUnassigned || loading || themeCounts.uncategorized === 0}
-            onClick={() => void handleClearUnassigned()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-red-500/35 text-red-200 hover:bg-red-950/30 transition-all disabled:opacity-50"
-          >
-            {cleaningUnassigned ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eraser className="w-4 h-4" />}
-            Clear uncategorized ({themeCounts.uncategorized})
-          </button>
-          <button
-            type="button"
-            disabled={removingDupes || loading}
-            onClick={() => void handleRemoveDupes()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-amber-500/40 text-amber-200 hover:bg-amber-950/30 transition-all disabled:opacity-50"
-          >
-            {removingDupes ? <Loader2 className="w-4 h-4 animate-spin" /> : <CopyMinus className="w-4 h-4" />}
-            Remove dupes
-          </button>
-          {selectedIds.size > 0 ? (
+      <div className="max-w-[1600px] mx-auto p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
+        <header className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/5">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              href="/host"
+              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:text-[#00FFFF] hover:border-[#00FFFF]/30 transition-colors shrink-0"
+              aria-label="Back to host dashboard"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 min-w-0">
+              Media Manager
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[#00FFFF]/10 text-[#00FFFF] tabular-nums shrink-0">
+                {loading ? '…' : songs.length}
+              </span>
+            </h1>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              disabled={bulkDeleting}
-              onClick={() => void handleBulkDelete()}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm border border-red-500/50 text-red-300 hover:bg-red-950/40 transition-all disabled:opacity-50"
+              disabled={removingDupes || loading}
+              onClick={() => void handleRemoveDupes()}
+              className="px-3 py-1.5 rounded-lg border border-red-500/20 text-red-400/70 hover:text-red-400 hover:border-red-500/40 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
             >
-              {bulkDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-              Delete selected ({selectedIds.size})
+              {removingDupes ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CopyMinus className="w-3.5 h-3.5" />
+              )}
+              Remove Dupes
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => void refetch()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white/10 text-sm border border-white/10 transition-all"
-            style={{ backgroundColor: SURFACE, color: NEON }}
-          >
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </button>
-        </div>
-      </header>
+            <button
+              type="button"
+              disabled={cleaningUnassigned || loading || themeCounts.uncategorized === 0}
+              onClick={() => void handleClearUnassigned()}
+              className="px-3 py-1.5 rounded-lg border border-white/10 text-white/50 hover:text-white hover:border-white/20 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              title="Delete all uncategorized tracks"
+            >
+              {cleaningUnassigned ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Eraser className="w-3.5 h-3.5" />
+              )}
+              Clear uncategorized ({themeCounts.uncategorized})
+            </button>
+            {selectedIds.size > 0 ? (
+              <button
+                type="button"
+                disabled={bulkDeleting}
+                onClick={() => void handleBulkDelete()}
+                className="px-3 py-1.5 rounded-lg border border-red-500/30 text-red-300 hover:border-red-500/50 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {bulkDeleting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                Delete ({selectedIds.size})
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FFFF] hover:border-[#00FFFF]/30 transition-colors"
+              aria-label="Refresh catalog"
+              title="Refresh catalog"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </header>
 
       <MediaManagerFilterBar
         searchQuery={searchInput}
@@ -528,8 +547,8 @@ function MediaManagerDashboardInner() {
         </div>
       ) : null}
 
-      <div className="flex flex-col xl:flex-row gap-6 items-start">
-        <aside className="w-full xl:w-80 shrink-0 space-y-4">
+      <div className="flex flex-col xl:flex-row gap-5 xl:gap-6 items-start">
+        <aside className="w-full xl:w-72 shrink-0 space-y-4 xl:sticky xl:top-[calc(3rem+env(safe-area-inset-top,0px))]">
           <MediaManagerFiltersPanel>
             <MediaManagerFilterTabs
               libraryView={libraryView}
@@ -559,7 +578,7 @@ function MediaManagerDashboardInner() {
           </MediaManagerFiltersPanel>
         </aside>
 
-        <div className="flex-1 min-w-0 space-y-5 w-full">
+        <div className="flex-1 min-w-0 w-full max-w-2xl xl:max-w-none mx-auto xl:mx-0 space-y-5">
           <MediaUploadDropzone
             themes={themes}
             uploadThemeId={uploadThemeId}
@@ -569,102 +588,125 @@ function MediaManagerDashboardInner() {
             themeCounts={themeCounts.counts}
           />
 
-          <p className="text-xs text-gray-500 px-1">
-            {libraryView === 'uncategorized' ? 'Uncategorized view · ' : ''}
-            {selectedThemeFilter && selectedThemeFilter !== 'uncategorized' ? 'Theme filter active · ' : ''}
-            {selectedGenreFilter ? 'Genre filter active · ' : ''}
-            {batchFilter !== 'all' ? `${batchFilter} batch · ` : ''}
-            {searchQuery.trim() ? 'Search active · ' : ''}
-            Showing {displayedSongs.length} of {filteredSongs.length} match
-            {filteredSongs.length === 1 ? '' : 'es'}
-            {filteredSongs.length !== songs.length ? ` (${songs.length} total)` : ''}
-          </p>
+          <section className="space-y-3" aria-label="Library catalog">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-white/40">
+                Library Catalog
+              </h2>
+              {!loading && filteredSongs.length > 0 ? (
+                <label className="flex items-center gap-2 text-xs text-white/40 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={allDisplayedSelected}
+                    onChange={toggleSelectAllDisplayed}
+                    aria-label="Select all loaded tracks"
+                    className="rounded border-white/20"
+                  />
+                  Select all loaded
+                </label>
+              ) : null}
+            </div>
 
-          <div className="rounded-xl border border-white/10 overflow-hidden min-w-0" style={{ backgroundColor: SURFACE }}>
-            <div className="p-3 border-b border-white/10 text-[10px] font-semibold text-gray-500 uppercase tracking-wider hidden md:grid grid-cols-12 gap-3 items-center">
-              <div className="col-span-1 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={allDisplayedSelected}
-                  onChange={toggleSelectAllDisplayed}
-                  aria-label="Select all loaded tracks"
-                  className="rounded border-white/20"
-                />
-                <span className="hidden sm:inline normal-case tracking-normal text-gray-400">Select all</span>
-              </div>
-              <div className="col-span-3">Title / Artist</div>
-              <div className="col-span-1">Duration</div>
-              <div className="col-span-1">Type</div>
-              <div className="col-span-3">Theme / Genre</div>
-              <div className="col-span-3 text-right">Actions</div>
-            </div>
-            <div className="md:hidden p-3 border-b border-white/10 flex items-center gap-3">
-              <input
-                type="checkbox"
-                checked={allDisplayedSelected}
-                onChange={toggleSelectAllDisplayed}
-                aria-label="Select all loaded tracks"
-                className="rounded border-white/20 min-h-5 min-w-5"
-              />
-              <span className="text-xs text-gray-400">Select all loaded</span>
-            </div>
+            {(libraryView === 'uncategorized' ||
+              selectedThemeFilter ||
+              selectedGenreFilter ||
+              batchFilter !== 'all' ||
+              searchQuery.trim()) && (
+              <p className="text-[11px] text-white/35 px-1">
+                {libraryView === 'uncategorized' ? 'Uncategorized · ' : ''}
+                {selectedThemeFilter && selectedThemeFilter !== 'uncategorized'
+                  ? 'Theme filter · '
+                  : ''}
+                {selectedGenreFilter ? 'Genre filter · ' : ''}
+                {batchFilter !== 'all' ? `${batchFilter} batch · ` : ''}
+                {searchQuery.trim() ? 'Search · ' : ''}
+                {displayedSongs.length} of {filteredSongs.length} shown
+                {filteredSongs.length !== songs.length ? ` (${songs.length} total)` : ''}
+              </p>
+            )}
 
             {loading ? (
-              <div className="p-10 text-center text-gray-500 flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" /> Loading library…
+              <div className="space-y-2" aria-busy="true" aria-label="Loading library">
+                {[1, 2, 3, 4].map((n) => (
+                  <div
+                    key={n}
+                    className="h-16 rounded-xl border border-white/5 animate-pulse"
+                    style={{ backgroundColor: SURFACE }}
+                  />
+                ))}
               </div>
             ) : filteredSongs.length === 0 ? (
               hasActiveFilters ? (
-                <LibrarySearchEmpty
-                  query={searchQuery}
-                  onClear={() => {
-                    setSearchInput('')
-                    setSearchQuery('')
-                    setBatchFilter('all')
-                    setSelectedThemeFilter('')
-                    setSelectedGenreFilter('')
-                    setLibraryView('all')
-                  }}
-                />
+                <div
+                  className="rounded-xl border border-white/5 overflow-hidden"
+                  style={{ backgroundColor: SURFACE }}
+                >
+                  <LibrarySearchEmpty
+                    query={searchQuery}
+                    onClear={() => {
+                      setSearchInput('')
+                      setSearchQuery('')
+                      setBatchFilter('all')
+                      setSelectedThemeFilter('')
+                      setSelectedGenreFilter('')
+                      setLibraryView('all')
+                    }}
+                  />
+                </div>
               ) : (
-                <div className="p-10 text-center text-gray-500">
-                  No tracks yet — upload MP3 or MP4 files above.
+                <div
+                  className="p-12 text-center rounded-xl border border-white/5"
+                  style={{ backgroundColor: SURFACE }}
+                >
+                  <div className="mx-auto w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white/30 mb-3">
+                    <Music className="w-5 h-5" />
+                  </div>
+                  <p className="text-sm font-medium text-white/70">No media uploaded yet</p>
+                  <p className="text-xs text-white/40 mt-1">
+                    Add MP3 or MP4 files above to populate themes.
+                  </p>
                 </div>
               )
             ) : (
               <>
-                <div className="divide-y divide-white/5">
-                  {displayedSongs.map((s) => (
-                    <MediaSongRow
+                <div className="space-y-2">
+                  {displayedSongs.map((s, index) => (
+                    <motion.div
                       key={s.id}
-                      song={s}
-                      themes={themes}
-                      themeName={s.theme_id ? themeNameById.get(s.theme_id) : undefined}
-                      themeCounts={themeCounts.counts}
-                      isSelected={selectedIds.has(s.id)}
-                      isEditing={editingId === s.id}
-                      isPlaying={playingSongId === s.id}
-                      isSaving={savingId === s.id}
-                      isTagging={taggingId === s.id}
-                      inlineSavingKey={
-                        inlineSavingKey?.startsWith(`${s.id}:`) ? inlineSavingKey : null
-                      }
-                      editForm={editingId === s.id ? editForm : {}}
-                      onToggleSelect={toggleSelect}
-                      onEditFormChange={handleEditFormChange}
-                      onInlineFieldSave={handleInlineFieldSave}
-                      onCleanYoutubeUrl={handleCleanYoutubeUrlClick}
-                      onInlineThemeChange={handleInlineThemeChangeClick}
-                      onStartEdit={startEdit}
-                      onSaveEdit={handleSaveEditClick}
-                      onCancelEdit={handleCancelEditClick}
-                      onTogglePlayback={handleTogglePlayback}
-                      onDelete={handleDeleteClick}
-                    />
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: Math.min(index, 8) * 0.03 }}
+                    >
+                      <MediaSongRow
+                        song={s}
+                        themes={themes}
+                        themeName={s.theme_id ? themeNameById.get(s.theme_id) : undefined}
+                        themeCounts={themeCounts.counts}
+                        isSelected={selectedIds.has(s.id)}
+                        isEditing={editingId === s.id}
+                        isPlaying={playingSongId === s.id}
+                        isSaving={savingId === s.id}
+                        isTagging={taggingId === s.id}
+                        inlineSavingKey={
+                          inlineSavingKey?.startsWith(`${s.id}:`) ? inlineSavingKey : null
+                        }
+                        editForm={editingId === s.id ? editForm : {}}
+                        onToggleSelect={toggleSelect}
+                        onEditFormChange={handleEditFormChange}
+                        onInlineFieldSave={handleInlineFieldSave}
+                        onCleanYoutubeUrl={handleCleanYoutubeUrlClick}
+                        onInlineThemeChange={handleInlineThemeChangeClick}
+                        onStartEdit={startEdit}
+                        onSaveEdit={handleSaveEditClick}
+                        onCancelEdit={handleCancelEditClick}
+                        onTogglePlayback={handleTogglePlayback}
+                        onDelete={handleDeleteClick}
+                      />
+                    </motion.div>
                   ))}
                 </div>
                 {hasMore ? (
-                  <div className="p-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                     <button
                       type="button"
                       onClick={() => setDisplayLimit((n) => n + PAGE_SIZE)}
@@ -676,20 +718,21 @@ function MediaManagerDashboardInner() {
                     <button
                       type="button"
                       onClick={() => setDisplayLimit(filteredSongs.length)}
-                      className="px-3 py-2 rounded-lg text-xs text-gray-400 hover:text-white border border-white/10 hover:border-white/25 transition-colors"
+                      className="px-3 py-2 rounded-lg text-xs text-white/40 hover:text-white border border-white/10 hover:border-white/25 transition-colors"
                     >
                       Show all {filteredSongs.length}
                     </button>
                   </div>
                 ) : filteredSongs.length > PAGE_SIZE ? (
-                  <p className="p-3 text-center text-[11px] text-gray-500 border-t border-white/10">
+                  <p className="text-center text-[11px] text-white/35 pt-1">
                     All {filteredSongs.length} matching tracks loaded
                   </p>
                 ) : null}
               </>
             )}
-          </div>
+          </section>
         </div>
+      </div>
       </div>
 
       {selectedIds.size > 0 ? (

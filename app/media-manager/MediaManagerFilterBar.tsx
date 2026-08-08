@@ -57,7 +57,7 @@ export function MediaManagerFilterBar({
   return (
     <section
       aria-label="Search and filter library"
-      className="p-3 sm:p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4 md:sticky md:top-[calc(3rem+env(safe-area-inset-top,0px))] md:z-20"
+      className="p-3 sm:p-4 rounded-xl border border-white/5 space-y-4 md:sticky md:top-[calc(3rem+env(safe-area-inset-top,0px))] md:z-20"
       style={{ backgroundColor: SURFACE }}
     >
       <div className="flex flex-col lg:flex-row lg:items-end gap-4">

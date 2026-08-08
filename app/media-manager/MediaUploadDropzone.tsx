@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import {
-  UploadCloud,
+  Upload,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -90,16 +91,13 @@ export function MediaUploadDropzone({
       : 0
 
   return (
-    <section
-      className="rounded-xl border border-white/10 p-3 sm:p-4 space-y-4 overflow-hidden min-w-0"
-      style={{ backgroundColor: SURFACE }}
-    >
+    <section className="space-y-3 min-w-0">
       <div>
         <label
           htmlFor="upload-theme"
-          className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2"
+          className="block text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-2 px-1"
         >
-          Target Theme for Uploads
+          Target theme for uploads
         </label>
         <ThemeSelect
           id="upload-theme"
@@ -113,7 +111,9 @@ export function MediaUploadDropzone({
         />
       </div>
 
-      <div
+      <motion.div
+        animate={{ scale: isDragging && !running ? 1.01 : 1 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         role="button"
         tabIndex={0}
         onDragOver={(e) => {
@@ -135,11 +135,12 @@ export function MediaUploadDropzone({
             inputRef.current?.click()
           }
         }}
-        className={`relative rounded-xl border-2 border-dashed p-6 sm:p-10 text-center cursor-pointer transition-all touch-manipulation overflow-hidden min-w-0 ${
+        className={`relative rounded-xl border border-dashed p-8 text-center cursor-pointer transition-colors touch-manipulation overflow-hidden min-w-0 ${
           isDragging
-            ? 'border-[#00FFFF] bg-[#00FFFF]/5'
-            : 'border-white/15 hover:border-[#00FFFF]/40 hover:bg-white/[0.02]'
-        } ${running ? 'pointer-events-none opacity-70' : ''}`}
+            ? 'border-[#00FFFF]/50 bg-[#00FFFF]/5'
+            : 'border-white/10 bg-[#1E1E1E] hover:border-white/20'
+        } ${running ? 'pointer-events-none opacity-80' : ''}`}
+        style={!isDragging && !running ? { backgroundColor: SURFACE } : undefined}
       >
         <input
           ref={inputRef}
@@ -158,40 +159,42 @@ export function MediaUploadDropzone({
         {running ? (
           <div className="flex flex-col items-center gap-3 text-gray-300 w-full max-w-md mx-auto">
             <Loader2 className="w-10 h-10 animate-spin" style={{ color: NEON }} />
-            <p className="text-sm font-semibold text-white">
+            <p className="text-sm font-medium text-white">
               Uploading {batchStats.completed} of {batchStats.total} file
               {batchStats.total === 1 ? '' : 's'}…
             </p>
-            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+            <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{ width: `${progressPct}%`, backgroundColor: NEON }}
               />
             </div>
-            <p className="text-[11px] text-gray-500">
-              Direct upload → {bucket} → songs catalog (ID3 + sanitized paths)
+            <p className="text-[11px] text-white/40">
+              Direct upload → {bucket} → songs catalog
             </p>
           </div>
         ) : (
           <>
-            <UploadCloud
-              className="w-10 h-10 mx-auto mb-3 text-gray-500"
-              style={{ color: isDragging ? NEON : undefined }}
-            />
-            <p className="text-sm font-semibold text-white">
-              Drag &amp; drop or choose multiple MP3 / MP4 files
+            <div className="mx-auto w-12 h-12 rounded-xl bg-[#00FFFF]/10 flex items-center justify-center text-[#00FFFF] mb-3">
+              <Upload className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-medium text-white mb-1">
+              Drag and drop audio/video tracks here
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              Up to {MAX_UPLOAD_FILES} files · max {MAX_UPLOAD_MB} MB each · direct Supabase Storage
+            <p className="text-xs text-white/40">
+              MP3 / MP4 · up to {MAX_UPLOAD_FILES} files · max {MAX_UPLOAD_MB} MB each
             </p>
           </>
         )}
-      </div>
+      </motion.div>
 
       {items.length > 0 ? (
-        <div className="space-y-2">
+        <div
+          className="rounded-xl border border-white/5 p-3 space-y-2"
+          style={{ backgroundColor: SURFACE }}
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[10px] uppercase tracking-wider text-gray-500">
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
               Upload queue · {stats.completed} done
               {stats.error > 0 ? ` · ${stats.error} failed` : ''}
             </p>
@@ -210,7 +213,7 @@ export function MediaUploadDropzone({
                 <button
                   type="button"
                   onClick={clearFinished}
-                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white min-h-9 px-2"
+                  className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white min-h-9 px-2"
                 >
                   <X className="w-3.5 h-3.5" />
                   Clear done
@@ -223,7 +226,7 @@ export function MediaUploadDropzone({
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex items-start gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 min-h-11"
+                className="flex items-start gap-2 rounded-lg border border-white/5 bg-black/20 px-3 py-2 min-h-11"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-200 truncate">
@@ -232,9 +235,9 @@ export function MediaUploadDropzone({
                   {item.error ? (
                     <p className="text-[11px] text-red-300/90 mt-0.5 line-clamp-2">{item.error}</p>
                   ) : item.mediaUrl ? (
-                    <p className="text-[11px] text-gray-500 truncate mt-0.5">{item.storagePath}</p>
+                    <p className="text-[11px] text-white/40 truncate mt-0.5">{item.storagePath}</p>
                   ) : (
-                    <p className="text-[11px] text-gray-500 mt-0.5">
+                    <p className="text-[11px] text-white/40 mt-0.5">
                       {(item.file.size / (1024 * 1024)).toFixed(1)} MB
                     </p>
                   )}
@@ -249,7 +252,7 @@ export function MediaUploadDropzone({
                   ) : item.status === 'error' ? (
                     <AlertCircle className="w-3 h-3" />
                   ) : null}
-                  {statusLabel(item)}
+                  {statusLabel(item.status)}
                 </span>
                 {item.status === 'error' && !running ? (
                   <button
@@ -268,10 +271,9 @@ export function MediaUploadDropzone({
       ) : null}
 
       {stats.completed > 0 && !running ? (
-        <p className="text-xs flex items-center gap-1.5 text-emerald-400">
+        <p className="text-xs flex items-center gap-1.5 text-emerald-400 px-1">
           <CheckCircle2 className="w-3.5 h-3.5" />
-          Uploaded {stats.completed} file{stats.completed === 1 ? '' : 's'} to {MEDIA_BUCKET} and
-          songs catalog.
+          Uploaded {stats.completed} file{stats.completed === 1 ? '' : 's'} to {MEDIA_BUCKET}.
         </p>
       ) : null}
     </section>
