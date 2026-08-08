@@ -1,7 +1,17 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { MediaLibraryItem } from '@/lib/supabase/types'
+import { buildSanitizedStoragePath, storageExtension } from '@/lib/media/sanitize-storage-filename'
 
-export const MEDIA_BUCKET = 'media'
+/**
+ * LyricGrid media library bucket (MP3/MP4).
+ * Existing production policies and objects use `media`.
+ * Override with NEXT_PUBLIC_MEDIA_BUCKET if you provision `audio-tracks`.
+ */
+export const MEDIA_BUCKET =
+  (typeof process !== 'undefined' &&
+    process.env.NEXT_PUBLIC_MEDIA_BUCKET?.trim()) ||
+  'media'
+
 export const MAX_UPLOAD_MB = 100
 
 export type ValidMediaFile = {
@@ -9,8 +19,8 @@ export type ValidMediaFile = {
 }
 
 export function validateMediaFile(file: File): ValidMediaFile | { error: string } {
-  const ext = file.name.split('.').pop()?.toLowerCase()
-  if (ext !== 'mp3' && ext !== 'mp4') {
+  const ext = storageExtension(file.name)
+  if (!ext) {
     return { error: 'Only MP3 and MP4 files are allowed.' }
   }
   if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
@@ -19,41 +29,63 @@ export function validateMediaFile(file: File): ValidMediaFile | { error: string 
   return { ext }
 }
 
-function safeStoragePath(file: File, ext: 'mp3' | 'mp4'): string {
-  const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-  return `${ext}/${safeName}`
+export type DirectStorageUploadResult = {
+  path: string
+  publicUrl: string
+  ext: 'mp3' | 'mp4'
+  bucket: string
 }
 
-/** Replaces Base44 `integrations.Core.UploadFile` — uploads to Supabase Storage. */
+/**
+ * Upload a file directly from the browser via Supabase JS (no Next.js body proxy).
+ * Returns a public URL when the bucket is public, otherwise a long-lived signed URL.
+ */
 export async function uploadMediaToStorage(
   supabase: SupabaseClient,
-  file: File
-): Promise<{ path: string; publicUrl: string; ext: 'mp3' | 'mp4' }> {
+  file: File,
+  options?: { bucket?: string }
+): Promise<DirectStorageUploadResult> {
   const validated = validateMediaFile(file)
   if ('error' in validated) throw new Error(validated.error)
 
-  const path = safeStoragePath(file, validated.ext)
-  const { error: uploadError } = await supabase.storage.from(MEDIA_BUCKET).upload(path, file, {
-    contentType: file.type || (validated.ext === 'mp3' ? 'audio/mpeg' : 'video/mp4'),
+  const bucket = options?.bucket ?? MEDIA_BUCKET
+  const path = buildSanitizedStoragePath(file.name, validated.ext)
+  const contentType = file.type || (validated.ext === 'mp3' ? 'audio/mpeg' : 'video/mp4')
+
+  const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+    contentType,
     upsert: false,
+    cacheControl: '3600',
   })
 
   if (uploadError) {
-    const fd = new FormData()
-    fd.append('file', file)
-    fd.append('name', file.name)
-    const res = await fetch('/api/media/upload', { method: 'POST', credentials: 'include', body: fd })
-    const body = (await res.json()) as { file_url?: string; file_path?: string; error?: string }
-    if (!res.ok || !body.file_url) throw new Error(body.error ?? uploadError.message)
-    return {
-      path: body.file_path ?? path,
-      publicUrl: body.file_url,
-      ext: validated.ext,
-    }
+    throw new Error(uploadError.message || 'Storage upload failed')
   }
 
-  const { data: urlData } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path)
-  return { path, publicUrl: urlData.publicUrl, ext: validated.ext }
+  const publicUrl = await resolveStorageUrl(supabase, bucket, path)
+  return { path, publicUrl, ext: validated.ext, bucket }
+}
+
+/** Prefer public URL; fall back to a 1-year signed URL for private buckets. */
+export async function resolveStorageUrl(
+  supabase: SupabaseClient,
+  bucket: string,
+  path: string
+): Promise<string> {
+  const { data: pub } = supabase.storage.from(bucket).getPublicUrl(path)
+  if (pub?.publicUrl) {
+    // Probe is not required; public buckets return a usable URL immediately.
+    return pub.publicUrl
+  }
+
+  const { data: signed, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUrl(path, 60 * 60 * 24 * 365)
+
+  if (error || !signed?.signedUrl) {
+    throw new Error(error?.message || 'Could not resolve storage URL after upload')
+  }
+  return signed.signedUrl
 }
 
 /** Replaces Base44 `entities.MediaLibrary.create` — inserts a media_library row. */
@@ -66,13 +98,15 @@ export async function insertMediaLibraryRecord(
     ext: 'mp3' | 'mp4'
     fileSizeBytes: number
     themeId?: string | null
+    bucket?: string
   }
 ): Promise<MediaLibraryItem> {
+  const bucket = input.bucket ?? MEDIA_BUCKET
   const insertPayload: Record<string, unknown> = {
     name: input.name,
     file_path: input.filePath,
     file_url: input.fileUrl,
-    storage_bucket: MEDIA_BUCKET,
+    storage_bucket: bucket,
     file_type: input.ext,
     file_size_bytes: input.fileSizeBytes,
   }
@@ -92,7 +126,7 @@ export async function insertMediaLibraryRecord(
   }
 
   if (insertError) {
-    await supabase.storage.from(MEDIA_BUCKET).remove([input.filePath])
+    await supabase.storage.from(bucket).remove([input.filePath])
     throw new Error(insertError.message)
   }
 

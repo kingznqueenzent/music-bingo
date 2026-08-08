@@ -1,0 +1,343 @@
+'use client'
+
+import { useCallback, useMemo, useRef, useState } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  MEDIA_BUCKET,
+  MAX_UPLOAD_MB,
+  uploadMediaToStorage,
+  validateMediaFile,
+} from '@/lib/media/supabase-storage-upload'
+import { extractMediaMetadata } from '@/lib/media/extract-media-metadata'
+import {
+  fetchAutoCategory,
+  mapAutoCategoryToFormFields,
+} from '@/lib/media/apply-auto-category-to-track'
+import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
+import type { CatalogTheme, SongInsertPayload } from '../types'
+
+export const MAX_UPLOAD_FILES = 20
+
+export type UploadItemStatus = 'pending' | 'uploading' | 'completed' | 'error'
+
+export type UploadQueueItem = {
+  id: string
+  file: File
+  status: UploadItemStatus
+  error: string | null
+  mediaUrl: string | null
+  storagePath: string | null
+  title: string | null
+}
+
+type ThemeLike = Pick<CatalogTheme, 'id' | 'name'>
+
+function newItemId(): string {
+  return `up-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+async function insertSongRow(
+  supabase: SupabaseClient,
+  payload: SongInsertPayload
+): Promise<void> {
+  const { error: insertError } = await supabase.from('songs').insert([payload])
+  if (!insertError) return
+
+  const res = await fetch('/api/songs', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = (await res.json()) as { error?: string }
+  if (!res.ok) throw new Error(body.error ?? insertError.message)
+}
+
+async function insertMediaLibraryBestEffort(
+  supabase: SupabaseClient,
+  input: {
+    name: string
+    filePath: string
+    fileUrl: string
+    ext: 'mp3' | 'mp4'
+    fileSizeBytes: number
+    themeId: string | null
+    bucket: string
+  }
+): Promise<void> {
+  const row: Record<string, unknown> = {
+    name: input.name,
+    file_path: input.filePath,
+    file_url: input.fileUrl,
+    storage_bucket: input.bucket,
+    file_type: input.ext,
+    file_size_bytes: input.fileSizeBytes,
+  }
+  if (input.themeId) row.theme_id = input.themeId
+
+  const { error } = await supabase.from('media_library').insert(row)
+  if (error && !/theme_id|schema cache|column/i.test(error.message)) {
+    console.warn('media_library insert skipped:', error.message)
+  }
+}
+
+async function buildSongPayload(
+  file: File,
+  mediaUrl: string,
+  storagePath: string,
+  ext: 'mp3' | 'mp4',
+  uploadThemeId: string,
+  themes: ThemeLike[]
+): Promise<SongInsertPayload> {
+  const selectedThemeId = uploadThemeId.trim() || null
+  const meta = await extractMediaMetadata(file)
+  let title = meta.title
+  let artist = meta.artist
+  let year = meta.year
+  let themeId = selectedThemeId
+
+  if (!selectedThemeId) {
+    const auto = await fetchAutoCategory(file.name)
+    if (auto) {
+      const filled = mapAutoCategoryToFormFields(auto, themes)
+      if (!meta.fromTags || !title) title = filled.title || title
+      if (!artist) artist = filled.artist || null
+      if (!year) year = filled.year || null
+      themeId = filled.theme_id || null
+    }
+  }
+
+  const fileDurationSec = await probeMediaDuration(file)
+
+  return {
+    title,
+    artist,
+    year,
+    theme_id: themeId,
+    media_url: mediaUrl,
+    storage_path: storagePath,
+    media_type: ext === 'mp4' ? 'video' : 'audio',
+    start_time_sec: 0,
+    duration_sec: defaultClipDurationSec(fileDurationSec),
+    file_duration_sec: fileDurationSec,
+  }
+}
+
+/**
+ * Per-file upload queue: pending → uploading → completed | error, with single-file retry.
+ * Storage upload is direct via Supabase JS; songs insert follows immediately after.
+ */
+export function useMediaUploadQueue({
+  supabase,
+  themes,
+  uploadThemeId,
+  onBatchComplete,
+  onError,
+}: {
+  supabase: SupabaseClient
+  themes: ThemeLike[]
+  uploadThemeId: string
+  onBatchComplete: () => void
+  onError: (message: string) => void
+}) {
+  const [items, setItems] = useState<UploadQueueItem[]>([])
+  const [running, setRunning] = useState(false)
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  const themeIdRef = useRef(uploadThemeId)
+  themeIdRef.current = uploadThemeId
+  const themesRef = useRef(themes)
+  themesRef.current = themes
+
+  const patchItem = useCallback((id: string, patch: Partial<UploadQueueItem>) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)))
+  }, [])
+
+  const processItem = useCallback(
+    async (item: UploadQueueItem): Promise<boolean> => {
+      const validated = validateMediaFile(item.file)
+      if ('error' in validated) {
+        patchItem(item.id, { status: 'error', error: validated.error })
+        return false
+      }
+
+      patchItem(item.id, { status: 'uploading', error: null })
+
+      let uploadedPath: string | null = null
+      let uploadedBucket = MEDIA_BUCKET
+      try {
+        const uploaded = await uploadMediaToStorage(supabase, item.file)
+        uploadedPath = uploaded.path
+        uploadedBucket = uploaded.bucket
+
+        const payload = await buildSongPayload(
+          item.file,
+          uploaded.publicUrl,
+          uploaded.path,
+          uploaded.ext,
+          themeIdRef.current,
+          themesRef.current
+        )
+
+        await insertMediaLibraryBestEffort(supabase, {
+          name: item.file.name,
+          filePath: uploaded.path,
+          fileUrl: uploaded.publicUrl,
+          ext: uploaded.ext,
+          fileSizeBytes: item.file.size,
+          themeId: payload.theme_id,
+          bucket: uploaded.bucket,
+        })
+
+        // Catalog row immediately after storage; roll back object if DB insert fails
+        try {
+          await insertSongRow(supabase, payload)
+        } catch (dbErr) {
+          await supabase.storage.from(uploaded.bucket).remove([uploaded.path])
+          throw dbErr
+        }
+
+        patchItem(item.id, {
+          status: 'completed',
+          error: null,
+          mediaUrl: uploaded.publicUrl,
+          storagePath: uploaded.path,
+          title: payload.title,
+        })
+        return true
+      } catch (e) {
+        if (uploadedPath) {
+          await supabase.storage
+            .from(uploadedBucket)
+            .remove([uploadedPath])
+            .catch(() => undefined)
+        }
+        patchItem(item.id, {
+          status: 'error',
+          error: e instanceof Error ? e.message : 'Upload failed',
+        })
+        return false
+      }
+    },
+    [supabase, patchItem]
+  )
+
+  const enqueueFiles = useCallback(
+    async (fileList: FileList | File[]) => {
+      const raw = Array.from(fileList)
+      const next: UploadQueueItem[] = []
+      const rejected: string[] = []
+
+      for (const file of raw.slice(0, MAX_UPLOAD_FILES)) {
+        const validated = validateMediaFile(file)
+        if ('error' in validated) {
+          rejected.push(`${file.name}: ${validated.error}`)
+          continue
+        }
+        if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+          rejected.push(`${file.name}: exceeds ${MAX_UPLOAD_MB} MB`)
+          continue
+        }
+        next.push({
+          id: newItemId(),
+          file,
+          status: 'pending',
+          error: null,
+          mediaUrl: null,
+          storagePath: null,
+          title: null,
+        })
+      }
+
+      if (raw.length > MAX_UPLOAD_FILES) {
+        onError(`Only the first ${MAX_UPLOAD_FILES} files were queued.`)
+      } else if (rejected.length > 0 && next.length === 0) {
+        onError(rejected[0])
+        return
+      } else if (rejected.length > 0) {
+        onError(`${rejected.length} file(s) skipped. ${rejected[0]}`)
+      } else {
+        onError('')
+      }
+
+      if (next.length === 0) return
+
+      setItems((prev) => {
+        const keep = prev.filter((it) => it.status === 'error' || it.status === 'completed')
+        const merged = [...keep, ...next]
+        itemsRef.current = merged
+        return merged
+      })
+      setRunning(true)
+
+      let anyOk = false
+      for (const item of next) {
+        const ok = await processItem(item)
+        if (ok) anyOk = true
+      }
+
+      setRunning(false)
+      if (anyOk) onBatchComplete()
+    },
+    [onError, onBatchComplete, processItem]
+  )
+
+  const retryItem = useCallback(
+    async (id: string) => {
+      const item = itemsRef.current.find((it) => it.id === id)
+      if (!item || item.status !== 'error') return
+      if (running) {
+        onError('Wait for the current batch to finish, then retry.')
+        return
+      }
+
+      setRunning(true)
+      onError('')
+      const pending = { ...item, status: 'pending' as const, error: null }
+      patchItem(id, { status: 'pending', error: null })
+      const ok = await processItem(pending)
+      setRunning(false)
+      if (ok) onBatchComplete()
+    },
+    [running, onError, onBatchComplete, patchItem, processItem]
+  )
+
+  const retryAllFailed = useCallback(async () => {
+    const failed = itemsRef.current.filter((it) => it.status === 'error')
+    if (failed.length === 0 || running) return
+    setRunning(true)
+    onError('')
+    let anyOk = false
+    for (const item of failed) {
+      const pending = { ...item, status: 'pending' as const, error: null }
+      patchItem(item.id, { status: 'pending', error: null })
+      const ok = await processItem(pending)
+      if (ok) anyOk = true
+    }
+    setRunning(false)
+    if (anyOk) onBatchComplete()
+  }, [running, onError, onBatchComplete, patchItem, processItem])
+
+  const clearFinished = useCallback(() => {
+    setItems((prev) => prev.filter((it) => it.status !== 'completed'))
+  }, [])
+
+  const stats = useMemo(() => {
+    const pending = items.filter((i) => i.status === 'pending').length
+    const uploading = items.filter((i) => i.status === 'uploading').length
+    const completed = items.filter((i) => i.status === 'completed').length
+    const error = items.filter((i) => i.status === 'error').length
+    return { pending, uploading, completed, error, total: items.length }
+  }, [items])
+
+  return {
+    items,
+    stats,
+    running,
+    enqueueFiles,
+    retryItem,
+    retryAllFailed,
+    clearFinished,
+    bucket: MEDIA_BUCKET,
+  }
+}

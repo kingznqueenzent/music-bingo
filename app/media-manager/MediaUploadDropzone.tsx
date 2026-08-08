@@ -1,24 +1,26 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
-import { UploadCloud, Loader2, CheckCircle2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import { MEDIA_BUCKET } from '@/lib/media/supabase-storage-upload'
+import { useMemo, useRef, useState } from 'react'
 import {
-  fetchAutoCategory,
-  mapAutoCategoryToFormFields,
-} from '@/lib/media/apply-auto-category-to-track'
-import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
-import { cleanSongTitle, parseArtistTitle } from '@/lib/songAutoCategorizer'
+  UploadCloud,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  RotateCcw,
+  X,
+} from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { MEDIA_BUCKET, MAX_UPLOAD_MB } from '@/lib/media/supabase-storage-upload'
 import { ThemeSelect } from './ThemeSelect'
-import type { CatalogTheme, SongInsertPayload } from './types'
+import {
+  MAX_UPLOAD_FILES,
+  useMediaUploadQueue,
+  type UploadQueueItem,
+} from './hooks/useMediaUploadQueue'
+import type { CatalogTheme } from './types'
 
-const BG = '#121212'
 const SURFACE = '#1E1E1E'
 const NEON = '#00FFFF'
-
-export const MAX_UPLOAD_FILES = 20
-export const MAX_UPLOAD_MB = 100
 
 /** File picker + drag-drop accept list */
 export const BATCH_FILE_ACCEPT = '.mp3,.mp4,audio/mpeg,video/mp4'
@@ -32,31 +34,24 @@ export type MediaUploadDropzoneProps = {
   themeCounts?: Record<string, number>
 }
 
-type BatchProgress = {
-  done: number
-  total: number
-  currentName: string | null
-}
-
-function titleFromFilename(name: string): string {
-  const cleaned = cleanSongTitle(name)
-  const parsed = parseArtistTitle(cleaned)
-  return parsed.title || cleaned || name.replace(/\.[^.]+$/, '')
-}
-
-function isAllowedMediaFile(file: File): boolean {
-  const ext = file.name.split('.').pop()?.toLowerCase()
-  if (ext === 'mp3' || ext === 'mp4') return true
-  return file.type === 'audio/mpeg' || file.type === 'video/mp4'
-}
-
-function normalizeBatchFiles(fileList: FileList | File[]): File[] {
-  const raw = Array.from(fileList)
-  const allowed = raw.filter(isAllowedMediaFile)
-  if (allowed.length < raw.length && allowed.length > 0) {
-    // Non-media files skipped silently when some valid files remain
+function statusLabel(item: UploadQueueItem): string {
+  switch (item.status) {
+    case 'pending':
+      return 'Pending'
+    case 'uploading':
+      return 'Uploading…'
+    case 'completed':
+      return 'Done'
+    case 'error':
+      return 'Failed'
   }
-  return allowed.slice(0, MAX_UPLOAD_FILES)
+}
+
+function statusClass(status: UploadQueueItem['status']): string {
+  if (status === 'completed') return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+  if (status === 'error') return 'text-red-300 border-red-500/30 bg-red-500/10'
+  if (status === 'uploading') return 'text-[#00FFFF] border-[#00FFFF]/30 bg-[#00FFFF]/10'
+  return 'text-gray-400 border-white/10 bg-white/5'
 }
 
 export function MediaUploadDropzone({
@@ -67,211 +62,32 @@ export function MediaUploadDropzone({
   onError,
   themeCounts,
 }: MediaUploadDropzoneProps) {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [progress, setProgress] = useState<BatchProgress | null>(null)
-  const [lastSuccess, setLastSuccess] = useState<string | null>(null)
 
-  const insertSong = useCallback(
-    async (payload: SongInsertPayload) => {
-      const { error: insertError } = await supabase.from('songs').insert([payload])
-      if (insertError) {
-        const res = await fetch('/api/songs', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        })
-        const body = (await res.json()) as { error?: string }
-        if (!res.ok) throw new Error(body.error ?? insertError.message)
-      }
-    },
-    [supabase]
-  )
-
-  const insertMediaLibraryRow = useCallback(
-    async (input: {
-      name: string
-      filePath: string
-      fileUrl: string
-      ext: 'mp3' | 'mp4'
-      fileSizeBytes: number
-      themeId: string | null
-    }) => {
-      const row: Record<string, unknown> = {
-        name: input.name,
-        file_path: input.filePath,
-        file_url: input.fileUrl,
-        storage_bucket: MEDIA_BUCKET,
-        file_type: input.ext,
-        file_size_bytes: input.fileSizeBytes,
-      }
-      if (input.themeId) row.theme_id = input.themeId
-
-      const { error } = await supabase.from('media_library').insert(row)
-      if (error && !/theme_id|schema cache|column/i.test(error.message)) {
-        // media_library is supplementary; songs row is canonical for the catalog
-        console.warn('media_library insert skipped:', error.message)
-      }
-    },
-    [supabase]
-  )
-
-  const buildPayload = useCallback(
-    async (
-      file: File,
-      mediaUrl: string,
-      storagePath: string,
-      ext: 'mp3' | 'mp4'
-    ): Promise<SongInsertPayload> => {
-      const selectedThemeId = uploadThemeId.trim() || null
-      let title = titleFromFilename(file.name)
-      let artist: string | null = null
-      let year: number | null = null
-      let themeId = selectedThemeId
-
-      if (!selectedThemeId) {
-        const auto = await fetchAutoCategory(file.name)
-        if (auto) {
-          const filled = mapAutoCategoryToFormFields(auto, themes)
-          title = filled.title || title
-          artist = filled.artist || null
-          year = filled.year || null
-          themeId = filled.theme_id || null
-        } else {
-          artist = parseArtistTitle(cleanSongTitle(file.name)).artist
-        }
-      } else {
-        artist = parseArtistTitle(cleanSongTitle(file.name)).artist
-      }
-
-      const fileDurationSec = await probeMediaDuration(file)
-
-      return {
-        title,
-        artist,
-        year,
-        theme_id: themeId,
-        media_url: mediaUrl,
-        storage_path: storagePath,
-        media_type: ext === 'mp4' ? 'video' : 'audio',
-        start_time_sec: 0,
-        duration_sec: defaultClipDurationSec(fileDurationSec),
-        file_duration_sec: fileDurationSec,
-      }
-    },
-    [themes, uploadThemeId]
-  )
-
-  const uploadSingleFile = useCallback(
-    async (file: File): Promise<void> => {
-      const ext = file.name.split('.').pop()?.toLowerCase() as 'mp3' | 'mp4'
-      const safeName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
-      const storagePath = `${ext}/${safeName}`
-
-      const { error: uploadError } = await supabase.storage.from(MEDIA_BUCKET).upload(storagePath, file, {
-        contentType: file.type || (ext === 'mp3' ? 'audio/mpeg' : 'video/mp4'),
-        upsert: false,
-      })
-
-      let mediaUrl: string
-      let finalPath = storagePath
-      if (uploadError) {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('name', titleFromFilename(file.name))
-        const res = await fetch('/api/media/upload', { method: 'POST', credentials: 'include', body: fd })
-        const body = (await res.json()) as { file_url?: string; file_path?: string; error?: string }
-        if (!res.ok || !body.file_url) throw new Error(body.error ?? uploadError.message)
-        mediaUrl = body.file_url
-        finalPath = body.file_path ?? storagePath
-      } else {
-        mediaUrl = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(storagePath).data.publicUrl
-      }
-
-      const payload = await buildPayload(file, mediaUrl, finalPath, ext)
-      await insertMediaLibraryRow({
-        name: file.name,
-        filePath: finalPath,
-        fileUrl: mediaUrl,
-        ext,
-        fileSizeBytes: file.size,
-        themeId: payload.theme_id,
-      })
-      await insertSong(payload)
-    },
-    [supabase, buildPayload, insertMediaLibraryRow, insertSong]
-  )
-
-  const uploadFiles = useCallback(
-    async (fileList: FileList | File[]) => {
-      const rawCount = Array.from(fileList).length
-      const files = normalizeBatchFiles(fileList)
-
-      if (files.length === 0) {
-        onError('Select or drop MP3 / MP4 files only.')
-        return
-      }
-      if (rawCount > MAX_UPLOAD_FILES) {
-        onError(`Only the first ${MAX_UPLOAD_FILES} files will be uploaded.`)
-      }
-
-      for (const f of files) {
-        if (f.size > MAX_UPLOAD_MB * 1024 * 1024) {
-          onError(`${f.name} exceeds ${MAX_UPLOAD_MB} MB limit.`)
-          return
-        }
-      }
-
-      setUploading(true)
-      setProgress({ done: 0, total: files.length, currentName: files[0]?.name ?? null })
-      setLastSuccess(null)
-      onError('')
-
-      let uploaded = 0
-      const failures: string[] = []
-
-      for (const file of files) {
-        setProgress({ done: uploaded, total: files.length, currentName: file.name })
-        try {
-          await uploadSingleFile(file)
-          uploaded += 1
-          setProgress({ done: uploaded, total: files.length, currentName: file.name })
-        } catch (e) {
-          failures.push(`${file.name}: ${e instanceof Error ? e.message : 'Upload failed'}`)
-        }
-      }
-
-      setUploading(false)
-      setProgress(null)
-
-      if (uploaded > 0) {
-        setLastSuccess(
-          `Uploaded ${uploaded} of ${files.length} file${files.length === 1 ? '' : 's'} to Storage, media_library, and songs.`
-        )
-        onUploaded()
-      }
-
-      if (failures.length > 0) {
-        onError(
-          failures.length === files.length
-            ? failures[0]
-            : `${failures.length} file(s) failed. First error: ${failures[0]}`
-        )
-      }
-    },
-    [uploadSingleFile, onUploaded, onError]
-  )
+  const { items, stats, running, enqueueFiles, retryItem, retryAllFailed, clearFinished, bucket } =
+    useMediaUploadQueue({
+      supabase,
+      themes,
+      uploadThemeId,
+      onBatchComplete: onUploaded,
+      onError,
+    })
 
   const progressPct =
-    progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+    stats.total > 0 ? Math.round(((stats.completed + stats.error) / stats.total) * 100) : 0
 
   return (
-    <section className="rounded-xl border border-white/10 p-3 sm:p-4 space-y-4 overflow-hidden min-w-0" style={{ backgroundColor: SURFACE }}>
+    <section
+      className="rounded-xl border border-white/10 p-3 sm:p-4 space-y-4 overflow-hidden min-w-0"
+      style={{ backgroundColor: SURFACE }}
+    >
       <div>
-        <label htmlFor="upload-theme" className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+        <label
+          htmlFor="upload-theme"
+          className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2"
+        >
           Target Theme for Uploads
         </label>
         <ThemeSelect
@@ -281,7 +97,7 @@ export function MediaUploadDropzone({
           themes={themes}
           themeCounts={themeCounts}
           emptyLabel="Select theme for incoming tracks…"
-          disabled={uploading}
+          disabled={running}
           aria-label="Target theme for uploads"
         />
       </div>
@@ -297,17 +113,19 @@ export function MediaUploadDropzone({
         onDrop={(e) => {
           e.preventDefault()
           setIsDragging(false)
-          if (!uploading && e.dataTransfer.files.length) {
-            void uploadFiles(Array.from(e.dataTransfer.files))
+          if (!running && e.dataTransfer.files.length) {
+            void enqueueFiles(Array.from(e.dataTransfer.files))
           }
         }}
-        onClick={() => !uploading && inputRef.current?.click()}
+        onClick={() => !running && inputRef.current?.click()}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
+          if ((e.key === 'Enter' || e.key === ' ') && !running) inputRef.current?.click()
         }}
         className={`relative rounded-xl border-2 border-dashed p-6 sm:p-10 text-center cursor-pointer transition-all touch-manipulation overflow-hidden min-w-0 ${
-          isDragging ? 'border-[#00FFFF] bg-[#00FFFF]/5' : 'border-white/15 hover:border-[#00FFFF]/40 hover:bg-white/[0.02]'
-        } ${uploading ? 'pointer-events-none opacity-70' : ''}`}
+          isDragging
+            ? 'border-[#00FFFF] bg-[#00FFFF]/5'
+            : 'border-white/15 hover:border-[#00FFFF]/40 hover:bg-white/[0.02]'
+        } ${running ? 'pointer-events-none opacity-70' : ''}`}
       >
         <input
           ref={inputRef}
@@ -315,23 +133,20 @@ export function MediaUploadDropzone({
           accept={BATCH_FILE_ACCEPT}
           multiple
           className="hidden"
-          disabled={uploading}
+          disabled={running}
           onChange={(e) => {
             const picked = e.target.files
             if (!picked?.length) return
-            void uploadFiles(Array.from(picked))
+            void enqueueFiles(Array.from(picked))
             e.target.value = ''
           }}
         />
-        {uploading && progress ? (
+        {running ? (
           <div className="flex flex-col items-center gap-3 text-gray-300 w-full max-w-md mx-auto">
             <Loader2 className="w-10 h-10 animate-spin" style={{ color: NEON }} />
             <p className="text-sm font-semibold text-white">
-              Uploading {progress.done} of {progress.total} file{progress.total === 1 ? '' : 's'}…
+              Uploading {stats.completed} of {stats.total} file{stats.total === 1 ? '' : 's'}…
             </p>
-            {progress.currentName ? (
-              <p className="text-xs text-gray-500 truncate max-w-full">{progress.currentName}</p>
-            ) : null}
             <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-300"
@@ -339,24 +154,109 @@ export function MediaUploadDropzone({
               />
             </div>
             <p className="text-[11px] text-gray-500">
-              Storage ({MEDIA_BUCKET}) → media_library → songs catalog
+              Direct upload → {bucket} → songs catalog (ID3 + sanitized paths)
             </p>
           </div>
         ) : (
           <>
-            <UploadCloud className="w-10 h-10 mx-auto mb-3 text-gray-500" style={{ color: isDragging ? NEON : undefined }} />
-            <p className="text-sm font-semibold text-white">Drag &amp; drop or choose multiple MP3 / MP4 files</p>
+            <UploadCloud
+              className="w-10 h-10 mx-auto mb-3 text-gray-500"
+              style={{ color: isDragging ? NEON : undefined }}
+            />
+            <p className="text-sm font-semibold text-white">
+              Drag &amp; drop or choose multiple MP3 / MP4 files
+            </p>
             <p className="text-xs text-gray-500 mt-1">
-              Batch select up to {MAX_UPLOAD_FILES} files · max {MAX_UPLOAD_MB} MB each
+              Up to {MAX_UPLOAD_FILES} files · max {MAX_UPLOAD_MB} MB each · direct Supabase Storage
             </p>
           </>
         )}
       </div>
 
-      {lastSuccess ? (
+      {items.length > 0 ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-wider text-gray-500">
+              Upload queue · {stats.completed} done
+              {stats.error > 0 ? ` · ${stats.error} failed` : ''}
+            </p>
+            <div className="flex items-center gap-2">
+              {stats.error > 0 && !running ? (
+                <button
+                  type="button"
+                  onClick={() => void retryAllFailed()}
+                  className="inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 min-h-9 px-2"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Retry failed
+                </button>
+              ) : null}
+              {stats.completed > 0 && !running ? (
+                <button
+                  type="button"
+                  onClick={clearFinished}
+                  className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-white min-h-9 px-2"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Clear done
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          <ul className="max-h-56 overflow-y-auto overscroll-contain space-y-1.5 pr-0.5">
+            {items.map((item) => (
+              <li
+                key={item.id}
+                className="flex items-start gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 min-h-11"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-200 truncate">
+                    {item.title || item.file.name}
+                  </p>
+                  {item.error ? (
+                    <p className="text-[11px] text-red-300/90 mt-0.5 line-clamp-2">{item.error}</p>
+                  ) : item.mediaUrl ? (
+                    <p className="text-[11px] text-gray-500 truncate mt-0.5">{item.storagePath}</p>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {(item.file.size / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${statusClass(item.status)}`}
+                >
+                  {item.status === 'uploading' ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : item.status === 'completed' ? (
+                    <CheckCircle2 className="w-3 h-3" />
+                  ) : item.status === 'error' ? (
+                    <AlertCircle className="w-3 h-3" />
+                  ) : null}
+                  {statusLabel(item)}
+                </span>
+                {item.status === 'error' && !running ? (
+                  <button
+                    type="button"
+                    onClick={() => void retryItem(item.id)}
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-amber-500/40 px-2 py-1.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/10 min-h-9 touch-manipulation"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Retry
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {stats.completed > 0 && !running ? (
         <p className="text-xs flex items-center gap-1.5 text-emerald-400">
           <CheckCircle2 className="w-3.5 h-3.5" />
-          {lastSuccess}
+          Uploaded {stats.completed} file{stats.completed === 1 ? '' : 's'} to {MEDIA_BUCKET} and
+          songs catalog.
         </p>
       ) : null}
     </section>
