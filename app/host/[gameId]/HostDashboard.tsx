@@ -804,32 +804,63 @@ export function HostDashboard({
             🏆 View Leaderboard
           </a>
         </div>
-        <div className="flex flex-wrap items-center gap-4 mt-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-slate-300 text-sm font-medium">Show Leaderboard on Stage View</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={game.stage_show_leaderboard ?? false}
-              onClick={async () => {
-                const next = !(game.stage_show_leaderboard ?? false)
-                const res = await updateGameSettings(gameId, { stageShowLeaderboard: next })
-                if (res.error) setActionError(res.error)
-              }}
-              className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
-                game.stage_show_leaderboard ? 'bg-amber-500' : 'bg-slate-600'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition translate-x-0.5 ${
-                  game.stage_show_leaderboard ? 'translate-x-5' : 'translate-x-0.5'
+        <div className="flex flex-col gap-3 mt-4">
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-slate-300 text-sm font-medium">Show Leaderboard on Stage View</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={game.stage_show_leaderboard ?? false}
+                onClick={async () => {
+                  const next = !(game.stage_show_leaderboard ?? false)
+                  const res = await updateGameSettings(gameId, { stageShowLeaderboard: next })
+                  if (res.error) setActionError(res.error)
+                  else setGame((g) => (g ? { ...g, stage_show_leaderboard: next } : g))
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  game.stage_show_leaderboard ? 'bg-amber-500' : 'bg-slate-600'
                 }`}
-              />
-            </button>
-          </label>
-          <span className="text-slate-500 text-sm">
-            When ON, Stage View shows the leaderboard instead of the media player.
-          </span>
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition ${
+                    game.stage_show_leaderboard ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </label>
+            <span className="text-slate-500 text-sm">
+              When ON, Stage View shows the leaderboard instead of the media player.
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <span className="text-slate-300 text-sm font-medium">Blind Mode (Hide Song Titles)</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!game.hide_song_titles}
+                onClick={async () => {
+                  const next = !game.hide_song_titles
+                  const res = await updateGameSettings(gameId, { hideSongTitles: next })
+                  if (res.error) setActionError(res.error)
+                  else setGame((g) => (g ? { ...g, hide_song_titles: next } : g))
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
+                  game.hide_song_titles ? 'bg-[#00FFFF]' : 'bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition ${
+                    game.hide_song_titles ? 'translate-x-5' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </label>
+            <span className="text-slate-500 text-sm">
+              Players & Stage show ??? — identify songs by ear before stamping.
+            </span>
+          </div>
         </div>
         <p className="text-lg text-slate-300">
           📊 {playerCount.toLocaleString()} players joined

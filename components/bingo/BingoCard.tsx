@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getFreeCenterPosition } from '@/lib/bingo-win-pattern'
-import { splitSongDisplayParts } from '@/lib/media-display'
+import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
+import { triggerHaptic } from '@/lib/haptic-feedback'
 
 export type BingoCardCell = {
   id: string
@@ -20,6 +21,10 @@ export type BingoCardProps = {
   markedSongIds: Set<string>
   /** Playlist song IDs the host has already played — taps outside this set shake red. */
   playedSongIds: Set<string>
+  /** Currently called song — glows on matching tile */
+  activeSongId?: string | null
+  /** Blind Bingo — obfuscate titles */
+  hideSongTitles?: boolean
   onMarkChange: (playlistSongId: string, marked: boolean) => void
   className?: string
 }
@@ -28,17 +33,13 @@ function cellFeedbackKey(position: number, kind: 'gold' | 'shake'): string {
   return `${kind}-${position}`
 }
 
-function vibrateTap(): void {
-  if (typeof window !== 'undefined' && typeof window.navigator?.vibrate === 'function') {
-    window.navigator.vibrate(25)
-  }
-}
-
 export function BingoCard({
   size = 5,
   cells,
   markedSongIds,
   playedSongIds,
+  activeSongId = null,
+  hideSongTitles = false,
   onMarkChange,
   className = '',
 }: BingoCardProps) {
@@ -66,7 +67,6 @@ export function BingoCard({
 
   const handleCellTap = useCallback(
     (cell: BingoCardCell | null, row: number, col: number) => {
-      vibrateTap()
       const position = row * size + col
       const isFree = freePosition !== null && position === freePosition
 
@@ -78,6 +78,7 @@ export function BingoCard({
       const isMarked = markedSongIds.has(cell.playlistSongId)
 
       if (!isPlayed && !isMarked) {
+        triggerHaptic('error')
         triggerFeedback(cellFeedbackKey(position, 'shake'))
         return
       }
@@ -85,7 +86,10 @@ export function BingoCard({
       const nextMarked = !isMarked
       onMarkChange(cell.playlistSongId, nextMarked)
       if (nextMarked && isPlayed) {
+        triggerHaptic('success')
         triggerFeedback(cellFeedbackKey(position, 'gold'))
+      } else {
+        triggerHaptic('tap')
       }
     },
     [freePosition, markedSongIds, onMarkChange, playedSongIds, size, triggerFeedback]
@@ -107,6 +111,8 @@ export function BingoCard({
             const isMarked = isFree || (cell != null && markedSongIds.has(cell.playlistSongId))
             const goldAnim = feedback === cellFeedbackKey(position, 'gold')
             const shakeAnim = feedback === cellFeedbackKey(position, 'shake')
+            const isActive =
+              !!cell && !!activeSongId && cell.playlistSongId === activeSongId && !isFree
 
             if (isFree) {
               return (
@@ -136,14 +142,13 @@ export function BingoCard({
               )
             }
 
-            const parts =
-              cell.title || cell.artist
-                ? {
-                    title: (cell.title || cell.label || '—').trim() || '—',
-                    artist: cell.artist?.trim() || null,
-                    full: cell.label || cell.title || '—',
-                  }
-                : splitSongDisplayParts(cell.label)
+            const parts = resolveBlindSongParts({
+              hideTitles: hideSongTitles,
+              trackNumber: position + 1,
+              label: cell.label,
+              title: cell.title,
+              artist: cell.artist,
+            })
 
             return (
               <button
@@ -151,7 +156,7 @@ export function BingoCard({
                 type="button"
                 aria-pressed={isMarked}
                 aria-label={parts.full}
-                title={parts.full}
+                title={hideSongTitles ? parts.full : parts.full}
                 onPointerDown={(e) => {
                   if (e.pointerType !== 'touch') return
                   e.preventDefault()
@@ -175,6 +180,7 @@ export function BingoCard({
                   select-none active:scale-[0.98] transform-gpu
                   ${goldAnim ? 'animate-bingo-gold-flash' : ''}
                   ${shakeAnim ? 'animate-bingo-red-shake' : ''}
+                  ${isActive ? 'bingo-cell-called-glow' : ''}
                   ${
                     isMarked
                       ? 'bg-[#00FFFF]/10 border-[#00FFFF]/60 text-cyan-100 shadow-[inset_0_0_16px_rgba(0,255,255,0.12)]'
@@ -183,7 +189,7 @@ export function BingoCard({
                 `}
                 style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
               >
-                {cell.albumArtUrl ? (
+                {cell.albumArtUrl && !hideSongTitles ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={cell.albumArtUrl}

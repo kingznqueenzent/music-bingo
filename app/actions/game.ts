@@ -461,6 +461,7 @@ export async function updateGameSettings(
     logoUrl?: string | null
     winPattern?: WinPattern
     stageShowLeaderboard?: boolean
+    hideSongTitles?: boolean
     venueDisplayName?: string | null
     brandPrimaryHex?: string | null
     brandAccentHex?: string | null
@@ -477,6 +478,7 @@ export async function updateGameSettings(
     logo_url?: string | null
     mode?: string
     stage_show_leaderboard?: boolean
+    hide_song_titles?: boolean
     venue_display_name?: string | null
     brand_primary_hex?: string | null
     brand_accent_hex?: string | null
@@ -494,6 +496,7 @@ export async function updateGameSettings(
     updates.mode = settings.winPattern
   if (settings.stageShowLeaderboard !== undefined)
     updates.stage_show_leaderboard = settings.stageShowLeaderboard
+  if (settings.hideSongTitles !== undefined) updates.hide_song_titles = settings.hideSongTitles
   if (settings.venueDisplayName !== undefined) updates.venue_display_name = settings.venueDisplayName?.trim() || null
   if (settings.brandPrimaryHex !== undefined) updates.brand_primary_hex = settings.brandPrimaryHex?.trim() || null
   if (settings.brandAccentHex !== undefined) updates.brand_accent_hex = settings.brandAccentHex?.trim() || null

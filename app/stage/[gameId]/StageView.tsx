@@ -21,7 +21,8 @@ import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { getLevelFromXp } from '@/lib/xp-levels'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
-import { playlistSongDisplayParts } from '@/lib/media-display'
+import { VinylSpinner } from '@/components/stage/VinylSpinner'
+import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: 'Single Line',
@@ -180,11 +181,22 @@ export function StageView({ gameId }: { gameId: string }) {
   const isYouTube = clipKind === 'youtube'
   const isMp3Clip = clipKind === 'mp3'
   const isLegacyLocal = !isMp3Clip && currentSong?.source === 'local' && !!currentSong?.file_url
+  const hideTitles = !!game?.hide_song_titles
+  const trackNumber =
+    currentSong != null
+      ? songs.findIndex((s) => s.id === currentSong.id) + 1 || null
+      : null
   const nowPlayingParts = currentSong
-    ? playlistSongDisplayParts(currentSong)
+    ? resolveBlindSongParts({
+        hideTitles,
+        trackNumber,
+        label: currentSong.title,
+        title: currentSong.title,
+      })
     : { title: 'Music Bingo', artist: null as string | null, full: 'Music Bingo' }
   const source = isMp3Clip || (currentSong?.source === 'local' && currentSong?.file_url) ? 'local' : 'youtube'
   const showAdCarousel = !currentSong || playbackPaused
+  const vinylSpinning = !!currentSong && !playbackPaused && !showLeaderboardOnStage
 
   async function handleWheelSpinComplete(label: string, index: number) {
     if (!wheelSpin) return
@@ -288,9 +300,29 @@ export function StageView({ gameId }: { gameId: string }) {
       {/* Media layer */}
       <div className="absolute inset-0 flex flex-col items-center justify-center pt-24 pb-8 px-4 transition-opacity duration-500">
         {currentSong && (
-          <div className="w-full max-w-6xl mb-4 flex items-center justify-center gap-4">
-            <SourceIndicator source={source} />
+          <div className="w-full max-w-6xl mb-4 flex flex-col md:flex-row items-center justify-center gap-4 md:gap-6">
+            <VinylSpinner
+              spinning={vinylSpinning}
+              albumArtUrl={hideTitles ? null : currentSong.album_art_url}
+              size={140}
+              className="md:hidden"
+            />
+            <div className="hidden md:block">
+              <VinylSpinner
+                spinning={vinylSpinning}
+                albumArtUrl={hideTitles ? null : currentSong.album_art_url}
+                size={180}
+              />
+            </div>
             <div className="flex-1 min-w-0 text-center px-1">
+              {hideTitles ? (
+                <p className="text-xs uppercase tracking-[0.3em] text-[#00FFFF]/80 mb-1 font-semibold">
+                  Blind Mode
+                </p>
+              ) : null}
+              <div className="flex items-center justify-center gap-3 mb-1">
+                <SourceIndicator source={source} />
+              </div>
               <h1
                 className="stage-now-playing-title text-white"
                 style={{ fontFamily: 'var(--font-inter), sans-serif' }}
@@ -307,14 +339,6 @@ export function StageView({ gameId }: { gameId: string }) {
                 </p>
               ) : null}
             </div>
-            {currentSong.album_art_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={currentSong.album_art_url}
-                alt=""
-                className="w-14 h-14 md:w-16 md:h-16 rounded-lg object-cover shrink-0 shadow-lg"
-              />
-            )}
           </div>
         )}
 

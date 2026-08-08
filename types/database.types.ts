@@ -426,6 +426,7 @@ export type Database = {
           tier: string
           logo_url: string | null
           stage_show_leaderboard: boolean
+          hide_song_titles: boolean
           theme_id: string | null
           mode: string
           round: number
@@ -454,6 +455,7 @@ export type Database = {
           tier?: string
           logo_url?: string | null
           stage_show_leaderboard?: boolean
+          hide_song_titles?: boolean
           theme_id?: string | null
           mode?: string
           round?: number
@@ -482,6 +484,7 @@ export type Database = {
           tier?: string | null
           logo_url?: string | null
           stage_show_leaderboard?: boolean | null
+          hide_song_titles?: boolean | null
           theme_id?: string | null
           mode?: string | null
           round?: number | null

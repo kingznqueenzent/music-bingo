@@ -78,6 +78,8 @@ export function PlayView({
   const [playerName, setPlayerName] = useState('')
   const [gameMode, setGameMode] = useState<WinPattern>('line')
   const [gridSize, setGridSize] = useState(5)
+  const [hideSongTitles, setHideSongTitles] = useState(false)
+  const [activeSongId, setActiveSongId] = useState<string | null>(null)
   const [markedSongIds, setMarkedSongIds] = useState<Set<string>>(() => getStoredMarks(gameId, cardId))
   const [loading, setLoading] = useState(true)
   const [loadHint, setLoadHint] = useState('')
@@ -257,7 +259,7 @@ export function PlayView({
 
       const { data: game, error: gameError } = await supabase
         .from('games')
-        .select('mode, grid_size, status, code, room_code')
+        .select('mode, grid_size, status, code, room_code, hide_song_titles, current_song_id')
         .eq('id', gameId)
         .single()
 
@@ -273,6 +275,8 @@ export function PlayView({
         setGridSize(game.grid_size === 4 ? 4 : 5)
         if (game.status) setGameStatus(game.status as GameStatus)
         setGameCode(roomCodeFromGame(game))
+        setHideSongTitles(!!(game as { hide_song_titles?: boolean }).hide_song_titles)
+        setActiveSongId((game as { current_song_id?: string | null }).current_song_id ?? null)
       }
 
       const { data: playedRows } = await supabase
@@ -434,6 +438,8 @@ export function PlayView({
             mode?: string | null
             grid_size?: number | null
             status?: GameStatus | null
+            hide_song_titles?: boolean | null
+            current_song_id?: string | null
           }
           // Bail when values are unchanged — Android Chrome re-renders are expensive during URL-bar resize.
           if (row.mode != null) {
@@ -445,6 +451,13 @@ export function PlayView({
           }
           if (row.status === 'lobby' || row.status === 'playing' || row.status === 'ended') {
             setGameStatus((prev) => (prev === row.status ? prev : row.status!))
+          }
+          if (typeof row.hide_song_titles === 'boolean') {
+            setHideSongTitles((prev) => (prev === row.hide_song_titles ? prev : !!row.hide_song_titles))
+          }
+          if ('current_song_id' in row) {
+            const nextId = row.current_song_id ?? null
+            setActiveSongId((prev) => (prev === nextId ? prev : nextId))
           }
         }
       )
@@ -773,16 +786,36 @@ export function PlayView({
         <PatternMiniMap size={size} mode={gameMode} markedPositions={markedPositions} />
       </div>
 
+      {progress.target - progress.current === 1 && progress.current > 0 ? (
+        <div className="mb-3 flex justify-center">
+          <div
+            className="inline-flex items-center gap-2 rounded-full border border-amber-400/50 bg-amber-500/15 px-3 py-1.5 text-amber-200 text-sm font-bold shadow-[0_0_20px_rgba(251,191,36,0.25)] animate-pulse-glow"
+            role="status"
+          >
+            <span aria-hidden>⚡</span> 1 Away!
+          </div>
+        </div>
+      ) : null}
+
+      {hideSongTitles ? (
+        <p className="mb-3 text-center text-xs uppercase tracking-widest text-[#00FFFF]/80 font-semibold">
+          Blind Mode — titles hidden · listen carefully
+        </p>
+      ) : null}
+
       <BingoCard
         size={size}
         cells={bingoCardCells}
         markedSongIds={markedSongIds}
         playedSongIds={playedSongIds}
+        activeSongId={activeSongId}
+        hideSongTitles={hideSongTitles}
         onMarkChange={handleMarkChange}
       />
 
       <p className="mt-4 text-white/70 text-sm text-center">
         Tap squares when the host plays that song. Gold flash = called · Red shake = not played yet.
+        {hideSongTitles ? ' Titles are hidden in Blind Mode.' : ''}
       </p>
 
       <div className="mt-6 flex flex-col items-center gap-3">

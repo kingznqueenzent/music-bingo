@@ -25,34 +25,50 @@ export type CrownedWinnerOverlayProps = {
 }
 
 function fireWinnerConfetti() {
-  const duration = 2800
+  const duration = 3600
   const end = Date.now() + duration
+  const colors = ['#00FFFF', '#FFD700', '#ffffff', '#a78bfa', '#f472b6']
+
+  confetti({
+    particleCount: 160,
+    spread: 120,
+    startVelocity: 45,
+    origin: { y: 0.5 },
+    colors,
+  })
+  confetti({
+    particleCount: 80,
+    angle: 60,
+    spread: 70,
+    origin: { x: 0, y: 0.6 },
+    colors,
+  })
+  confetti({
+    particleCount: 80,
+    angle: 120,
+    spread: 70,
+    origin: { x: 1, y: 0.6 },
+    colors,
+  })
 
   const frame = () => {
     confetti({
-      particleCount: 4,
+      particleCount: 6,
       angle: 60,
-      spread: 55,
-      origin: { x: 0, y: 0.65 },
-      colors: ['#00FFFF', '#FFD700', '#ffffff', '#a78bfa'],
+      spread: 60,
+      origin: { x: 0, y: 0.7 },
+      colors,
     })
     confetti({
-      particleCount: 4,
+      particleCount: 6,
       angle: 120,
-      spread: 55,
-      origin: { x: 1, y: 0.65 },
-      colors: ['#00FFFF', '#FFD700', '#ffffff', '#f472b6'],
+      spread: 60,
+      origin: { x: 1, y: 0.7 },
+      colors,
     })
     if (Date.now() < end) requestAnimationFrame(frame)
   }
   frame()
-
-  confetti({
-    particleCount: 120,
-    spread: 100,
-    origin: { y: 0.55 },
-    colors: ['#FFD700', '#00FFFF', '#ffffff'],
-  })
 }
 
 export function CrownedWinnerOverlay({
@@ -75,7 +91,7 @@ export function CrownedWinnerOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md animate-stage-celebrate"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 md:backdrop-blur-md animate-stage-celebrate victory-overlay-flash"
       role="dialog"
       aria-labelledby="crowned-winner-title"
     >

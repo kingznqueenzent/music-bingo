@@ -46,6 +46,8 @@ export interface Game {
   tier?: GameTier
   logo_url?: string | null
   stage_show_leaderboard?: boolean
+  /** Blind Bingo — obfuscate titles on player/stage UIs */
+  hide_song_titles?: boolean
   venue_display_name?: string | null
   brand_primary_hex?: string | null
   brand_accent_hex?: string | null
