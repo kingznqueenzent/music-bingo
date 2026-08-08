@@ -72,6 +72,13 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Legacy /media → catalog Media Manager (preserve ?theme= etc.)
+  if (pathname === '/media') {
+    const url = request.nextUrl.clone()
+    url.pathname = '/media-manager'
+    return NextResponse.redirect(url)
+  }
+
   if (host && LYRICGRID_HOSTS.has(host) && pathname === '/') {
     return NextResponse.redirect(new URL('/lyricgrid', request.url))
   }
@@ -90,14 +97,18 @@ export function proxy(request: NextRequest) {
   }
 
   const loginUrl = new URL('/login', request.url)
-  loginUrl.searchParams.set('from', pathname)
+  // Keep query string (e.g. ?theme=…) so post-login return lands on the same filter.
+  const from = `${pathname}${request.nextUrl.search}`
+  loginUrl.searchParams.set('from', from)
   return NextResponse.redirect(loginUrl)
 }
 
 export const config = {
   matcher: [
     '/',
+    '/host',
     '/host/:path*',
+    '/media',
     '/media/:path*',
     '/media-manager',
     '/kingz-control',
