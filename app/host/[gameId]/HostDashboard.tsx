@@ -16,8 +16,10 @@ import {
 import { formatPlayerCapLabel, type GameTier } from '@/lib/tiers'
 import { debounce } from '@/lib/debounce'
 import { generateBingoCardsPdf } from '@/lib/pdf-export'
-import { JoinGameQRCode } from '@/components/JoinGameQRCode'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
+import { VenueAssetsPanel } from '@/components/host/VenueAssetsPanel'
+import { PastGamesPanel } from '@/components/host/PastGamesPanel'
+import { RoomHealthPanel } from '@/components/host/RoomHealthPanel'
 import { SourceIndicator } from '@/components/SourceIndicator'
 import { FeatureGate } from '@/components/FeatureGate'
 import { GameSponsorsPanel } from '@/components/GameSponsorsPanel'
@@ -115,6 +117,8 @@ export function HostDashboard({
   })
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
   const [trackSearch, setTrackSearch] = useState('')
+  const [hostTab, setHostTab] = useState<'live' | 'venue' | 'history'>('live')
+  const [audioReadyLabel, setAudioReadyLabel] = useState('')
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
   const playRowTouchHandledRef = useRef(false)
@@ -781,17 +785,66 @@ export function HostDashboard({
             <p className="text-slate-400 text-sm">Host Control</p>
           </div>
         </div>
+        <div
+          className="flex flex-wrap gap-2 mb-5 p-1 rounded-xl border border-slate-700 bg-slate-950/40"
+          role="tablist"
+          aria-label="Host dashboard sections"
+        >
+          {(
+            [
+              { id: 'live' as const, label: 'Live room' },
+              { id: 'venue' as const, label: 'Venue Assets / QR' },
+              { id: 'history' as const, label: 'Past Games' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={hostTab === tab.id}
+              onClick={() => setHostTab(tab.id)}
+              className={`px-3 sm:px-4 py-2.5 min-h-12 rounded-lg text-sm font-semibold touch-manipulation transition-colors ${
+                hostTab === tab.id
+                  ? 'bg-[#00FFFF]/15 text-[#00FFFF] border border-[#00FFFF]/30'
+                  : 'text-slate-400 hover:text-slate-200 border border-transparent'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {hostTab === 'venue' ? (
+          <VenueAssetsPanel gameCode={code || game.code} variant="full" />
+        ) : null}
+        {hostTab === 'history' ? (
+          <PastGamesPanel hostId={game.host_id ?? null} />
+        ) : null}
+
+        {hostTab === 'live' ? (
+        <>
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-start justify-between gap-4 sm:gap-6 mb-4">
           <div className="min-w-0 w-full sm:flex-1 text-center sm:text-left">
             <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-slate-50 break-words">
               Game: <span className="text-emerald-400">{code || game.code}</span>
             </h2>
             <p className="text-sm sm:text-lg text-slate-300">
-              Share this code with players, or scan the QR to open Join with the code pre-filled.
+              Share this code with players, or open Venue Assets for a high-res QR linking to{' '}
+              <span className="text-[#00FFFF]/80">lyricgrid.ca/room/{code || game.code}</span>.
             </p>
           </div>
-          <JoinGameQRCode gameCode={code || game.code} size={112} className="mx-auto sm:mx-0 shrink-0" />
+          <VenueAssetsPanel
+            gameCode={code || game.code}
+            variant="compact"
+            className="mx-auto sm:mx-0 shrink-0"
+          />
         </div>
+        <RoomHealthPanel
+          gameId={gameId}
+          playerCount={playerCount}
+          trackedBoards={playerBoards.length}
+          className="mb-4"
+        />
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4 mb-4">
           <button
             type="button"
@@ -1093,8 +1146,12 @@ export function HostDashboard({
           </div>
         </div>
         {actionError && <p className="text-red-300 mt-2">{actionError}</p>}
+        </>
+        ) : null}
       </div>
 
+      {hostTab === 'live' ? (
+      <>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <HostSongControls
           clipSeconds={clipSeconds}
@@ -1131,8 +1188,36 @@ export function HostDashboard({
             clipSeconds={clipSeconds}
             crossfadeSeconds={crossfadeSeconds}
             autoPlay={!playbackPaused}
+            onReadyChange={(state, detail) => {
+              if (state === 'loading') {
+                setAudioReadyLabel(`Buffering… ${detail?.bufferedPct ?? 0}%`)
+              } else if (state === 'ready') {
+                setAudioReadyLabel(
+                  `Ready to call${detail?.latencyMs != null ? ` · ${detail.latencyMs}ms` : ''}${
+                    detail?.bufferedPct ? ` · ${detail.bufferedPct}% cached` : ''
+                  }`
+                )
+              } else if (state === 'error') {
+                setAudioReadyLabel('Audio error — try next track or check storage URL')
+              } else {
+                setAudioReadyLabel('')
+              }
+            }}
             className="max-w-2xl mx-auto"
           />
+          {audioReadyLabel ? (
+            <p
+              className={`mt-2 text-xs font-medium ${
+                audioReadyLabel.startsWith('Ready')
+                  ? 'text-emerald-400'
+                  : audioReadyLabel.startsWith('Audio error')
+                    ? 'text-red-300'
+                    : 'text-amber-300'
+              }`}
+            >
+              {audioReadyLabel}
+            </p>
+          ) : null}
         </div>
       ) : null}
       {currentSong && gameClipSourceLabel(currentSong) === 'unknown' ? (
@@ -1366,6 +1451,8 @@ export function HostDashboard({
           </div>
         )}
       </div>
+      </>
+      ) : null}
     </div>
   )
 }

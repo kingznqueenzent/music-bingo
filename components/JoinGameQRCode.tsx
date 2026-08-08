@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useMemo } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
+import { roomUrl } from '@/lib/room-url'
 
 interface JoinGameQRCodeProps {
   gameCode: string
@@ -9,23 +10,26 @@ interface JoinGameQRCodeProps {
   className?: string
 }
 
+/** Stage/header QR — canonical venue URL lyricgrid.ca/room/CODE. */
 export function JoinGameQRCode({ gameCode, size = 160, className = '' }: JoinGameQRCodeProps) {
-  const [joinUrl, setJoinUrl] = useState('')
-  useEffect(() => {
-    setJoinUrl(`${window.location.origin}/join?code=${encodeURIComponent(gameCode)}`)
-  }, [gameCode])
+  const joinUrl = useMemo(() => (gameCode.trim() ? roomUrl(gameCode) : ''), [gameCode])
 
   if (!joinUrl) {
-    return <div className={`animate-pulse rounded-xl bg-slate-700 ${className}`} style={{ width: size + 24, height: size + 24 }} />
+    return (
+      <div
+        className={`animate-pulse rounded-xl bg-slate-700 ${className}`}
+        style={{ width: size + 24, height: size + 24 }}
+      />
+    )
   }
 
   return (
     <div className={`flex flex-col items-center gap-2 ${className}`}>
       <div className="rounded-xl bg-white p-3">
-        <QRCodeSVG value={joinUrl} size={size} level="M" includeMargin={false} />
+        <QRCodeSVG value={joinUrl} size={size} level="H" includeMargin={false} />
       </div>
       <p className="text-xs text-slate-400 text-center max-w-[200px]">
-        Scan to open Join Game with code pre-filled
+        Scan to join via lyricgrid.ca/room/{gameCode.trim()}
       </p>
     </div>
   )

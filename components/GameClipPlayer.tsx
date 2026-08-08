@@ -1,6 +1,6 @@
 'use client'
 
-import { ClipAudioPlayer } from '@/components/ClipAudioPlayer'
+import { ClipAudioPlayer, type AudioReadyState } from '@/components/ClipAudioPlayer'
 import { YouTubeClipPlayer } from '@/components/YouTubeClipPlayer'
 import {
   getClipSourceKind,
@@ -16,6 +16,7 @@ type GameClipPlayerProps = {
   crossfadeSeconds?: number
   autoPlay?: boolean
   onEnded?: () => void
+  onReadyChange?: (state: AudioReadyState, detail?: { bufferedPct: number; latencyMs: number | null }) => void
   className?: string
 }
 
@@ -29,6 +30,7 @@ export function GameClipPlayer({
   crossfadeSeconds = 0,
   autoPlay = true,
   onEnded,
+  onReadyChange,
   className = '',
 }: GameClipPlayerProps) {
   const fields = song as PlayableSongFields
@@ -47,6 +49,7 @@ export function GameClipPlayer({
         crossfadeSeconds={crossfadeSeconds}
         autoPlay={autoPlay}
         onEnded={onEnded}
+        onReadyChange={onReadyChange}
         className={className}
       />
     )

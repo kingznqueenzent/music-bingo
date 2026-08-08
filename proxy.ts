@@ -57,6 +57,14 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(`/host/${encodeURIComponent(gameId)}`, request.url))
   }
 
+  // Venue short link: /room/CODE → /join?code=CODE
+  const roomMatch = pathname.match(/^\/room\/([^/]+)\/?$/i)
+  if (roomMatch?.[1]) {
+    const join = new URL('/join', request.url)
+    join.searchParams.set('code', decodeURIComponent(roomMatch[1]))
+    return NextResponse.redirect(join)
+  }
+
   const aliasTarget = OFFICIAL_PATH_ALIASES[pathname]
   if (aliasTarget) {
     const url = request.nextUrl.clone()
@@ -95,6 +103,7 @@ export const config = {
     '/kingz-control',
     '/sitemap',
     '/playlists',
+    '/room/:path*',
     '/Home',
     '/Play',
     '/Playlists',

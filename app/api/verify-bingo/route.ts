@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { verifyBingo, verifyBingoWithMarks } from '@/app/actions/verify'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { notifyHostWin } from '@/lib/game-session'
+import { recordGameHistoryWin } from '@/lib/game-history'
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +70,8 @@ export async function POST(request: NextRequest) {
         playerName,
         playerIdentifier: card?.player_identifier ?? null,
       })
+      // Archive winners / participation for host Past Games tab (best-effort).
+      void recordGameHistoryWin(supabase, { gameId, winnerName: playerName })
     }
 
     const r = result as { valid: boolean; error?: string; playerName?: string }
