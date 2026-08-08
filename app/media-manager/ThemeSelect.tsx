@@ -50,7 +50,7 @@ export function ThemeSelect({
   emptyLabel = 'Unassigned',
   disabled = false,
   className = '',
-  themeCounts,
+  themeCounts = {},
   preferUp = false,
   'aria-label': ariaLabel = 'Theme',
 }: ThemeSelectProps) {
@@ -66,15 +66,17 @@ export function ThemeSelect({
   )
 
   const selectedTheme = useMemo(
-    () => (value ? sorted.find((t) => t.id === value) : undefined),
+    () =>
+      value
+        ? sorted.find((t) => t.id === value || t.name === value)
+        : undefined,
     [value, sorted]
   )
 
   const selectedLabel = value ? selectedTheme?.name ?? emptyLabel : emptyLabel
-  const selectedCount =
-    value && themeCounts && typeof themeCounts[value] === 'number'
-      ? themeCounts[value]
-      : undefined
+  const selectedCount = selectedTheme
+    ? themeCounts[selectedTheme.id] ?? themeCounts[selectedTheme.name] ?? 0
+    : undefined
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -164,7 +166,7 @@ export function ThemeSelect({
 
           {filtered.map((t) => {
             const active = value === t.id
-            const count = themeCounts?.[t.id]
+            const count = themeCounts[t.id] ?? themeCounts[t.name] ?? 0
             return (
               <button
                 key={t.id}
@@ -177,7 +179,7 @@ export function ThemeSelect({
                 }`}
               >
                 <span className="flex-1 truncate text-left min-w-0">{t.name}</span>
-                {typeof count === 'number' ? <TrackCountBadge count={count} /> : null}
+                <TrackCountBadge count={count} />
                 {active ? (
                   <Check className="w-4 h-4 shrink-0" style={{ color: MENU_TOKENS.accent }} />
                 ) : null}
