@@ -5,6 +5,7 @@ import { Menu, X } from 'lucide-react'
 import { NAV_LINKS } from '@/lib/kingz/data'
 import { KingzLogo } from './KingzLogo'
 import { StaffHeaderActions } from '@/components/layout/StaffHeaderActions'
+import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
 
 export function KingzNav() {
   const [open, setOpen] = useState(false)
@@ -51,10 +52,9 @@ export function KingzNav() {
         <button
           type="button"
           onClick={() => scrollTo('home')}
-          className="flex items-center group"
+          className="flex items-center group min-h-12"
           aria-label="Kingz and Queenz Entertainment — Home"
         >
-          {/* Official logo — replaces text/Crown placeholder */}
           <KingzLogo size="nav" variant="full" priority />
         </button>
 
@@ -65,7 +65,7 @@ export function KingzNav() {
                 <button
                   type="button"
                   onClick={() => scrollTo(id)}
-                  className={`text-sm font-medium transition-colors duration-300 ${
+                  className={`text-sm font-medium transition-colors duration-300 min-h-12 px-1 ${
                     active === id
                       ? 'text-[#D4AF37] underline underline-offset-8 decoration-[#D4AF37]'
                       : 'text-[#f5f5f5] hover:text-[#D4AF37]'
@@ -78,8 +78,8 @@ export function KingzNav() {
           </ul>
           <StaffHeaderActions
             loginFrom="/host"
-            loginClassName="text-sm text-[#f5f5f5]/55 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap min-h-11 inline-flex items-center"
-            menuButtonClassName="inline-flex items-center justify-center gap-2 min-h-11 h-11 px-3.5 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10 transition-colors touch-manipulation shadow-sm"
+            loginClassName="text-sm text-[#f5f5f5]/55 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center"
+            menuButtonClassName="inline-flex items-center justify-center gap-2 min-h-12 h-12 px-4 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10 active:bg-[#D4AF37]/15 transition-colors touch-manipulation shadow-sm"
           />
         </div>
 
@@ -87,12 +87,12 @@ export function KingzNav() {
           <StaffHeaderActions
             loginFrom="/host"
             showAdminLabel={false}
-            loginClassName="text-xs text-[#f5f5f5]/50 hover:text-[#D4AF37]/90 transition-colors min-h-11 inline-flex items-center"
-            menuButtonClassName="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 transition-colors touch-manipulation"
+            loginClassName="text-xs text-[#f5f5f5]/50 hover:text-[#D4AF37]/90 transition-colors min-h-12 inline-flex items-center"
+            menuButtonClassName="inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 transition-colors touch-manipulation"
           />
           <button
             type="button"
-            className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/25 touch-manipulation"
+            className="inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/25 active:bg-[#D4AF37]/10 touch-manipulation"
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-label={open ? 'Close menu' : 'Open menu'}
@@ -102,24 +102,34 @@ export function KingzNav() {
         </div>
       </nav>
 
-      {open && (
-        <div
-          className="lg:hidden fixed inset-0 top-[72px] z-40 bg-[#050505]/98 backdrop-blur-lg flex flex-col items-center justify-center gap-6"
-          role="dialog"
-          aria-label="Mobile navigation"
-        >
-          {NAV_LINKS.map(({ id, label }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => scrollTo(id)}
-              className="text-xl kingz-heading text-[#f5f5f5] hover:text-[#D4AF37] transition-colors min-h-[44px]"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      <ResponsiveMenu
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Menu"
+        description="Kingz & Queenz"
+        forceSheet
+      >
+        <ul className="flex flex-col gap-1 py-1" role="list">
+          {NAV_LINKS.map(({ id, label }) => {
+            const isActive = active === id
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  onClick={() => scrollTo(id)}
+                  className={`flex w-full items-center px-4 py-3 min-h-12 rounded-xl text-lg font-medium touch-manipulation transition-colors border ${
+                    isActive
+                      ? 'text-[#D4AF37] bg-[#D4AF37]/10 border-[#D4AF37]/30'
+                      : 'text-[#f5f5f5] border-transparent hover:bg-white/5 active:bg-white/10'
+                  }`}
+                >
+                  {label}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </ResponsiveMenu>
     </header>
   )
 }

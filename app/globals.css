@@ -53,6 +53,20 @@ body {
   }
 }
 
+/* Unified menu overlay — frosted on capable GPUs, denser solid fallback on coarse pointers. */
+.lyric-menu-backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+@media (pointer: coarse) {
+  .lyric-menu-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
 /* Meld Studio / OBS browser sources — /overlay routes use a transparent canvas */
 html.overlay-route,
 body.overlay-route {
