@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { CreateFromMediaForm } from './CreateFromMediaForm'
 
 export const dynamic = 'force-dynamic'
@@ -18,8 +19,18 @@ export default function CreateFromMediaPage() {
         <p className="text-slate-300 mb-6 sm:mb-8 text-sm sm:text-base">
           Select MP3 or MP4 files you’ve uploaded. You need at least 45 for a 5×5 grid or 32 for 4×4.
         </p>
-        <CreateFromMediaForm />
+        <Suspense fallback={<CreateFromMediaFormFallback />}>
+          <CreateFromMediaForm />
+        </Suspense>
       </section>
     </main>
+  )
+}
+
+function CreateFromMediaFormFallback() {
+  return (
+    <div className="flex items-center justify-center py-16 text-slate-400 text-sm">
+      Loading catalog…
+    </div>
   )
 }

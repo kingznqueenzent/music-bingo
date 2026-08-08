@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { createGameFromMediaLibrary } from '@/app/actions/game'
 import {
@@ -30,6 +31,8 @@ const TIER_LABELS: Record<GameTier, string> = {
 
 export function CreateFromMediaForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const themeFromUrl = searchParams.get('theme')?.trim() ?? ''
   const supabase = createClient()
   const [items, setItems] = useState<CatalogSongListItem[]>([])
   const [themeNameById, setThemeNameById] = useState<Map<string, string>>(new Map())
@@ -47,11 +50,11 @@ export function CreateFromMediaForm() {
   const minSongs = gridSize === 5 ? MIN_5X5 : MIN_4X4
 
   const filteredItems = useMemo(() => {
-    const byTheme = filterSongsByBatchTheme(
-      items as CatalogSong[],
-      themeNameById,
-      batchFilter
-    ) as CatalogSongListItem[]
+    let list = items as CatalogSong[]
+    if (themeFromUrl) {
+      list = list.filter((s) => s.theme_id === themeFromUrl)
+    }
+    const byTheme = filterSongsByBatchTheme(list, themeNameById, batchFilter) as CatalogSongListItem[]
     const q = search.trim().toLowerCase()
     if (!q) return byTheme
     return byTheme.filter((s) => {
@@ -60,7 +63,9 @@ export function CreateFromMediaForm() {
       const theme = (s.theme_id ? themeNameById.get(s.theme_id) ?? '' : '').toLowerCase()
       return title.includes(q) || artist.includes(q) || theme.includes(q)
     })
-  }, [items, search, batchFilter, themeNameById])
+  }, [items, search, batchFilter, themeNameById, themeFromUrl])
+
+  const selectedThemeName = themeFromUrl ? themeNameById.get(themeFromUrl) ?? null : null
 
   const playableSelected = useMemo(() => {
     let n = 0
@@ -163,6 +168,16 @@ export function CreateFromMediaForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {selectedThemeName ? (
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 flex flex-wrap items-center justify-between gap-2">
+          <span>
+            Showing songs for <strong>{selectedThemeName}</strong>
+          </span>
+          <Link href="/themes" className="text-cyan-300 hover:text-white underline-offset-2 hover:underline">
+            Browse themes
+          </Link>
+        </div>
+      ) : null}
       <div>
         <label className="block text-lg mb-2 text-slate-200">Playlist / game name</label>
         <input

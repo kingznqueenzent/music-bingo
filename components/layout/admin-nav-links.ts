@@ -8,6 +8,7 @@ import {
   Trophy,
   Settings,
   Map,
+  LayoutGrid,
 } from 'lucide-react'
 
 export type AdminNavLink = {
@@ -22,6 +23,7 @@ export const ADMIN_NAV_LINKS: AdminNavLink[] = [
   { label: 'Home', href: '/', icon: Grid3x3, match: '/' },
   { label: 'Host', href: '/host', icon: LayoutDashboard, match: '/host' },
   { label: 'Media Manager', href: '/media-manager', icon: Library, match: '/media' },
+  { label: 'Browse Themes', href: '/themes', icon: LayoutGrid, match: '/themes' },
   { label: 'Stage', href: '/stage', icon: Tv2, match: '/stage' },
   { label: 'Leaderboard', href: '/leaderboard', icon: Trophy, match: '/leaderboard' },
   { label: 'KingzControl', href: '/kingz-control', icon: Settings, match: '/kingz-control' },
