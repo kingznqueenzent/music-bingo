@@ -12,11 +12,24 @@ export function KingzNav() {
   const [scrolled, setScrolled] = useState(false)
   const [active, setActive] = useState('home')
 
+  const closeMenu = useCallback(() => {
+    setOpen(false)
+    document.querySelectorAll('[data-lyric-menu="open"]').forEach((el) => el.remove())
+  }, [])
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) closeMenu()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [closeMenu])
 
   useEffect(() => {
     const sections = NAV_LINKS.map((l) => document.getElementById(l.id)).filter(Boolean)
@@ -32,10 +45,15 @@ export function KingzNav() {
     return () => observer.disconnect()
   }, [])
 
-  const scrollTo = useCallback((id: string) => {
-    setOpen(false)
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
-  }, [])
+  const scrollTo = useCallback(
+    (id: string) => {
+      closeMenu()
+      window.requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      })
+    },
+    [closeMenu]
+  )
 
   return (
     <header
@@ -104,7 +122,7 @@ export function KingzNav() {
 
       <ResponsiveMenu
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={closeMenu}
         title="Menu"
         description="Kingz & Queenz"
         forceSheet

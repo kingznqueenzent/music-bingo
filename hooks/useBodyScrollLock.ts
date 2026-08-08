@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 
 /** Lock document scroll while `locked` is true without iOS jump-flash. */
 export function useBodyScrollLock(locked: boolean) {
   const scrollYRef = useRef(0)
 
-  useEffect(() => {
+  // useLayoutEffect so unlock runs before paint on route transitions (avoids sheet flash).
+  useLayoutEffect(() => {
     if (!locked) return
 
     scrollYRef.current = window.scrollY

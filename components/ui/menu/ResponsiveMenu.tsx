@@ -21,7 +21,7 @@ import {
   useInteractions,
   useRole,
 } from '@floating-ui/react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { X } from 'lucide-react'
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -51,6 +51,9 @@ export type ResponsiveMenuProps = {
  * Unified LyricGrid menu surface:
  * - Mobile: bottom-sheet slide-over + frosted backdrop + scroll lock
  * - Desktop: Floating UI popover with flip/shift boundary awareness
+ *
+ * Close is instant (no exit animation) so route transitions never leave a
+ * portaled sheet flashing over the next page (Media Manager, etc.).
  */
 export function ResponsiveMenu({
   open,
@@ -71,8 +74,9 @@ export function ResponsiveMenu({
   const usePopover = Boolean(layoutReady && isDesktop && !forceSheet && anchorRef)
   const reduceMotion = useReducedMotion()
   const closeBtnRef = useRef<HTMLButtonElement>(null)
+  const portalIdRef = useRef(`lyric-menu-${Math.random().toString(36).slice(2)}`)
 
-  useBodyScrollLock(open)
+  useBodyScrollLock(open && layoutReady)
 
   const { refs, floatingStyles, context } = useFloating({
     open: open && usePopover,
@@ -125,7 +129,18 @@ export function ResponsiveMenu({
     return () => window.clearTimeout(t)
   }, [open, usePopover, layoutReady])
 
+  // Hard cleanup: remove any orphaned portal nodes if this instance unmounts mid-nav.
+  useEffect(() => {
+    const id = portalIdRef.current
+    return () => {
+      document.getElementById(id)?.remove()
+    }
+  }, [])
+
   if (typeof document === 'undefined') return null
+
+  // Instant unmount when closed — never leave AnimatePresence exit over the next route.
+  if (!open || !layoutReady) return null
 
   const header = (
     <div className="flex items-start justify-between gap-3 px-1 pb-3 mb-1 border-b border-white/10 shrink-0">
@@ -149,89 +164,78 @@ export function ResponsiveMenu({
     </div>
   )
 
-  const showSurface = open && layoutReady
-
   return createPortal(
-    <AnimatePresence>
-      {showSurface ? (
-        <div
-          key="lyric-responsive-menu"
-          className="fixed inset-0"
-          style={{ zIndex: MENU_TOKENS.zOverlay }}
-        >
-          <motion.button
-            type="button"
-            aria-label="Close menu"
-            className="lyric-menu-backdrop absolute inset-0 border-0 cursor-default"
-            initial={reduceMotion ? false : { opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={reduceMotion ? undefined : { opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            onClick={onClose}
-          />
+    <div
+      id={portalIdRef.current}
+      className="fixed inset-0"
+      style={{ zIndex: MENU_TOKENS.zOverlay }}
+      data-lyric-menu="open"
+    >
+      <button
+        type="button"
+        aria-label="Close menu"
+        className="lyric-menu-backdrop absolute inset-0 border-0 cursor-default"
+        onClick={onClose}
+      />
 
-          {usePopover ? (
-            <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
-              <motion.div
-                ref={refs.setFloating}
-                style={{ ...floatingStyles, zIndex: MENU_TOKENS.zPanel }}
-                {...getFloatingProps({
-                  className: [
-                    desktopWidthClass,
-                    'flex flex-col overflow-hidden rounded-2xl border border-white/10',
-                    'bg-[#1A1A1A] shadow-2xl shadow-black/50',
-                    'origin-top-right',
-                  ].join(' '),
-                  'aria-labelledby': titleId,
-                })}
-                initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: -6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={reduceMotion ? undefined : { opacity: 0, scale: 0.96, y: -4 }}
-                transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <div className="flex flex-col min-h-0 max-h-[inherit] p-3">
-                  {header}
-                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
-                    {children}
-                  </div>
-                  {footer ? (
-                    <div className="pt-2 border-t border-white/10 shrink-0">{footer}</div>
-                  ) : null}
-                </div>
-              </motion.div>
-            </FloatingFocusManager>
-          ) : (
-            <motion.div
-              role={role}
-              aria-modal="true"
-              aria-labelledby={titleId}
-              className={[
-                'absolute inset-x-0 bottom-0 flex flex-col',
-                'max-h-[min(88dvh,40rem)] rounded-t-2xl border border-white/10 border-b-0',
-                'bg-[#1A1A1A] shadow-2xl shadow-black/60',
-                'pt-2 px-3',
-                'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-              ].join(' ')}
-              style={{ zIndex: MENU_TOKENS.zPanel }}
-              initial={reduceMotion ? false : { y: '100%' }}
-              animate={{ y: 0 }}
-              exit={reduceMotion ? undefined : { y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-center pb-2 shrink-0" aria-hidden>
-                <span className="h-1.5 w-10 rounded-full bg-white/20" />
-              </div>
+      {usePopover ? (
+        <FloatingFocusManager context={context} modal={false} initialFocus={-1}>
+          <motion.div
+            ref={refs.setFloating}
+            style={{ ...floatingStyles, zIndex: MENU_TOKENS.zPanel }}
+            {...getFloatingProps({
+              className: [
+                desktopWidthClass,
+                'flex flex-col overflow-hidden rounded-2xl border border-white/10',
+                'bg-[#1A1A1A] shadow-2xl shadow-black/50',
+                'origin-top-right',
+              ].join(' '),
+              'aria-labelledby': titleId,
+            })}
+            initial={reduceMotion ? false : { opacity: 0, scale: 0.96, y: -6 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="flex flex-col min-h-0 max-h-[inherit] p-3">
               {header}
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">{children}</div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">
+                {children}
+              </div>
               {footer ? (
                 <div className="pt-2 border-t border-white/10 shrink-0">{footer}</div>
               ) : null}
-            </motion.div>
-          )}
-        </div>
-      ) : null}
-    </AnimatePresence>,
+            </div>
+          </motion.div>
+        </FloatingFocusManager>
+      ) : (
+        <motion.div
+          role={role}
+          aria-modal="true"
+          aria-labelledby={titleId}
+          className={[
+            'absolute inset-x-0 bottom-0 flex flex-col',
+            'max-h-[min(88dvh,40rem)] rounded-t-2xl border border-white/10 border-b-0',
+            'bg-[#1A1A1A] shadow-2xl shadow-black/60',
+            'pt-2 px-3',
+            'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+          ].join(' ')}
+          style={{ zIndex: MENU_TOKENS.zPanel }}
+          initial={reduceMotion ? false : { y: '100%' }}
+          animate={{ y: 0 }}
+          transition={{ type: 'spring', damping: 32, stiffness: 380 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex justify-center pb-2 shrink-0" aria-hidden>
+            <span className="h-1.5 w-10 rounded-full bg-white/20" />
+          </div>
+          {header}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">{children}</div>
+          {footer ? (
+            <div className="pt-2 border-t border-white/10 shrink-0">{footer}</div>
+          ) : null}
+        </motion.div>
+      )}
+    </div>,
     document.body
   )
 }

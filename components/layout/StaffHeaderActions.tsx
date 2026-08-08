@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { AdminNavDrawer } from '@/components/layout/AdminNavDrawer'
@@ -18,12 +19,18 @@ export type StaffHeaderActionsProps = {
 const DEFAULT_MENU_BUTTON =
   'inline-flex items-center justify-center gap-2 min-h-12 min-w-12 md:min-w-0 md:h-12 md:px-4 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-[#00FFFF] hover:border-[#00FFFF]/40 hover:bg-[#00FFFF]/5 active:bg-[#00FFFF]/10 transition-colors touch-manipulation shadow-sm'
 
+function purgeOrphanMenus() {
+  if (typeof document === 'undefined') return
+  document.querySelectorAll('[data-lyric-menu="open"]').forEach((el) => el.remove())
+}
+
 export function StaffHeaderActions({
   loginFrom = '/host',
   loginClassName = 'text-sm text-white/50 hover:text-[#00FFFF]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center px-2',
   menuButtonClassName = DEFAULT_MENU_BUTTON,
   showAdminLabel = true,
 }: StaffHeaderActionsProps) {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { isAdmin, loading, ready } = useIsAdmin()
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -31,11 +38,40 @@ export function StaffHeaderActions({
   const showAdminControls = isAdmin
   const showHostLogin = ready && !loading && !isAdmin
 
-  const handleClose = useCallback(() => setOpen(false), [])
+  const handleClose = useCallback(() => {
+    setOpen(false)
+    purgeOrphanMenus()
+  }, [])
+
+  // Close synchronously before paint on every client navigation (Media Manager, Host, etc.).
+  useLayoutEffect(() => {
+    setOpen(false)
+    purgeOrphanMenus()
+  }, [pathname])
+
+  // bfcache restore can revive open menu state — force closed.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        setOpen(false)
+        purgeOrphanMenus()
+      }
+    }
+    const onPageHide = () => {
+      setOpen(false)
+      purgeOrphanMenus()
+    }
+    window.addEventListener('pageshow', onPageShow)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      window.removeEventListener('pageshow', onPageShow)
+      window.removeEventListener('pagehide', onPageHide)
+    }
+  }, [])
 
   useEffect(() => {
-    if (!showAdminControls && open) setOpen(false)
-  }, [showAdminControls, open])
+    if (!showAdminControls && open) handleClose()
+  }, [showAdminControls, open, handleClose])
 
   return (
     <>
