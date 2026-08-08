@@ -16,13 +16,27 @@ export async function GET() {
   }
 
   const supabase = createClient()
-  const { data, error } = await supabase
-    .from('songs')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const pageSize = 1000
+  const songs: Record<string, unknown>[] = []
+  let page = 0
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ songs: data ?? [] })
+  while (true) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from('songs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data?.length) break
+    songs.push(...data)
+    if (data.length < pageSize) break
+    page += 1
+  }
+
+  return NextResponse.json({ songs })
 }
 
 export async function POST(request: NextRequest) {
