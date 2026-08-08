@@ -1,27 +1,44 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import type { AuthError } from '@supabase/supabase-js'
+import { createClient, getSupabaseBrowserConfig } from '@/lib/supabase/client'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
+import { AuthTimeoutError, withAuthTimeout } from '@/lib/auth-timeout'
 
-function friendlyAuthError(message: string): string {
-  const m = message.toLowerCase()
+const AUTH_TIMEOUT_MS = 10_000
+
+function friendlyAuthError(err: AuthError | Error | { message?: string } | null | undefined): string {
+  if (!err?.message) return 'Sign-in failed. Please try again.'
+
+  const m = err.message.toLowerCase()
+
+  if (err instanceof AuthTimeoutError || m.includes('timed out')) {
+    return 'Sign-in timed out. Check your internet connection, Supabase project status, and that NEXT_PUBLIC_SUPABASE_URL is set correctly in production.'
+  }
   if (m.includes('invalid login credentials') || m.includes('invalid email or password')) {
     return 'Invalid email or password. Please try again.'
   }
   if (m.includes('email not confirmed')) {
     return 'Please confirm your email before signing in.'
   }
-  return message
+  if (m.includes('cors') || m.includes('failed to fetch') || m.includes('networkerror')) {
+    return 'Network or CORS error reaching Supabase. Verify NEXT_PUBLIC_SUPABASE_URL and your site URL in the Supabase dashboard.'
+  }
+  if (m.includes('fetch')) {
+    return 'Could not reach the auth server. Check your connection and Supabase configuration.'
+  }
+
+  return err.message
 }
 
 export function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('from') || '/host'
+  const supabaseConfig = useMemo(() => getSupabaseBrowserConfig(), [])
   const supabase = useMemo(() => createClient(), [])
   const { isAdmin, loading: adminLoading } = useIsAdmin()
 
@@ -29,60 +46,105 @@ export function LoginForm() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!supabaseConfig.isConfigured) {
+      const msg = `Supabase is not configured (${supabaseConfig.missing.join(', ') || 'invalid keys'}). Host login cannot run until env vars are set.`
+      console.error('[LyricGrid login]', msg)
+      setConfigError(msg)
+      return
+    }
+    console.log('[LyricGrid login] Supabase client ready:', supabaseConfig.url)
+  }, [supabaseConfig])
 
   useEffect(() => {
     if (!adminLoading && isAdmin) {
-      router.replace(redirectTo.startsWith('/') ? redirectTo : '/host')
+      const target = redirectTo.startsWith('/') ? redirectTo : '/host'
+      console.log('[LyricGrid login] Already authenticated — redirecting to', target)
+      window.location.href = target
     }
-  }, [adminLoading, isAdmin, redirectTo, router])
+  }, [adminLoading, isAdmin, redirectTo])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+
+    if (!supabaseConfig.isConfigured) {
+      const msg = 'Supabase environment variables are missing. Contact your administrator.'
+      console.error('[LyricGrid login]', msg)
+      setError(msg)
+      return
+    }
+
     setLoading(true)
+    console.log('[LyricGrid login] signInWithPassword start', { email: email.trim() })
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      })
+      const { data, error: signInError } = await withAuthTimeout(
+        supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        }),
+        AUTH_TIMEOUT_MS,
+        'Supabase sign-in'
+      )
 
       if (signInError) {
-        setError(friendlyAuthError(signInError.message))
+        console.error('[LyricGrid login] signInWithPassword error:', signInError.message, signInError)
+        setError(friendlyAuthError(signInError))
         setLoading(false)
         return
       }
 
       const token = data.session?.access_token
       if (!token) {
+        console.error('[LyricGrid login] No session access_token returned')
         setError('Sign-in succeeded but no session was returned. Try again.')
         setLoading(false)
         return
       }
 
-      const res = await fetch('/api/auth/host-session', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      const body = (await res.json()) as { ok?: boolean; error?: string; redirect?: string }
+      console.log('[LyricGrid login] signInWithPassword ok — establishing host session')
+
+      const res = await withAuthTimeout(
+        fetch('/api/auth/host-session', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        AUTH_TIMEOUT_MS,
+        'Host session verification'
+      )
+
+      let body: { ok?: boolean; error?: string; redirect?: string } = {}
+      try {
+        body = (await res.json()) as typeof body
+      } catch {
+        body = {}
+      }
 
       if (!res.ok) {
+        console.error('[LyricGrid login] host-session failed:', res.status, body.error)
         await supabase.auth.signOut()
         setError(body.error ?? 'Could not verify host access.')
         setLoading(false)
         return
       }
 
-      router.push(body.redirect ?? redirectTo)
-      router.refresh()
-    } catch {
-      setError('Something went wrong. Check your connection and try again.')
+      const target = body.redirect ?? (redirectTo.startsWith('/') ? redirectTo : '/host')
+      console.log('[LyricGrid login] Success — hard redirect to', target)
+      window.location.href = target
+    } catch (err) {
+      console.error('[LyricGrid login] Unexpected error:', err)
+      setError(friendlyAuthError(err instanceof Error ? err : { message: String(err) }))
       setLoading(false)
     }
   }
 
+  const displayError = configError ?? error
+
   return (
-    <main className="min-h-[calc(100vh-3rem)] bg-[#121212] text-white flex items-center justify-center p-6">
+    <main className="min-h-[calc(100dvh-3rem)] bg-[#121212] text-white flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-[#00FFFF]/20 bg-[#1E1E1E] p-8 shadow-[0_0_48px_rgba(0,255,255,0.08)]">
           <div className="flex flex-col items-center text-center mb-8">
@@ -104,7 +166,8 @@ export function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FFFF]/60 focus:ring-1 focus:ring-[#00FFFF]/40"
+                disabled={!!configError}
+                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FFFF]/60 focus:ring-1 focus:ring-[#00FFFF]/40 disabled:opacity-50"
                 placeholder="you@venue.com"
               />
             </div>
@@ -119,23 +182,24 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FFFF]/60 focus:ring-1 focus:ring-[#00FFFF]/40"
+                disabled={!!configError}
+                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FFFF]/60 focus:ring-1 focus:ring-[#00FFFF]/40 disabled:opacity-50"
                 placeholder="••••••••"
               />
             </div>
 
-            {error ? (
+            {displayError ? (
               <p className="rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-red-300 text-sm" role="alert">
-                {error}
+                {displayError}
               </p>
             ) : null}
 
             <button
               type="submit"
-              disabled={loading || adminLoading}
+              disabled={loading || !!configError}
               className="w-full rounded-full bg-gradient-to-r from-[#00FFFF] to-cyan-400 hover:from-cyan-300 hover:to-[#00FFFF] disabled:opacity-50 text-[#121212] font-bold py-3.5 transition-all shadow-lg shadow-[#00FFFF]/20"
             >
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Signing in…' : configError ? 'Login unavailable' : 'Sign In'}
             </button>
           </form>
 

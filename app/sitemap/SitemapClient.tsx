@@ -51,7 +51,7 @@ export function SitemapClient() {
   const sections = ['Core', 'Host', 'Player', 'Admin', 'Marketing'] as const
 
   return (
-    <main className="min-h-[calc(100vh-3rem)] px-6 py-10 max-w-4xl mx-auto">
+    <main className="min-h-[calc(100dvh-3rem)] px-6 py-10 max-w-4xl mx-auto">
       <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Sitemap</h1>

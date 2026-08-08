@@ -1,88 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
-import { isFeatureEnabled } from '@/lib/feature-flags'
 import Link from 'next/link'
-import type { LeaderboardEntry } from '@/lib/supabase/types'
+import { Leaderboard } from '@/components/Leaderboard'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-async function getTopPlayersByXp(limit: number): Promise<LeaderboardEntry[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('leaderboard')
-    .select('id, player_name, identifier, wins, points, total_xp, last_played, created_at, updated_at')
-    .order('points', { ascending: false })
-    .limit(limit)
-  if (error) return []
-  return (data ?? []) as LeaderboardEntry[]
-}
-
-async function getTopPlayersByWins(limit: number): Promise<LeaderboardEntry[]> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('leaderboard')
-    .select('id, player_name, identifier, wins, points, total_xp, last_played, created_at, updated_at')
-    .order('wins', { ascending: false })
-    .limit(limit)
-  if (error) return []
-  return (data ?? []) as LeaderboardEntry[]
-}
-
-export default async function LeaderboardPage() {
-  const supabase = createClient()
-  const xpOn = await isFeatureEnabled(supabase, 'xp_and_badges')
-  const players = xpOn ? await getTopPlayersByXp(10) : await getTopPlayersByWins(10)
-
+export default function LeaderboardPage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 md:p-12">
+    <main className="min-h-dvh bg-slate-950 text-white flex flex-col items-center justify-center p-6 md:p-12">
       <div className="w-full max-w-4xl">
         <h1 className="text-4xl md:text-6xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-          LEADERBOARD
+          LYRICGRID
         </h1>
-        <p className="text-slate-400 text-center text-lg md:text-xl mb-10">
-          {xpOn ? 'Top 10 by XP — tap a name for profile & badges' : 'Top 10 by wins'}
+        <p className="text-slate-400 text-center text-lg md:text-xl mb-8">
+          Global player rankings — wins and lifetime score
         </p>
 
-        <div className="rounded-2xl border-2 border-amber-500/40 bg-slate-900/90 shadow-2xl overflow-hidden">
-          {players.length === 0 ? (
-            <div className="py-20 text-center text-slate-500 text-xl md:text-2xl">
-              No scores yet. Win a game and claim your spot!
-            </div>
-          ) : (
-            <ul className="divide-y divide-slate-700/80">
-              {players.map((p, i) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-4 px-6 py-4 md:py-5 bg-slate-800/30 hover:bg-slate-800/50 transition-colors"
-                >
-                  <span className="text-2xl md:text-4xl font-bold text-amber-400/90 w-10 md:w-14 shrink-0">
-                    #{i + 1}
-                  </span>
-                  <Link
-                    href={`/profile?identifier=${encodeURIComponent(p.identifier)}`}
-                    className="text-xl md:text-3xl font-bold text-white flex-1 truncate hover:text-cyan-300 transition-colors text-left"
-                  >
-                    {p.player_name}
-                  </Link>
-                  {xpOn && (
-                    <span className="text-lg md:text-2xl font-semibold text-amber-300/90 shrink-0">
-                      {(p.total_xp ?? p.points) ?? 0} XP
-                    </span>
-                  )}
-                  <span className="text-base md:text-xl text-slate-400 shrink-0">
-                    {p.wins} win{p.wins !== 1 ? 's' : ''}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <Leaderboard limit={25} variant="page" live />
 
         <div className="mt-8 text-center">
-          <Link
-            href="/lyricgrid"
-            className="text-slate-400 hover:text-white text-lg transition-colors"
-          >
+          <Link href="/lyricgrid" className="text-slate-400 hover:text-white text-lg transition-colors">
             ← Back to Home
           </Link>
         </div>

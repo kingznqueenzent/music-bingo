@@ -6,7 +6,7 @@ export const revalidate = 0
 
 export default function HostFeatureFlagsPage() {
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-10">
+    <main className="min-h-dvh bg-slate-950 text-white p-6 md:p-10">
       <div className="max-w-4xl mx-auto">
         <Link href="/host" className="text-slate-400 hover:text-white text-sm">
           ← Host

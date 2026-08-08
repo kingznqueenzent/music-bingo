@@ -10,7 +10,7 @@ export default async function MediaPage({ searchParams }: Props) {
   await requireAdminSession('/media')
   const { theme } = await searchParams
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-4xl mx-auto px-6 pt-6">
         <Link href="/lyricgrid" className="text-slate-300 hover:text-white text-sm">
           ← Back to Home

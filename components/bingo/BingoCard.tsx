@@ -90,10 +90,10 @@ export function BingoCard({
 
   return (
     <div
-      className={`bg-[#1E1E1E] rounded-2xl p-3 sm:p-5 border border-[#00FFFF]/25 shadow-[0_0_24px_rgba(0,255,255,0.08)] ${className}`}
+      className={`bg-[#1E1E1E] rounded-2xl p-3 sm:p-5 border border-[#00FFFF]/25 shadow-[0_0_24px_rgba(0,255,255,0.08)] transform-gpu contain-paint ${className}`}
     >
       <div
-        className="grid gap-1.5 sm:gap-2.5"
+        className="grid gap-1.5 sm:gap-2.5 will-change-auto"
         style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: size }, (_, row) =>

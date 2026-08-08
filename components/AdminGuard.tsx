@@ -26,7 +26,7 @@ export function AdminGuard({
 
   if (loading) {
     return (
-      <div className="min-h-[40vh] flex items-center justify-center text-slate-400 text-sm">
+      <div className="min-h-[40dvh] flex items-center justify-center text-slate-400 text-sm">
         Checking access…
       </div>
     )

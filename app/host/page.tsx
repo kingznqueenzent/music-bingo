@@ -11,7 +11,7 @@ export default async function HostPage() {
   await requireAdminSession('/host')
 
   return (
-    <main className="min-h-[calc(100vh-3rem)] bg-[#121212] flex flex-col items-center p-8 text-white">
+    <main className="min-h-[calc(100dvh-3rem)] bg-[#121212] flex flex-col items-center p-8 text-white">
       <h1 className="text-4xl md:text-5xl font-extrabold mb-2 text-[#00FFFF]">
         Host Control Panel
       </h1>

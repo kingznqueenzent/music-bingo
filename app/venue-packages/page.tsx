@@ -14,7 +14,7 @@ export default async function VenuePackagesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-12">
+    <main className="min-h-dvh bg-slate-950 text-white p-6 md:p-12">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-4xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-yellow-200">
           Venue packages

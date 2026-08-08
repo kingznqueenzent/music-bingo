@@ -16,7 +16,7 @@ export default async function HostAnalyticsPage() {
   const snap = await getHostAnalyticsSnapshot(supabase)
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-12">
+    <main className="min-h-dvh bg-slate-950 text-white p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-10">
         <div>
           <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-400">

@@ -12,7 +12,7 @@ type PlayPageContentProps = {
 export async function PlayPageContent({ gameId, cardId, lyricHint = null }: PlayPageContentProps) {
   if (!cardId || !gameId) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">
+      <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">
         <p className="text-xl">Missing card or game. Join a game first.</p>
         <a href="/join" className="mt-6 text-xl underline text-emerald-400 hover:text-emerald-300">
           Join game
@@ -57,7 +57,7 @@ export async function PlayPageContent({ gameId, cardId, lyricHint = null }: Play
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-[#121212] via-[#1E1E1E] to-[#121212] flex flex-col items-center p-4 sm:p-8 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-[#121212] via-[#1E1E1E] to-[#121212] flex flex-col items-center p-4 sm:p-8 text-white">
       <PlayView
         cardId={cardId}
         gameId={gameId}

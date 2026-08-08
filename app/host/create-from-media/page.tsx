@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 export default function CreateFromMediaPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-4xl mx-auto px-6 pt-6">
         <Link href="/host" className="text-slate-300 hover:text-white text-sm">
           ← Back to Host

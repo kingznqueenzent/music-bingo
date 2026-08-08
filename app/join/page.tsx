@@ -12,7 +12,7 @@ export default async function JoinPage({
   const initialCode = params?.code?.trim().toUpperCase() || DEFAULT_ROOM_CODE
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">
       <h1 className="text-2xl md:text-3xl font-extrabold mb-8 text-slate-100 text-center">📱 Join Game</h1>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-8 md:p-12 max-w-md w-full">

@@ -421,7 +421,7 @@ function MediaManagerDashboardInner() {
     displayedSongs.length > 0 && displayedSongs.every((s) => selectedIds.has(s.id))
 
   return (
-    <main className="min-h-[calc(100vh-3rem)] text-white p-6 max-w-[1600px] mx-auto space-y-6" style={{ backgroundColor: BG }}>
+    <main className="min-h-[calc(100dvh-3rem)] text-white p-6 max-w-[1600px] mx-auto space-y-6" style={{ backgroundColor: BG }}>
       <Link href="/host" className="text-slate-400 hover:text-[#00FFFF] text-sm transition-colors inline-block">
         ← Host dashboard
       </Link>

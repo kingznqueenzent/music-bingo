@@ -26,7 +26,7 @@ export function MixReportClient({ mixId }: { mixId: string }) {
 
   if (error && !report) {
     return (
-      <main className="min-h-[calc(100vh-3rem)] bg-gradient-to-b from-slate-950 to-slate-900 text-white px-4 py-16 text-center">
+      <main className="min-h-[calc(100dvh-3rem)] bg-gradient-to-b from-slate-950 to-slate-900 text-white px-4 py-16 text-center">
         <p className="text-red-300 mb-4">{error}</p>
         <Link href="/analyze-mix" className="text-brand-neon underline">
           Back to upload
@@ -37,7 +37,7 @@ export function MixReportClient({ mixId }: { mixId: string }) {
 
   if (!report) {
     return (
-      <main className="min-h-[calc(100vh-3rem)] bg-gradient-to-b from-slate-950 to-slate-900 text-white px-4 py-16">
+      <main className="min-h-[calc(100dvh-3rem)] bg-gradient-to-b from-slate-950 to-slate-900 text-white px-4 py-16">
         <div className="max-w-xl mx-auto">
           <MixAnalysisProgressBar
             phase="analyzing"
@@ -51,7 +51,7 @@ export function MixReportClient({ mixId }: { mixId: string }) {
 
   if (report.status !== 'completed' && report.status !== 'failed') {
     return (
-      <main className="min-h-[calc(100vh-3rem)] bg-gradient-to-b from-slate-950 to-slate-900 text-white px-4 py-16">
+      <main className="min-h-[calc(100dvh-3rem)] bg-gradient-to-b from-slate-950 to-slate-900 text-white px-4 py-16">
         <div className="max-w-xl mx-auto space-y-6">
           <h1 className="text-xl font-bold text-center">Analysis in progress</h1>
           <MixAnalysisProgressBar
@@ -66,7 +66,7 @@ export function MixReportClient({ mixId }: { mixId: string }) {
   }
 
   return (
-    <main className="min-h-[calc(100vh-3rem)] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-10 sm:py-14">
+    <main className="min-h-[calc(100dvh-3rem)] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-10 sm:py-14">
       <MixResultsDashboard report={report} />
     </main>
   )

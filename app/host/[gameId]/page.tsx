@@ -32,7 +32,7 @@ export default async function HostGamePage({ params }: { params: Promise<{ gameI
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center p-8 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center p-8 text-white">
       <h1 className="text-4xl md:text-5xl font-extrabold mb-8 text-slate-100">
         <span className="block">🖥️ Host Control Panel</span>
       </h1>

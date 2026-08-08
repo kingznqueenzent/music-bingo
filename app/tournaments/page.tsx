@@ -21,7 +21,7 @@ export default async function TournamentsIndexPage() {
   const rows = (data ?? []) as Tournament[]
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
+    <main className="min-h-dvh bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
       <div className="w-full max-w-3xl">
         <h1 className="text-4xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-200">
           Tournaments

@@ -34,7 +34,7 @@ export default async function ImportYouTubePage({
   const { theme: themeIdFromUrl } = await searchParams
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-6 md:p-8 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 p-6 md:p-8 text-white">
       <div className="max-w-2xl mx-auto">
         <Link href="/host" className="text-slate-300 hover:text-white text-sm mb-4 inline-block">
           ← Back to Host

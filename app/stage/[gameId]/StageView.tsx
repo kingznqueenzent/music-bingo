@@ -207,7 +207,7 @@ export function StageView({ gameId }: { gameId: string }) {
   }
 
   return (
-    <div className="fixed inset-0 min-h-screen w-full bg-[#121212] overflow-hidden text-white">
+    <div className="fixed inset-0 min-h-dvh w-full bg-[#121212] overflow-hidden text-white transform-gpu">
       <CrownedWinnerOverlay
         open={!!crownedWinner}
         playerName={crownedWinner?.playerName ?? ''}

@@ -203,10 +203,10 @@ export function ChatPanel({
   if (!chatOn) return null
 
   const shellClass = embedded
-    ? 'flex flex-col border border-white/10 bg-slate-900/95 rounded-2xl overflow-hidden shadow-xl w-full max-w-2xl mx-auto max-h-[70vh]'
-    : 'flex flex-col border border-white/10 bg-slate-900/95 backdrop-blur-md overflow-hidden shadow-xl ' +
+    ? 'flex flex-col border border-white/10 bg-slate-900 rounded-2xl overflow-hidden shadow-xl w-full max-w-2xl mx-auto max-h-[70dvh] transform-gpu'
+    : 'flex flex-col border border-white/10 bg-slate-900 overflow-hidden shadow-xl transform-gpu contain-layout ' +
       'fixed bottom-0 left-0 right-0 z-40 rounded-t-2xl pb-[env(safe-area-inset-bottom)] ' +
-      'lg:static lg:z-0 lg:rounded-2xl lg:w-80 lg:shrink-0 lg:pb-0 lg:sticky lg:top-20 lg:self-start max-h-[calc(100vh-5rem)]'
+      'lg:static lg:z-0 lg:rounded-2xl lg:w-80 lg:shrink-0 lg:pb-0 lg:sticky lg:top-20 lg:self-start lg:backdrop-blur-md lg:bg-slate-900/95 max-h-[calc(100dvh-5rem)]'
 
   return (
     <div className={shellClass}>

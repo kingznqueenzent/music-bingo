@@ -14,7 +14,7 @@ export function KingzHero() {
     <section
       id="home"
       ref={ref}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      className="relative min-h-dvh flex items-center justify-center overflow-hidden"
       aria-labelledby="hero-heading"
     >
       {/* Replace with Professional Hero Background — /assets/images/backgrounds/hero-bg.jpg */}

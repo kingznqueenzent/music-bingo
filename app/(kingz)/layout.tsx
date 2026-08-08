@@ -77,7 +77,7 @@ const jsonLd = {
 
 export default function KingzLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`kingz-site ${playfair.variable} ${lato.variable} min-h-screen`}>
+    <div className={`kingz-site ${playfair.variable} ${lato.variable} min-h-dvh`}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

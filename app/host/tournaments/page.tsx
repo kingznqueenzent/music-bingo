@@ -22,7 +22,7 @@ export default async function HostTournamentsPage() {
     .limit(50)
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-10">
+    <main className="min-h-dvh bg-slate-950 text-white p-6 md:p-10">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <Link href="/host" className="text-slate-400 hover:text-white text-sm">

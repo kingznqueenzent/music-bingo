@@ -116,7 +116,7 @@ export function AnalyzeMixHome() {
   const progressDetail = errorDetail ? undefined : progressMessage
 
   return (
-    <main className="min-h-[calc(100vh-3rem)] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-10 sm:py-16">
+    <main className="min-h-[calc(100dvh-3rem)] bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white px-4 py-10 sm:py-16">
       <div className="max-w-3xl mx-auto text-center mb-10">
         <p className="text-xs uppercase tracking-[0.2em] text-brand-neon/90 mb-2">Copyright signal</p>
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-50">

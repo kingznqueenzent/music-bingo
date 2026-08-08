@@ -75,8 +75,8 @@ export function ThemeCoverageGrid({
     <Wrapper
       className={
         embedded
-          ? 'space-y-4 xl:max-h-[calc(100vh-12rem)] xl:overflow-y-auto'
-          : 'rounded-xl border border-white/10 p-4 space-y-4 xl:sticky xl:top-24 xl:max-h-[calc(100vh-7rem)] xl:overflow-y-auto'
+          ? 'space-y-4 xl:max-h-[calc(100dvh-12rem)] xl:overflow-y-auto'
+          : 'rounded-xl border border-white/10 p-4 space-y-4 xl:sticky xl:top-24 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto'
       }
       style={embedded ? undefined : { backgroundColor: SURFACE }}
     >

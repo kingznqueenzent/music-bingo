@@ -5,7 +5,7 @@ import { StaffAccessFooterLink } from '@/components/layout/StaffAccessFooterLink
 
 export default function LyricGridHome() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
+    <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 flex flex-col items-center text-center gap-8">
         <div className="flex flex-col items-center gap-4">

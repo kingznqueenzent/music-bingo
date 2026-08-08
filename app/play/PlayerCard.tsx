@@ -434,35 +434,48 @@ export function PlayView({
             grid_size?: number | null
             status?: GameStatus | null
           }
-          if (row.mode != null) setGameMode(normalizeWinPattern(row.mode))
-          if (row.grid_size === 4 || row.grid_size === 5) setGridSize(row.grid_size)
-          if (row.status === 'lobby' || row.status === 'playing' || row.status === 'ended') setGameStatus(row.status)
+          // Bail when values are unchanged — Android Chrome re-renders are expensive during URL-bar resize.
+          if (row.mode != null) {
+            const nextMode = normalizeWinPattern(row.mode)
+            setGameMode((prev) => (prev === nextMode ? prev : nextMode))
+          }
+          if (row.grid_size === 4 || row.grid_size === 5) {
+            setGridSize((prev) => (prev === row.grid_size ? prev : row.grid_size!))
+          }
+          if (row.status === 'lobby' || row.status === 'playing' || row.status === 'ended') {
+            setGameStatus((prev) => (prev === row.status ? prev : row.status!))
+          }
         }
       )
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
         (payload) => {
-          const row = payload.new as { playlist_song_id?: string }
-          if (row.playlist_song_id) {
-            setPlayedSongIds((prev) => new Set([...prev, row.playlist_song_id!]))
-          }
+          const id = (payload.new as { playlist_song_id?: string }).playlist_song_id
+          if (!id) return
+          setPlayedSongIds((prev) => {
+            if (prev.has(id)) return prev
+            const next = new Set(prev)
+            next.add(id)
+            return next
+          })
         }
       )
       .on(
         'postgres_changes',
         { event: 'DELETE', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
         (payload) => {
-          const row = payload.old as { playlist_song_id?: string }
-          if (row.playlist_song_id) {
-            setPlayedSongIds((prev) => {
-              const next = new Set(prev)
-              next.delete(row.playlist_song_id!)
-              return next
-            })
-          } else {
-            setPlayedSongIds(new Set())
+          const id = (payload.old as { playlist_song_id?: string }).playlist_song_id
+          if (!id) {
+            setPlayedSongIds((prev) => (prev.size === 0 ? prev : new Set()))
+            return
           }
+          setPlayedSongIds((prev) => {
+            if (!prev.has(id)) return prev
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+          })
         }
       )
       .subscribe()
@@ -593,9 +606,35 @@ export function PlayView({
     }
   }
 
+  // Hooks must stay above early returns — conditional useMemo caused Android flicker when loading flipped.
+  const size = gridSize
+  const bingoCardCells = useMemo(
+    () =>
+      cells.map((c) => ({
+        id: c.id,
+        position: c.position,
+        playlistSongId: c.playlist_song_id,
+        label: c.song?.title || c.song?.youtube_id || '—',
+        albumArtUrl: c.song?.album_art_url ?? null,
+      })),
+    [cells]
+  )
+  const progress = useMemo(
+    () => getWinProgress(markedSongIds, cells, size, gameMode),
+    [markedSongIds, cells, size, gameMode]
+  )
+  const markedPositions = useMemo(
+    () => getMarkedPositions(markedSongIds, cells, size),
+    [markedSongIds, cells, size]
+  )
+
+  const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FFFF'
+  const accent = whiteLabel?.brandAccentHex?.trim() || '#34d399'
+  const hideLyricgrid = !!whiteLabel?.brandHideLyricgrid
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 min-h-[40vh] text-center px-4">
+      <div className="flex flex-col items-center justify-center gap-3 min-h-[40dvh] text-center px-4">
         <div
           className="h-10 w-10 rounded-full border-2 border-emerald-400/30 border-t-emerald-400 animate-spin"
           aria-hidden
@@ -618,34 +657,6 @@ export function PlayView({
       </div>
     )
   }
-
-  const size = gridSize
-
-  const bingoCardCells = useMemo(
-    () =>
-      cells.map((c) => ({
-        id: c.id,
-        position: c.position,
-        playlistSongId: c.playlist_song_id,
-        label: c.song?.title || c.song?.youtube_id || '—',
-        albumArtUrl: c.song?.album_art_url ?? null,
-      })),
-    [cells]
-  )
-
-  const progress = useMemo(
-    () => getWinProgress(markedSongIds, cells, size, gameMode),
-    [markedSongIds, cells, size, gameMode]
-  )
-
-  const markedPositions = useMemo(
-    () => getMarkedPositions(markedSongIds, cells, size),
-    [markedSongIds, cells, size]
-  )
-
-  const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FFFF'
-  const accent = whiteLabel?.brandAccentHex?.trim() || '#34d399'
-  const hideLyricgrid = !!whiteLabel?.brandHideLyricgrid
 
   return (
     <div
@@ -800,8 +811,8 @@ export function PlayView({
       </div>
 
       {showWinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full shadow-xl animate-win-modal-in">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 md:bg-black/70 md:backdrop-blur-sm transform-gpu">
+          <div className="bg-slate-800 border border-emerald-500/50 rounded-2xl p-6 max-w-sm w-full shadow-xl animate-win-modal-in transform-gpu">
             <FeatureGate flag="sponsor_integration">
               {envelopeSponsor && (
                 <div className="mb-4 rounded-xl border border-fuchsia-500/40 bg-fuchsia-950/40 p-4 text-center">
@@ -882,7 +893,7 @@ export function PlayView({
           type="button"
           onTouchStart={(e) => e.stopPropagation()}
           onClick={() => setLeaderboardDrawerOpen(true)}
-          className="fixed bottom-24 right-6 z-30 lg:bottom-6 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto"
+          className="fixed bottom-24 right-6 z-30 lg:bottom-6 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto transform-gpu"
           aria-label="View leaderboard"
         >
           🏆
@@ -893,12 +904,12 @@ export function PlayView({
         {leaderboardDrawerOpen && (
           <>
             <div
-              className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+              className="fixed inset-0 z-50 bg-black/60 md:bg-black/50 md:backdrop-blur-sm transform-gpu"
               onClick={() => setLeaderboardDrawerOpen(false)}
               aria-hidden
             />
             <div
-              className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-slate-900 border-t border-slate-700 shadow-2xl max-h-[85vh] flex flex-col transition-transform duration-300 ease-out"
+              className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-slate-900 border-t border-slate-700 shadow-2xl max-h-[85dvh] flex flex-col transition-transform duration-300 ease-out transform-gpu pb-[env(safe-area-inset-bottom)]"
               role="dialog"
               aria-label="Top 10 leaderboard"
             >

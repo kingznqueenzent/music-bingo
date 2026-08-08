@@ -35,7 +35,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   const list = (entries ?? []) as TournamentEntry[]
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
+    <main className="min-h-dvh bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
       <div className="w-full max-w-3xl">
         <TournamentLeaderboardClient tournament={t} initialEntries={list} chatEnabled={chatEnabled} />
         <div className="mt-12 flex gap-6 text-slate-400">

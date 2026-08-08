@@ -64,7 +64,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   >
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
+    <main className="min-h-dvh bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
       <div className="w-full max-w-2xl">
         <h1 className="text-4xl md:text-5xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-400">
           Player profile
