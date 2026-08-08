@@ -123,6 +123,15 @@ export function HostDashboard({
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
   const playRowTouchHandledRef = useRef(false)
   const playChannelRef = useRef<{ send: (msg: { type: 'broadcast'; event: string; payload: object }) => void } | null>(null)
+  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoAdvanceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const upNextRef = useRef<PlaylistSong[]>([])
+  const playbackPausedRef = useRef(false)
+  const autoPlayEnabledRef = useRef(false)
+  const gamePaceSecondsRef = useRef(10)
+  const playingSongIdRef = useRef<string | null>(null)
+  const handleNextSongRef = useRef<(song: PlaylistSong) => Promise<void>>(async () => {})
+  const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null)
 
   useEffect(() => {
     if (initialGame && retryTrigger === 0) {
@@ -351,6 +360,45 @@ export function HostDashboard({
     }
   }, [gameId, supabase])
 
+  const clearAutoAdvance = useCallback(() => {
+    if (autoAdvanceTimerRef.current) {
+      clearTimeout(autoAdvanceTimerRef.current)
+      autoAdvanceTimerRef.current = null
+    }
+    if (autoAdvanceIntervalRef.current) {
+      clearInterval(autoAdvanceIntervalRef.current)
+      autoAdvanceIntervalRef.current = null
+    }
+    setAutoAdvanceCountdown(null)
+  }, [])
+
+  useEffect(() => () => clearAutoAdvance(), [clearAutoAdvance])
+
+  const scheduleAutoAdvance = useCallback(() => {
+    if (!autoPlayEnabledRef.current || playbackPausedRef.current || playingSongIdRef.current) return
+    const pool = upNextRef.current
+    if (pool.length === 0) return
+
+    clearAutoAdvance()
+    const pace = gamePaceSecondsRef.current
+    setAutoAdvanceCountdown(pace)
+    autoAdvanceIntervalRef.current = setInterval(() => {
+      setAutoAdvanceCountdown((prev) => (prev != null && prev > 1 ? prev - 1 : prev))
+    }, 1000)
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      clearAutoAdvance()
+      if (playbackPausedRef.current || playingSongIdRef.current || !autoPlayEnabledRef.current) return
+      const currentPool = upNextRef.current
+      if (currentPool.length === 0) return
+      const pick = currentPool[Math.floor(Math.random() * currentPool.length)]
+      void handleNextSongRef.current(pick)
+    }, pace * 1000)
+  }, [clearAutoAdvance])
+
+  const handleClipEnded = useCallback(() => {
+    scheduleAutoAdvance()
+  }, [scheduleAutoAdvance])
+
   // Do not auto-load/play the last song on host page load – playback starts only when host clicks Play in "Up next"
 
   async function handleStart() {
@@ -384,6 +432,7 @@ export function HostDashboard({
       setActionError('Invalid song.')
       return
     }
+    clearAutoAdvance()
     setActionError('')
     previousCurrentSongRef.current = currentSong
     setCurrentSong(song)
@@ -465,6 +514,7 @@ export function HostDashboard({
           .order('played_at')
         setPlayed(playedData ?? [])
         setCurrentSong(null)
+        clearAutoAdvance()
       } else {
         setActionError(data.error ?? 'Could not reset played list.')
       }
@@ -548,6 +598,30 @@ export function HostDashboard({
     if (res.error) {
       setActionError(res.error)
       setGame((prev) => (prev ? { ...prev, crossfade_seconds: prevCrossfade } : null))
+    }
+  }
+
+  async function handleAutoPlayToggle() {
+    setActionError('')
+    const next = !(game?.auto_play_enabled ?? false)
+    const prev = game?.auto_play_enabled ?? false
+    setGame((g) => (g ? { ...g, auto_play_enabled: next } : null))
+    if (!next) clearAutoAdvance()
+    const res = await updateGameSettings(gameId, { autoPlayEnabled: next })
+    if (res.error) {
+      setActionError(res.error)
+      setGame((g) => (g ? { ...g, auto_play_enabled: prev } : null))
+    }
+  }
+
+  async function handlePaceChange(seconds: number) {
+    setActionError('')
+    const prevPace = game?.game_pace_seconds ?? 10
+    setGame((g) => (g ? { ...g, game_pace_seconds: seconds } : null))
+    const res = await updateGameSettings(gameId, { gamePaceSeconds: seconds })
+    if (res.error) {
+      setActionError(res.error)
+      setGame((g) => (g ? { ...g, game_pace_seconds: prevPace } : null))
     }
   }
 
@@ -644,6 +718,8 @@ export function HostDashboard({
   const playedIds = new Set(played.map((p) => p.playlist_song_id))
   const clipSeconds = game.clip_seconds ?? 20
   const crossfadeSeconds = game.crossfade_seconds ?? 0
+  const autoPlayEnabled = game.auto_play_enabled ?? false
+  const gamePaceSeconds = game.game_pace_seconds ?? 10
   const gridSize = game.grid_size === 4 ? 4 : 5
   const stageUrl = typeof window !== 'undefined' ? `${window.location.origin}/stage/${gameId}` : ''
   const winPattern = (game.mode as WinPattern) || 'line'
@@ -661,6 +737,13 @@ export function HostDashboard({
   }
   const filteredUpNext = upNext.filter(songMatchesSearch)
   const filteredPlayedSongs = playedSongs.filter(songMatchesSearch)
+
+  upNextRef.current = upNext
+  playbackPausedRef.current = playbackPaused
+  autoPlayEnabledRef.current = autoPlayEnabled
+  gamePaceSecondsRef.current = gamePaceSeconds
+  playingSongIdRef.current = playingSongId
+  handleNextSongRef.current = handleNextSong
 
   async function handleConfirmWinFromCircle() {
     const cardId = winnersCircle.cardId
@@ -732,6 +815,7 @@ export function HostDashboard({
   async function handleTogglePlaybackPause() {
     const next = !playbackPaused
     setPlaybackPaused(next)
+    if (next) clearAutoAdvance()
     await broadcastPlaybackState(supabase, gameId, { paused: next })
   }
 
@@ -1159,6 +1243,11 @@ export function HostDashboard({
           hasCurrentSong={!!currentSong}
           hasUpNext={upNext.length > 0}
           playing={!!playingSongId}
+          autoPlayEnabled={autoPlayEnabled}
+          gamePaceSeconds={gamePaceSeconds}
+          autoAdvanceCountdown={autoAdvanceCountdown}
+          onToggleAutoPlay={() => void handleAutoPlayToggle()}
+          onPaceChange={(sec) => void handlePaceChange(sec)}
           onTogglePause={handleTogglePlaybackPause}
           onNext={() => upNext[0] && handleNextSong(upNext[0])}
           onSkip={() => {
@@ -1188,6 +1277,7 @@ export function HostDashboard({
             clipSeconds={clipSeconds}
             crossfadeSeconds={crossfadeSeconds}
             autoPlay={!playbackPaused}
+            onEnded={handleClipEnded}
             onReadyChange={(state, detail) => {
               if (state === 'loading') {
                 setAudioReadyLabel(`Buffering… ${detail?.bufferedPct ?? 0}%`)

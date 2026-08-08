@@ -43,6 +43,10 @@ export interface Game {
   current_song_id: string | null
   clip_seconds?: number
   crossfade_seconds?: number
+  /** Hands-free mode: auto-advance to random unplayed tracks after each clip */
+  auto_play_enabled?: boolean
+  /** Gap (seconds) after clip ends before the next auto-played track */
+  game_pace_seconds?: number
   grid_size?: number
   tier?: GameTier
   logo_url?: string | null

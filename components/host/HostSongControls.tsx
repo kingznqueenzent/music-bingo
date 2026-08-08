@@ -9,6 +9,11 @@ export type HostSongControlsProps = {
   hasCurrentSong: boolean
   hasUpNext: boolean
   playing: boolean
+  autoPlayEnabled?: boolean
+  gamePaceSeconds?: number
+  autoAdvanceCountdown?: number | null
+  onToggleAutoPlay?: () => void
+  onPaceChange?: (seconds: number) => void
   onTogglePause: () => void
   onNext: () => void
   onSkip: () => void
@@ -17,6 +22,7 @@ export type HostSongControlsProps = {
 }
 
 const TIMER_PRESETS = [15, 30, 45] as const
+const PACE_PRESETS = [5, 10, 15, 30] as const
 
 export function HostSongControls({
   clipSeconds,
@@ -24,6 +30,11 @@ export function HostSongControls({
   hasCurrentSong,
   hasUpNext,
   playing,
+  autoPlayEnabled = false,
+  gamePaceSeconds = 10,
+  autoAdvanceCountdown = null,
+  onToggleAutoPlay,
+  onPaceChange,
   onTogglePause,
   onNext,
   onSkip,
@@ -44,6 +55,20 @@ export function HostSongControls({
         >
           {paused ? '▶ Play' : '⏸ Pause'}
         </button>
+        {onToggleAutoPlay ? (
+          <button
+            type="button"
+            onClick={onToggleAutoPlay}
+            disabled={!hasUpNext && !autoPlayEnabled}
+            className={`rounded-full px-4 py-2 text-sm font-semibold min-h-[44px] ${
+              autoPlayEnabled
+                ? 'bg-[#00FFFF] text-[#121212] hover:bg-[#00FFFF]/90'
+                : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
+            } disabled:opacity-40`}
+          >
+            {autoPlayEnabled ? '⏹ Auto-Play ON' : '▶ Auto-Play'}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onNext}
@@ -61,6 +86,30 @@ export function HostSongControls({
           ⏩ Skip
         </button>
       </div>
+      {onPaceChange ? (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-slate-400 text-xs uppercase tracking-wide">Auto pace</span>
+          {PACE_PRESETS.map((sec) => (
+            <button
+              key={sec}
+              type="button"
+              onClick={() => onPaceChange(sec)}
+              className={`rounded-full px-4 py-2 text-sm font-medium min-h-[40px] ${
+                gamePaceSeconds === sec
+                  ? 'bg-[#00FFFF] text-[#121212]'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              {sec}s
+            </button>
+          ))}
+          {autoPlayEnabled && autoAdvanceCountdown != null ? (
+            <span className="text-emerald-400 text-sm font-medium ml-1">
+              Next in {autoAdvanceCountdown}s…
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-slate-400 text-xs uppercase tracking-wide">Clip timer</span>
         {TIMER_PRESETS.map((sec) => (

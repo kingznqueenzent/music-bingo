@@ -458,6 +458,8 @@ export async function updateGameSettings(
   settings: {
     clipSeconds?: number
     crossfadeSeconds?: number
+    autoPlayEnabled?: boolean
+    gamePaceSeconds?: number
     logoUrl?: string | null
     winPattern?: WinPattern
     stageShowLeaderboard?: boolean
@@ -475,6 +477,8 @@ export async function updateGameSettings(
   const updates: {
     clip_seconds?: number
     crossfade_seconds?: number
+    auto_play_enabled?: boolean
+    game_pace_seconds?: number
     logo_url?: string | null
     mode?: string
     stage_show_leaderboard?: boolean
@@ -491,6 +495,9 @@ export async function updateGameSettings(
     updates.clip_seconds = Math.min(120, Math.max(10, settings.clipSeconds))
   if (settings.crossfadeSeconds != null)
     updates.crossfade_seconds = Math.min(10, Math.max(0, settings.crossfadeSeconds))
+  if (settings.autoPlayEnabled !== undefined) updates.auto_play_enabled = settings.autoPlayEnabled
+  if (settings.gamePaceSeconds != null)
+    updates.game_pace_seconds = Math.min(120, Math.max(3, settings.gamePaceSeconds))
   if (settings.logoUrl !== undefined) updates.logo_url = settings.logoUrl || null
   if (settings.winPattern != null && ['line', 'x', 'blackout', 'corners'].includes(settings.winPattern))
     updates.mode = settings.winPattern
