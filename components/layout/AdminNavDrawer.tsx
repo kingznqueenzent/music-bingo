@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type RefObject } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import { ChevronRight, Shield } from 'lucide-react'
 import { ADMIN_NAV_LINKS, isAdminNavActive } from '@/components/layout/admin-nav-links'
 import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
 import { MENU_TOKENS } from '@/components/ui/menu/tokens'
@@ -10,16 +11,15 @@ import { ensureHostSession, isCookieProtectedPath } from '@/lib/ensure-host-sess
 export type AdminNavDrawerProps = {
   open: boolean
   onClose: () => void
-  /** Desktop Floating UI anchor (Admin button). */
+  /** Kept for API compatibility; admin menu uses a right-edge sheet. */
   anchorRef?: RefObject<HTMLElement | null>
 }
 
 /**
- * Admin navigation — mobile bottom sheet / desktop anchored popover.
- * For Media Manager / Host etc., mint admin_verified before navigating so
- * proxy + layout never bounce through /login.
+ * Admin navigation — clean right-edge drawer on all viewports.
+ * Mints admin_verified before navigating to cookie-protected routes.
  */
-export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps) {
+export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [navigating, setNavigating] = useState(false)
@@ -33,7 +33,6 @@ export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps
         return
       }
 
-      // Public-ish destinations can soft-navigate.
       if (!isCookieProtectedPath(href)) {
         window.requestAnimationFrame(() => router.push(href))
         return
@@ -46,7 +45,6 @@ export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps
           window.location.assign(`/login?from=${encodeURIComponent(href)}`)
           return
         }
-        // Hard navigation so the just-set cookie is always on the next document request.
         window.location.assign(href)
       } finally {
         setNavigating(false)
@@ -59,32 +57,42 @@ export function AdminNavDrawer({ open, onClose, anchorRef }: AdminNavDrawerProps
     <ResponsiveMenu
       open={open}
       onClose={onClose}
-      title="Admin menu"
-      description={navigating ? 'Opening…' : 'LyricGrid controls'}
-      anchorRef={anchorRef}
-      placement="bottom-end"
-      desktopWidthClass="w-[22rem]"
+      title="Admin Menu"
+      description={navigating ? 'Opening…' : 'Host · Media · Stage'}
+      titleIcon={<Shield className="w-3.5 h-3.5" aria-hidden />}
+      forceSheet
+      sheetSide="right"
+      footer={
+        <p className="text-[11px] text-white/30 text-center tracking-wide">
+          Kingz &amp; Queenz Ent.
+        </p>
+      }
     >
-      <ul className="flex flex-col gap-1" role="list">
+      <nav className="flex flex-col gap-1 py-1" aria-label="Admin destinations">
         {ADMIN_NAV_LINKS.map(({ label, href, icon: Icon, match }) => {
           const active = isAdminNavActive(pathname, match, href)
           return (
-            <li key={href}>
-              <button
-                type="button"
-                disabled={navigating}
-                onClick={() => void navigate(href)}
-                className={`${MENU_TOKENS.itemBaseClass} ${
-                  active ? MENU_TOKENS.itemActiveClass : MENU_TOKENS.itemIdleClass
-                } disabled:opacity-50`}
-              >
-                <Icon className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
-                <span className="truncate">{label}</span>
-              </button>
-            </li>
+            <button
+              key={href}
+              type="button"
+              disabled={navigating}
+              onClick={() => void navigate(href)}
+              className={`${MENU_TOKENS.itemBaseClass} justify-between ${
+                active ? MENU_TOKENS.itemActiveClass : MENU_TOKENS.itemIdleClass
+              } disabled:opacity-50`}
+            >
+              <span className="flex items-center gap-3 min-w-0">
+                <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                <span className="truncate text-sm font-medium">{label}</span>
+              </span>
+              <ChevronRight
+                className={`h-4 w-4 shrink-0 ${active ? 'text-[#00FFFF]/80' : 'text-white/25'}`}
+                aria-hidden
+              />
+            </button>
           )
         })}
-      </ul>
+      </nav>
     </ResponsiveMenu>
   )
 }

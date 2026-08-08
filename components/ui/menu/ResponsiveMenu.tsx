@@ -43,14 +43,18 @@ export type ResponsiveMenuProps = {
   footer?: ReactNode
   /** Accessible role — dialog for nav sheets, listbox for pickers. */
   role?: 'dialog' | 'listbox'
-  /** Force mobile bottom-sheet even on desktop. */
+  /** Force sheet mode even on desktop (no Floating UI popover). */
   forceSheet?: boolean
+  /** Sheet edge — bottom for pickers, right for admin drawer. */
+  sheetSide?: 'bottom' | 'right'
+  /** Optional leading icon node in the sheet/popover header. */
+  titleIcon?: ReactNode
 }
 
 /**
  * Unified LyricGrid menu surface:
- * - Mobile: bottom-sheet slide-over + frosted backdrop + scroll lock
- * - Desktop: Floating UI popover with flip/shift boundary awareness
+ * - Sheet: bottom or right edge + frosted backdrop + scroll lock
+ * - Desktop (default): Floating UI popover with flip/shift
  *
  * Close is instant (no exit animation) so route transitions never leave a
  * portaled sheet flashing over the next page (Media Manager, etc.).
@@ -67,6 +71,8 @@ export function ResponsiveMenu({
   footer,
   role = 'dialog',
   forceSheet = false,
+  sheetSide = 'bottom',
+  titleIcon,
 }: ResponsiveMenuProps) {
   const titleId = useId()
   const isDesktop = useMediaQuery(MENU_MD_QUERY)
@@ -146,25 +152,52 @@ export function ResponsiveMenu({
 
   const header = (
     <div className="flex items-start justify-between gap-3 px-1 pb-3 mb-1 border-b border-white/10 shrink-0">
-      <div className="min-w-0 pt-0.5">
-        <p id={titleId} className={MENU_TOKENS.titleClass}>
-          {title}
-        </p>
-        {description ? (
-          <p className={`${MENU_TOKENS.subtitleClass} mt-0.5 truncate`}>{description}</p>
-        ) : null}
+      <div className="min-w-0 pt-0.5 flex items-start gap-2">
+        {titleIcon ? <span className="mt-0.5 shrink-0 text-[#00FFFF]">{titleIcon}</span> : null}
+        <div className="min-w-0">
+          <p id={titleId} className={MENU_TOKENS.titleClass}>
+            {title}
+          </p>
+          {description ? (
+            <p className={`${MENU_TOKENS.subtitleClass} mt-0.5 truncate`}>{description}</p>
+          ) : null}
+        </div>
       </div>
       <button
         ref={closeBtnRef}
         type="button"
         onClick={onClose}
-        className="inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl border border-white/15 text-white/70 hover:text-white hover:border-[#00FFFF]/40 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation shrink-0"
+        className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-white/15 text-white/70 hover:text-white hover:border-[#00FFFF]/40 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation shrink-0"
         aria-label="Close menu"
       >
         <X className="h-5 w-5" />
       </button>
     </div>
   )
+
+  const isRightSheet = !usePopover && sheetSide === 'right'
+  const sheetClass = isRightSheet
+    ? [
+        'absolute top-0 right-0 bottom-0 flex flex-col',
+        'w-[min(18rem,88vw)] border-l border-white/10',
+        'bg-[#1E1E1E] shadow-2xl shadow-black/60',
+        'pt-[max(0.75rem,env(safe-area-inset-top))] px-4',
+        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+      ].join(' ')
+    : [
+        'absolute inset-x-0 bottom-0 flex flex-col',
+        'max-h-[min(88dvh,40rem)] rounded-t-2xl border border-white/10 border-b-0',
+        'bg-[#1A1A1A] shadow-2xl shadow-black/60',
+        'pt-2 px-3',
+        'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+      ].join(' ')
+
+  const sheetInitial = reduceMotion
+    ? false
+    : isRightSheet
+      ? { x: '100%' }
+      : { y: '100%' }
+  const sheetAnimate = isRightSheet ? { x: 0 } : { y: 0 }
 
   return createPortal(
     <div
@@ -214,26 +247,22 @@ export function ResponsiveMenu({
           role={role}
           aria-modal="true"
           aria-labelledby={titleId}
-          className={[
-            'absolute inset-x-0 bottom-0 flex flex-col',
-            'max-h-[min(88dvh,40rem)] rounded-t-2xl border border-white/10 border-b-0',
-            'bg-[#1A1A1A] shadow-2xl shadow-black/60',
-            'pt-2 px-3',
-            'pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-          ].join(' ')}
+          className={sheetClass}
           style={{ zIndex: MENU_TOKENS.zPanel }}
-          initial={reduceMotion ? false : { y: '100%' }}
-          animate={{ y: 0 }}
-          transition={{ type: 'spring', damping: 32, stiffness: 380 }}
+          initial={sheetInitial}
+          animate={sheetAnimate}
+          transition={{ type: 'spring', damping: 28, stiffness: 320 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex justify-center pb-2 shrink-0" aria-hidden>
-            <span className="h-1.5 w-10 rounded-full bg-white/20" />
-          </div>
+          {!isRightSheet ? (
+            <div className="flex justify-center pb-2 shrink-0" aria-hidden>
+              <span className="h-1.5 w-10 rounded-full bg-white/20" />
+            </div>
+          ) : null}
           {header}
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">{children}</div>
           {footer ? (
-            <div className="pt-2 border-t border-white/10 shrink-0">{footer}</div>
+            <div className="pt-3 mt-auto border-t border-white/10 shrink-0">{footer}</div>
           ) : null}
         </motion.div>
       )}

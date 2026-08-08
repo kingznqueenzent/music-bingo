@@ -12,12 +12,12 @@ export const MENU_TOKENS = {
   itemMinClass: 'min-h-12',
   borderClass: 'border-white/10',
   shadowClass: 'shadow-2xl shadow-black/50',
-  titleClass: 'text-xs font-semibold uppercase tracking-[0.18em] text-[#00FFFF]/90',
-  subtitleClass: 'text-sm text-white/45',
+  titleClass: 'text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40',
+  subtitleClass: 'text-xs text-white/35',
   itemBaseClass:
-    'flex w-full items-center gap-3 px-4 py-3 min-h-12 rounded-xl text-base font-medium transition-colors touch-manipulation border border-transparent',
-  itemActiveClass: 'bg-[#00FFFF]/12 text-[#00FFFF] border-[#00FFFF]/25',
-  itemIdleClass: 'text-white/80 hover:text-white hover:bg-white/5 active:bg-white/10',
+    'flex w-full items-center gap-3 px-3 py-2.5 min-h-11 rounded-xl text-sm font-medium transition-colors touch-manipulation border border-transparent',
+  itemActiveClass: 'bg-[#00FFFF]/10 text-[#00FFFF] border-[#00FFFF]/25',
+  itemIdleClass: 'text-white/55 hover:text-white hover:bg-white/5 active:bg-white/10',
 } as const
 
 export const MENU_MD_QUERY = '(min-width: 768px)'
