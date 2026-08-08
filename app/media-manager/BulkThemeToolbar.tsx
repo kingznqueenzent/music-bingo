@@ -44,10 +44,10 @@ export function BulkThemeToolbar({
         onChange={onBulkThemeIdChange}
         themes={themes}
         themeCounts={themeCounts}
-        emptyLabel="Choose theme…"
+        emptyLabel="Move to theme…"
         disabled={applying}
         preferUp
-        className="flex-1 min-w-[160px]"
+        className="flex-1 min-w-[160px] sm:max-w-56"
         aria-label="Theme to apply"
       />
 
