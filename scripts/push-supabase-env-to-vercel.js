@@ -1,70 +1,125 @@
 #!/usr/bin/env node
 /**
- * Push the three Supabase env vars from .env.local to Vercel (production).
+ * Push LyricGrid env vars from .env.local to Vercel.
  * Run: npm run vercel:env-push
- * Requires: Vercel CLI and project linked (npx vercel link once).
+ * Requires: `npx vercel login` and a linked project (`npx vercel link`).
+ *
+ * Catalog: config/vercel-env.js
  */
 const fs = require('fs')
 const path = require('path')
-const { spawnSync } = require('child_process')
+const { spawnSync } = useSpawn()
+const {
+  requiredForProduction,
+  recommended,
+  pushByDefault,
+  localOnly,
+} = require('../config/vercel-env.js')
+
+function useSpawn() {
+  return { spawnSync: require('child_process').spawnSync }
+}
 
 function getEnv() {
   const p = path.join(__dirname, '..', '.env.local')
   if (!fs.existsSync(p)) return null
   const c = fs.readFileSync(p, 'utf8')
   const vars = {}
-  for (const line of c.split('\n')) {
-    const m = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/)
+  for (const line of c.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const m = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/)
     if (m) {
       let v = m[2].trim()
-      if (v.startsWith('"') && v.endsWith('"')) v = v.slice(1, -1).replace(/\\"/g, '"')
+      if (
+        (v.startsWith('"') && v.endsWith('"')) ||
+        (v.startsWith("'") && v.endsWith("'"))
+      ) {
+        v = v.slice(1, -1)
+      }
       vars[m[1]] = v
     }
   }
   return vars
 }
 
-function vercelEnvAdd(name, value, env) {
-  const result = spawnSync('npx', ['vercel', 'env', 'add', name, env, '--force', '--yes', '--value', value], {
-    shell: true,
-    encoding: 'utf8',
-  })
+function vercelEnvAdd(name, value, environment) {
+  const result = spawnSync(
+    'npx',
+    ['vercel', 'env', 'add', name, environment, '--force', '--yes', '--value', value],
+    { shell: true, encoding: 'utf8' }
+  )
   if (result.stdout) process.stdout.write(result.stdout)
   if (result.stderr) process.stderr.write(result.stderr)
   return result.status === 0
 }
 
 function main() {
+  const args = process.argv.slice(2)
+  const alsoPreview = args.includes('--preview')
+  const allRecommended = args.includes('--all-recommended')
+
   const vars = getEnv()
   if (!vars) {
-    console.error('No .env.local found. Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY there first.')
-    process.exit(1)
-  }
-  const url = vars.NEXT_PUBLIC_SUPABASE_URL
-  const anon = vars.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  const role = vars.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !anon || !role) {
-    console.error('Missing in .env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, or SUPABASE_SERVICE_ROLE_KEY')
+    console.error('No .env.local found. Copy .env.example → .env.local and fill values.')
     process.exit(1)
   }
 
-  const names = [
-    ['NEXT_PUBLIC_SUPABASE_URL', url],
-    ['NEXT_PUBLIC_SUPABASE_ANON_KEY', anon],
-    ['SUPABASE_SERVICE_ROLE_KEY', role],
-  ]
-  const envs = ['production'] // preview requires git branch in CLI; set in Vercel dashboard if needed
+  const missingRequired = requiredForProduction
+    .map((d) => d.name)
+    .filter((name) => !vars[name]?.trim())
 
-  console.log('Pushing 3 Supabase vars to Vercel (production)...')
-  for (const [name, value] of names) {
-    for (const env of envs) {
+  if (missingRequired.length) {
+    console.error('Missing required keys in .env.local:')
+    for (const name of missingRequired) console.error(`  - ${name}`)
+    process.exit(1)
+  }
+
+  const names = new Set(pushByDefault)
+  if (allRecommended) {
+    for (const d of recommended) names.add(d.name)
+  }
+
+  const toPush = [...names].filter((name) => {
+    if (localOnly.includes(name)) return false
+    const value = vars[name]?.trim()
+    return Boolean(value)
+  })
+
+  const environments = alsoPreview
+    ? ['production', 'preview', 'development']
+    : ['production']
+
+  console.log('Pushing to Vercel:', environments.join(', '))
+  console.log('Variables:', toPush.join(', '))
+  console.log('')
+
+  let failed = 0
+  for (const name of toPush) {
+    const value = vars[name].trim()
+    for (const env of environments) {
       process.stdout.write(`  ${name} [${env}] ... `)
       const ok = vercelEnvAdd(name, value, env)
       console.log(ok ? 'OK' : 'FAILED')
-      if (!ok) process.exit(1)
+      if (!ok) failed += 1
     }
   }
-  console.log('Done. Redeploy in Vercel (Deployments → ⋯ → Redeploy) for changes to take effect.')
+
+  console.log('')
+  if (failed) {
+    console.error(`Finished with ${failed} failure(s). Fix Vercel CLI auth/link and retry.`)
+    process.exit(1)
+  }
+
+  console.log('Done. Trigger a redeploy for Production:')
+  console.log('  Vercel → Deployments → ⋯ → Redeploy')
+  console.log('  or: npx vercel --prod')
+  console.log('')
+  console.log('Dashboard mapping checklist:')
+  for (const d of requiredForProduction) {
+    console.log(`  [required] ${d.name} — ${d.description}`)
+  }
+  console.log('Optional: npm run vercel:env-push -- --preview --all-recommended')
 }
 
 main()
