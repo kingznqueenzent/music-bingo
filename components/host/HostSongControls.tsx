@@ -1,6 +1,7 @@
 'use client'
 
 import type { PlaylistSong } from '@/lib/supabase/types'
+import { DEFAULT_GAME_PACE_SECONDS, GAME_PACE_PRESETS } from '@/lib/game-pace'
 import { playlistSongDisplayParts } from '@/lib/media-display'
 
 export type HostSongControlsProps = {
@@ -22,7 +23,6 @@ export type HostSongControlsProps = {
 }
 
 const TIMER_PRESETS = [15, 30, 45] as const
-const PACE_PRESETS = [5, 10, 15, 30] as const
 
 export function HostSongControls({
   clipSeconds,
@@ -31,7 +31,7 @@ export function HostSongControls({
   hasUpNext,
   playing,
   autoPlayEnabled = false,
-  gamePaceSeconds = 10,
+  gamePaceSeconds = DEFAULT_GAME_PACE_SECONDS,
   autoAdvanceCountdown = null,
   onToggleAutoPlay,
   onPaceChange,
@@ -89,7 +89,7 @@ export function HostSongControls({
       {onPaceChange ? (
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <span className="text-slate-400 text-xs uppercase tracking-wide">Auto pace</span>
-          {PACE_PRESETS.map((sec) => (
+          {GAME_PACE_PRESETS.map((sec) => (
             <button
               key={sec}
               type="button"

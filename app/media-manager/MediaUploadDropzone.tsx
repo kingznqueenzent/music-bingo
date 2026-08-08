@@ -252,7 +252,7 @@ export function MediaUploadDropzone({
                   ) : item.status === 'error' ? (
                     <AlertCircle className="w-3 h-3" />
                   ) : null}
-                  {statusLabel(item.status)}
+                  {statusLabel(item)}
                 </span>
                 {item.status === 'error' && !running ? (
                   <button

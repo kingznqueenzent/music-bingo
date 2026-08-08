@@ -14,6 +14,7 @@ import {
   type WinPattern,
 } from '@/app/actions/game'
 import { formatPlayerCapLabel, type GameTier } from '@/lib/tiers'
+import { DEFAULT_GAME_PACE_SECONDS } from '@/lib/game-pace'
 import { debounce } from '@/lib/debounce'
 import { generateBingoCardsPdf } from '@/lib/pdf-export'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
@@ -128,7 +129,7 @@ export function HostDashboard({
   const upNextRef = useRef<PlaylistSong[]>([])
   const playbackPausedRef = useRef(false)
   const autoPlayEnabledRef = useRef(false)
-  const gamePaceSecondsRef = useRef(10)
+  const gamePaceSecondsRef = useRef(DEFAULT_GAME_PACE_SECONDS)
   const playingSongIdRef = useRef<string | null>(null)
   const handleNextSongRef = useRef<(song: PlaylistSong) => Promise<void>>(async () => {})
   const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null)
@@ -616,7 +617,7 @@ export function HostDashboard({
 
   async function handlePaceChange(seconds: number) {
     setActionError('')
-    const prevPace = game?.game_pace_seconds ?? 10
+    const prevPace = game?.game_pace_seconds ?? DEFAULT_GAME_PACE_SECONDS
     setGame((g) => (g ? { ...g, game_pace_seconds: seconds } : null))
     const res = await updateGameSettings(gameId, { gamePaceSeconds: seconds })
     if (res.error) {
@@ -719,7 +720,7 @@ export function HostDashboard({
   const clipSeconds = game.clip_seconds ?? 20
   const crossfadeSeconds = game.crossfade_seconds ?? 0
   const autoPlayEnabled = game.auto_play_enabled ?? false
-  const gamePaceSeconds = game.game_pace_seconds ?? 10
+  const gamePaceSeconds = game.game_pace_seconds ?? DEFAULT_GAME_PACE_SECONDS
   const gridSize = game.grid_size === 4 ? 4 : 5
   const stageUrl = typeof window !== 'undefined' ? `${window.location.origin}/stage/${gameId}` : ''
   const winPattern = (game.mode as WinPattern) || 'line'
