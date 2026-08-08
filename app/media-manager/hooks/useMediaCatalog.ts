@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { CatalogSong, CatalogTheme, SongUpdatePayload } from '../types'
 import { isUncategorizedSong } from '@/lib/media/is-uncategorized-song'
@@ -44,9 +44,12 @@ export function useMediaCatalog() {
   const [themes, setThemes] = useState<CatalogTheme[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const hasLoadedRef = useRef(false)
 
   const refetch = useCallback(async () => {
-    setLoading(true)
+    // Soft refresh: only show the full-page loader on the first load.
+    // Blanking the catalog on every refresh caused mobile “flash” when theme dropdowns remounted.
+    if (!hasLoadedRef.current) setLoading(true)
     setError('')
     try {
       const [songData, themeData] = await Promise.all([
@@ -64,6 +67,7 @@ export function useMediaCatalog() {
           display_order: (t as { display_order?: number }).display_order ?? 0,
         }))
       )
+      hasLoadedRef.current = true
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not load catalog')
     } finally {

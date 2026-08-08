@@ -14,6 +14,7 @@ import {
 import { formatDuration } from '@/lib/media/probe-media-duration'
 import { getSongYoutubeCandidate } from '@/lib/media/normalize-youtube-url'
 import { InlineEditableField } from './InlineEditableField'
+import { ThemeSelect } from './ThemeSelect'
 import type { CatalogSong, CatalogTheme } from './types'
 
 const BG = '#121212'
@@ -207,35 +208,24 @@ function MediaSongRowInner({
 
         <div className="w-full md:w-auto md:col-span-3 min-w-0">
           {isEditing ? (
-            <select
+            <ThemeSelect
               value={editForm.theme_id || ''}
-              onChange={(e) => onEditFormChange({ ...editForm, theme_id: e.target.value || null })}
-              className="w-full border border-white/20 rounded px-2 py-2 text-xs text-gray-300 min-h-10"
-              style={{ backgroundColor: BG }}
-            >
-              <option value="">Unassigned</option>
-              {themes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              onChange={(themeId) =>
+                onEditFormChange({ ...editForm, theme_id: themeId || null })
+              }
+              themes={themes}
+              emptyLabel="Unassigned"
+              aria-label={`Theme for ${s.title}`}
+            />
           ) : (
-            <select
+            <ThemeSelect
               value={s.theme_id || ''}
               disabled={isTagging}
-              onChange={(e) => onInlineThemeChange(s.id, e.target.value)}
-              className="w-full max-w-full border border-white/10 rounded px-2 py-2 text-[11px] text-gray-300 truncate focus:border-[#00FFFF]/50 outline-none disabled:opacity-50 min-h-10"
-              style={{ backgroundColor: BG }}
-              title={themeName ?? 'Assign theme'}
-            >
-              <option value="">Unassigned</option>
-              {themes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              onChange={(themeId) => onInlineThemeChange(s.id, themeId)}
+              themes={themes}
+              emptyLabel="Unassigned"
+              aria-label={themeName ? `Theme: ${themeName}` : `Assign theme for ${s.title}`}
+            />
           )}
         </div>
 

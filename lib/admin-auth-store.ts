@@ -127,10 +127,17 @@ export function ensureAdminAuthStore(): void {
 
   supabase.auth.onAuthStateChange((event, session) => {
     // Do not call getUser()/getSession() inside this callback — that races token refresh
-    // and can briefly report logged-out, flashing login ↔ admin UI on mobile.
+    // and can briefly report logged-out, flashing login ↔ Media Manager on mobile.
+    if (event === 'INITIAL_SESSION' && snapshot.ready) {
+      // Bootstrap already settled — ignore duplicate hydration events from UI focus/select.
+      return
+    }
     if (event === 'TOKEN_REFRESHED') {
       // Refresh already carries a valid session; skip noisy re-checks that demote UI.
-      if (snapshot.ready && snapshot.isAdmin && session?.user) return
+      return
+    }
+    if (event === 'SIGNED_IN' && snapshot.ready && snapshot.isAdmin) {
+      return
     }
     scheduleResolve(session?.user ?? null, false)
   })

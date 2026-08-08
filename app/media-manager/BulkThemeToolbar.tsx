@@ -1,9 +1,9 @@
 'use client'
 
 import { Loader2, Tag, X } from 'lucide-react'
+import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
 
-const BG = '#121212'
 const NEON = '#00FFFF'
 
 export type BulkThemeToolbarProps = {
@@ -37,21 +37,16 @@ export function BulkThemeToolbar({
         {selectedCount} selected
       </span>
 
-      <select
+      <ThemeSelect
         value={bulkThemeId}
-        onChange={(e) => onBulkThemeIdChange(e.target.value)}
+        onChange={onBulkThemeIdChange}
+        themes={themes}
+        emptyLabel="Choose theme…"
         disabled={applying}
-        className="flex-1 min-w-[160px] border border-white/15 rounded-lg px-3 py-2 text-sm text-gray-200 focus:border-[#00FFFF] outline-none"
-        style={{ backgroundColor: BG }}
+        preferUp
+        className="flex-1 min-w-[160px]"
         aria-label="Theme to apply"
-      >
-        <option value="">Choose theme…</option>
-        {themes.map((t) => (
-          <option key={t.id} value={t.id}>
-            {t.name}
-          </option>
-        ))}
-      </select>
+      />
 
       <button
         type="button"

@@ -1,6 +1,7 @@
 'use client'
 
 import { Search, SlidersHorizontal, X } from 'lucide-react'
+import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
 
 const BG = '#121212'
@@ -52,7 +53,7 @@ export function MediaManagerFilterBar({
   return (
     <section
       aria-label="Search and filter library"
-      className="p-3 sm:p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4 sticky top-14 z-20"
+      className="p-3 sm:p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-4 md:sticky md:top-14 md:z-20"
       style={{ backgroundColor: SURFACE }}
     >
       <div className="flex flex-col lg:flex-row lg:items-end gap-4">
@@ -91,20 +92,15 @@ export function MediaManagerFilterBar({
             <SlidersHorizontal className="w-3.5 h-3.5" />
             Theme
           </label>
-          <select
+          <ThemeSelect
             id="media-manager-theme"
             value={selectedThemeId}
-            onChange={(e) => onThemeChange(e.target.value)}
-            className="w-full border border-white/15 rounded-xl px-3 py-3 text-sm text-gray-200 focus:border-[#00FFFF] outline-none focus:ring-2 focus:ring-[#00FFFF]/20"
-            style={{ backgroundColor: BG }}
-          >
-            <option value="">All themes</option>
-            {themesWithTracks.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({themeCounts[t.id] ?? 0})
-              </option>
-            ))}
-          </select>
+            onChange={onThemeChange}
+            themes={themesWithTracks}
+            themeCounts={themeCounts}
+            emptyLabel="All themes"
+            aria-label="Filter by theme"
+          />
         </div>
       </div>
 

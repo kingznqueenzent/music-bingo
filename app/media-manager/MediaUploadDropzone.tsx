@@ -10,6 +10,7 @@ import {
 } from '@/lib/media/apply-auto-category-to-track'
 import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
 import { cleanSongTitle, parseArtistTitle } from '@/lib/songAutoCategorizer'
+import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme, SongInsertPayload } from './types'
 
 const BG = '#121212'
@@ -271,21 +272,17 @@ export function MediaUploadDropzone({
         <label htmlFor="upload-theme" className="text-xs font-semibold uppercase tracking-wider text-gray-400">
           Theme / genre for this batch
         </label>
-        <select
-          id="upload-theme"
-          value={uploadThemeId}
-          onChange={(e) => onUploadThemeIdChange(e.target.value)}
-          disabled={uploading}
-          className="mt-1 w-full border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-[#00FFFF] outline-none text-gray-300"
-          style={{ backgroundColor: BG }}
-        >
-          <option value="">— Auto-tag from filename —</option>
-          {themes.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
+        <div className="mt-1">
+          <ThemeSelect
+            id="upload-theme"
+            value={uploadThemeId}
+            onChange={onUploadThemeIdChange}
+            themes={themes}
+            emptyLabel="— Auto-tag from filename —"
+            disabled={uploading}
+            aria-label="Theme for this upload batch"
+          />
+        </div>
       </div>
 
       <div

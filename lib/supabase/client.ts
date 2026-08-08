@@ -1,12 +1,15 @@
-import { createBrowserClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import { createClient as createSupabaseClient, type SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseBrowserConfig } from '@/lib/supabase/browser-config'
 
 export { getSupabaseBrowserConfig } from '@/lib/supabase/browser-config'
 
 let browserClient: SupabaseClient | null = null
 
-/** Browser Supabase client (anon key) via @supabase/ssr. */
+/**
+ * Browser Supabase client (anon key).
+ * Uses localStorage session storage (not @supabase/ssr cookie sync) so Media Manager
+ * dropdown interactions do not churn cookies / trigger login ↔ catalog flashes.
+ */
 export function createClient(): SupabaseClient {
   const { url, anonKey, isConfigured } = getSupabaseBrowserConfig()
 
@@ -21,10 +24,10 @@ export function createClient(): SupabaseClient {
 
   if (typeof window !== 'undefined') {
     if (!browserClient) {
-      browserClient = createBrowserClient(resolvedUrl, resolvedKey)
+      browserClient = createSupabaseClient(resolvedUrl, resolvedKey)
     }
     return browserClient
   }
 
-  return createBrowserClient(resolvedUrl, resolvedKey)
+  return createSupabaseClient(resolvedUrl, resolvedKey)
 }
