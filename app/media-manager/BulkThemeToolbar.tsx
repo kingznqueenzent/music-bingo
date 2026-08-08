@@ -14,6 +14,7 @@ export type BulkThemeToolbarProps = {
   applying: boolean
   onApply: () => void
   onClearSelection: () => void
+  themeCounts?: Record<string, number>
 }
 
 export function BulkThemeToolbar({
@@ -24,6 +25,7 @@ export function BulkThemeToolbar({
   applying,
   onApply,
   onClearSelection,
+  themeCounts,
 }: BulkThemeToolbarProps) {
   if (selectedCount === 0) return null
 
@@ -41,6 +43,7 @@ export function BulkThemeToolbar({
         value={bulkThemeId}
         onChange={onBulkThemeIdChange}
         themes={themes}
+        themeCounts={themeCounts}
         emptyLabel="Choose theme…"
         disabled={applying}
         preferUp

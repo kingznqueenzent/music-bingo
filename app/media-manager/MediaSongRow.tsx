@@ -30,6 +30,7 @@ export type MediaSongRowProps = {
   song: CatalogSong
   themes: CatalogTheme[]
   themeName: string | undefined
+  themeCounts?: Record<string, number>
   isSelected: boolean
   isEditing: boolean
   isPlaying: boolean
@@ -53,6 +54,7 @@ function MediaSongRowInner({
   song: s,
   themes,
   themeName,
+  themeCounts,
   isSelected,
   isEditing,
   isPlaying,
@@ -214,6 +216,7 @@ function MediaSongRowInner({
                 onEditFormChange({ ...editForm, theme_id: themeId || null })
               }
               themes={themes}
+              themeCounts={themeCounts}
               emptyLabel="Unassigned"
               aria-label={`Theme for ${s.title}`}
             />
@@ -223,6 +226,7 @@ function MediaSongRowInner({
               disabled={isTagging}
               onChange={(themeId) => onInlineThemeChange(s.id, themeId)}
               themes={themes}
+              themeCounts={themeCounts}
               emptyLabel="Unassigned"
               aria-label={themeName ? `Theme: ${themeName}` : `Assign theme for ${s.title}`}
             />
@@ -317,6 +321,7 @@ function rowPropsEqual(prev: MediaSongRowProps, next: MediaSongRowProps): boolea
     prev.song === next.song &&
     prev.themes === next.themes &&
     prev.themeName === next.themeName &&
+    prev.themeCounts === next.themeCounts &&
     prev.isSelected === next.isSelected &&
     prev.isEditing === next.isEditing &&
     prev.isPlaying === next.isPlaying &&

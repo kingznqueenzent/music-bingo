@@ -29,6 +29,7 @@ export type MediaUploadDropzoneProps = {
   onUploadThemeIdChange: (id: string) => void
   onUploaded: () => void
   onError: (message: string) => void
+  themeCounts?: Record<string, number>
 }
 
 type BatchProgress = {
@@ -64,6 +65,7 @@ export function MediaUploadDropzone({
   onUploadThemeIdChange,
   onUploaded,
   onError,
+  themeCounts,
 }: MediaUploadDropzoneProps) {
   const supabase = createClient()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -278,6 +280,7 @@ export function MediaUploadDropzone({
             value={uploadThemeId}
             onChange={onUploadThemeIdChange}
             themes={themes}
+            themeCounts={themeCounts}
             emptyLabel="— Auto-tag from filename —"
             disabled={uploading}
             aria-label="Theme for this upload batch"

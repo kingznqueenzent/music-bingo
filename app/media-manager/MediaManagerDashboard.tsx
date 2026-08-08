@@ -561,6 +561,7 @@ function MediaManagerDashboardInner() {
             onUploadThemeIdChange={setUploadThemeId}
             onUploaded={() => void refetch()}
             onError={setError}
+            themeCounts={themeCounts.counts}
           />
 
           <p className="text-xs text-gray-500 px-1">
@@ -634,6 +635,7 @@ function MediaManagerDashboardInner() {
                       song={s}
                       themes={themes}
                       themeName={s.theme_id ? themeNameById.get(s.theme_id) : undefined}
+                      themeCounts={themeCounts.counts}
                       isSelected={selectedIds.has(s.id)}
                       isEditing={editingId === s.id}
                       isPlaying={playingSongId === s.id}
@@ -694,6 +696,7 @@ function MediaManagerDashboardInner() {
           applying={bulkApplyingTheme}
           onApply={() => void handleBulkApplyTheme()}
           onClearSelection={() => setSelectedIds(new Set())}
+          themeCounts={themeCounts.counts}
         />
       ) : null}
     </main>

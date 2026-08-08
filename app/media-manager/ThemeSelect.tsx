@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search } from 'lucide-react'
 import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
 import { MENU_TOKENS } from '@/components/ui/menu/tokens'
+import { formatTrackCountLabel } from '@/lib/media/theme-track-counts'
 import type { CatalogTheme } from './types'
 
 export type ThemeSelectProps = {
@@ -15,11 +16,26 @@ export type ThemeSelectProps = {
   emptyLabel?: string
   disabled?: boolean
   className?: string
-  /** Optional counts shown beside theme names (filter bar). */
+  /** Optional counts shown beside theme names (filter bar / upload / row). */
   themeCounts?: Record<string, number>
   /** Prefer opening the menu upward on desktop (bulk toolbar). */
   preferUp?: boolean
   'aria-label'?: string
+}
+
+function TrackCountBadge({ count }: { count: number }) {
+  const empty = count === 0
+  return (
+    <span
+      className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums border ${
+        empty
+          ? 'border-white/10 text-white/35 bg-white/5'
+          : 'border-[#00FFFF]/35 text-[#00FFFF]/90 bg-[#00FFFF]/10'
+      }`}
+    >
+      {formatTrackCountLabel(count)}
+    </span>
+  )
 }
 
 /**
@@ -49,10 +65,16 @@ export function ThemeSelect({
     [themes]
   )
 
-  const selectedLabel = useMemo(() => {
-    if (!value) return emptyLabel
-    return sorted.find((t) => t.id === value)?.name ?? emptyLabel
-  }, [value, sorted, emptyLabel])
+  const selectedTheme = useMemo(
+    () => (value ? sorted.find((t) => t.id === value) : undefined),
+    [value, sorted]
+  )
+
+  const selectedLabel = value ? selectedTheme?.name ?? emptyLabel : emptyLabel
+  const selectedCount =
+    value && themeCounts && typeof themeCounts[value] === 'number'
+      ? themeCounts[value]
+      : undefined
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -91,7 +113,8 @@ export function ThemeSelect({
         className="w-full max-w-full flex items-center gap-2 border border-white/15 rounded-xl px-3 py-3 min-h-12 text-sm text-gray-200 text-left touch-manipulation disabled:opacity-50 focus:border-[#00FFFF]/50 outline-none active:bg-white/5"
         style={{ backgroundColor: MENU_TOKENS.dark }}
       >
-        <span className="flex-1 truncate">{selectedLabel}</span>
+        <span className="flex-1 truncate min-w-0">{selectedLabel}</span>
+        {typeof selectedCount === 'number' ? <TrackCountBadge count={selectedCount} /> : null}
         <ChevronDown
           className={`w-4 h-4 shrink-0 text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`}
         />
@@ -153,12 +176,8 @@ export function ThemeSelect({
                   active ? MENU_TOKENS.itemActiveClass : MENU_TOKENS.itemIdleClass
                 }`}
               >
-                <span className="flex-1 truncate text-left">
-                  {t.name}
-                  {typeof count === 'number' ? (
-                    <span className="text-white/35 ml-1">({count})</span>
-                  ) : null}
-                </span>
+                <span className="flex-1 truncate text-left min-w-0">{t.name}</span>
+                {typeof count === 'number' ? <TrackCountBadge count={count} /> : null}
                 {active ? (
                   <Check className="w-4 h-4 shrink-0" style={{ color: MENU_TOKENS.accent }} />
                 ) : null}
