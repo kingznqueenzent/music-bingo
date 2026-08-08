@@ -61,7 +61,7 @@ function ThemeActionCard({
 export function HostThemeLoadPanel() {
   const { themes, countById, loading, error, refetch } = useThemeTrackCounts()
 
-  const featuredIds = new Set(FEATURED_THEMES.map((t) => t.id))
+  const featuredIds = new Set<string>(FEATURED_THEMES.map((t) => t.id))
   const featured = FEATURED_THEMES.map(({ id, fallbackName }) => {
     const row = themes.find((t) => t.id === id)
     return {

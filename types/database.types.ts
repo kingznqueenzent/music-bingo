@@ -901,6 +901,54 @@ export type Database = {
         }
         Relationships: []
       }
+      songs: {
+        Row: {
+          id: string
+          title: string
+          artist: string | null
+          year: number | null
+          theme_id: string | null
+          media_type: string
+          media_url: string | null
+          youtube_url: string | null
+          storage_path: string | null
+          start_time_sec: number
+          duration_sec: number
+          file_duration_sec: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          artist?: string | null
+          year?: number | null
+          theme_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          youtube_url?: string | null
+          storage_path?: string | null
+          start_time_sec?: number
+          duration_sec?: number
+          file_duration_sec?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          artist?: string | null
+          year?: number | null
+          theme_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          youtube_url?: string | null
+          storage_path?: string | null
+          start_time_sec?: number
+          duration_sec?: number
+          file_duration_sec?: number | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       theme_songs: {
         Row: {
           id: string
@@ -950,6 +998,7 @@ export type Database = {
           created_at: string | null
           genre_id: string | null
           era_id: string | null
+          display_order: number
         }
         Insert: {
           id?: string
@@ -960,6 +1009,7 @@ export type Database = {
           created_at?: string | null
           genre_id?: string | null
           era_id?: string | null
+          display_order?: number
         }
         Update: {
           id?: string | null
@@ -970,6 +1020,7 @@ export type Database = {
           created_at?: string | null
           genre_id?: string | null
           era_id?: string | null
+          display_order?: number | null
         }
         Relationships: []
       }

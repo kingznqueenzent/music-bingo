@@ -14,6 +14,9 @@ export const GENRES_70S_2020S = [
   'Pop',
 ] as const
 
+/** Genres that use the 70s–2020s decade matrix. */
+export type DecadeGenre7070 = (typeof GENRES_70S_2020S)[number]
+
 export const GENRE_AFROBEATS = 'Afrobeats' as const
 export const GENRE_ROCK = 'Rock' as const
 export const GENRE_DANCE = 'Dance' as const

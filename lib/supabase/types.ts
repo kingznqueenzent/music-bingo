@@ -35,6 +35,7 @@ export interface Game {
   id: string
   playlist_id: string
   theme_id?: string | null
+  host_id?: string | null
   mode?: string
   round?: number
   code: string
