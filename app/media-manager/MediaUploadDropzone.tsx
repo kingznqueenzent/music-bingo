@@ -271,21 +271,19 @@ export function MediaUploadDropzone({
   return (
     <section className="rounded-xl border border-white/10 p-3 sm:p-4 space-y-4 overflow-hidden min-w-0" style={{ backgroundColor: SURFACE }}>
       <div>
-        <label htmlFor="upload-theme" className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-          Theme / genre for this batch
+        <label htmlFor="upload-theme" className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+          Target Theme for Uploads
         </label>
-        <div className="mt-1">
-          <ThemeSelect
-            id="upload-theme"
-            value={uploadThemeId}
-            onChange={onUploadThemeIdChange}
-            themes={themes}
-            themeCounts={themeCounts}
-            emptyLabel="— Auto-tag from filename —"
-            disabled={uploading}
-            aria-label="Theme for this upload batch"
-          />
-        </div>
+        <ThemeSelect
+          id="upload-theme"
+          value={uploadThemeId}
+          onChange={onUploadThemeIdChange}
+          themes={themes}
+          themeCounts={themeCounts}
+          emptyLabel="Select theme for incoming tracks…"
+          disabled={uploading}
+          aria-label="Target theme for uploads"
+        />
       </div>
 
       <div
