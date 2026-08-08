@@ -20,8 +20,8 @@ import {
 } from './hooks/useMediaUploadQueue'
 import type { CatalogTheme } from './types'
 
-const SURFACE = '#1E1E1E'
-const NEON = '#00FFFF'
+const SURFACE = 'var(--lg-surface)'
+const NEON = 'var(--lg-neon)'
 
 /** File picker + drag-drop accept list */
 export const BATCH_FILE_ACCEPT = '.mp3,.mp4,audio/mpeg,video/mp4'
@@ -137,8 +137,8 @@ export function MediaUploadDropzone({
         }}
         className={`relative rounded-xl border border-dashed p-8 text-center cursor-pointer transition-colors touch-manipulation overflow-hidden min-w-0 ${
           isDragging
-            ? 'border-[#00FFFF]/50 bg-[#00FFFF]/5'
-            : 'border-white/10 bg-[#1E1E1E] hover:border-white/20'
+            ? 'lg-upload-drag'
+            : 'border-white/10 hover:border-white/20'
         } ${running ? 'pointer-events-none opacity-80' : ''}`}
         style={!isDragging && !running ? { backgroundColor: SURFACE } : undefined}
       >
@@ -175,14 +175,14 @@ export function MediaUploadDropzone({
           </div>
         ) : (
           <>
-            <div className="mx-auto w-12 h-12 rounded-xl bg-[#00FFFF]/10 flex items-center justify-center text-[#00FFFF] mb-3">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-[var(--lg-neon)]/10 flex items-center justify-center text-[var(--lg-neon)] mb-3">
               <Upload className="w-5 h-5" />
             </div>
             <p className="text-sm font-medium text-white mb-1">
-              Drag and drop audio/video tracks here
+              Drop MP3 / MP4 files or browse
             </p>
             <p className="text-xs text-white/40">
-              MP3 / MP4 · up to {MAX_UPLOAD_FILES} files · max {MAX_UPLOAD_MB} MB each
+              Up to {MAX_UPLOAD_FILES} files at a time · max {MAX_UPLOAD_MB} MB each
             </p>
           </>
         )}

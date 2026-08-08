@@ -3,10 +3,13 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  /* LyricGrid brand */
-  --color-brand-dark: #121212;
-  --color-brand-neon: #00FFFF;
-  --color-brand-surface: #1E1E1E;
+  /* LyricGrid brand — host + media manager surfaces */
+  --lg-canvas: #121212;
+  --lg-surface: #1E1E1E;
+  --lg-neon: #00FFFF;
+  --color-brand-dark: var(--lg-canvas);
+  --color-brand-neon: var(--lg-neon);
+  --color-brand-surface: var(--lg-surface);
 }
 
 @theme inline {
@@ -88,6 +91,47 @@ input[type="button"],
 }
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* LyricGrid admin surfaces (Host + Media Manager) */
+.lg-surface-canvas {
+  background-color: var(--lg-canvas);
+  color: #fff;
+}
+.lg-surface-card {
+  background-color: var(--lg-surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+.lg-neon-btn {
+  background-color: var(--lg-neon);
+  color: var(--lg-canvas);
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  box-shadow: 0 0 24px rgba(0, 255, 255, 0.35);
+}
+.lg-neon-btn:hover:not(:disabled) {
+  transform: scale(1.02);
+  box-shadow: 0 0 32px rgba(0, 255, 255, 0.55);
+}
+.lg-neon-btn:disabled {
+  opacity: 0.5;
+  transform: none;
+}
+.lg-neon-input {
+  background-color: var(--lg-canvas);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+.lg-neon-input:focus {
+  outline: none;
+  border-color: rgba(0, 255, 255, 0.55);
+  box-shadow: 0 0 0 2px rgba(0, 255, 255, 0.18);
+}
+.lg-upload-drag {
+  border-color: rgba(0, 255, 255, 0.55) !important;
+  background-color: rgba(0, 255, 255, 0.06) !important;
+  box-shadow: 0 0 28px rgba(0, 255, 255, 0.25), inset 0 0 24px rgba(0, 255, 255, 0.06);
 }
 
 /* LyricGrid logo: middle row wave */

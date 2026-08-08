@@ -4,9 +4,9 @@ import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
 
-const BG = '#121212'
-const SURFACE = '#1E1E1E'
-const NEON = '#00FFFF'
+const BG = 'var(--lg-canvas)'
+const SURFACE = 'var(--lg-surface)'
+const NEON = 'var(--lg-neon)'
 
 export type BatchThemeFilter = 'all' | 'country' | 'rock' | 'billboard'
 
@@ -57,8 +57,7 @@ export function MediaManagerFilterBar({
   return (
     <section
       aria-label="Search and filter library"
-      className="p-3 sm:p-4 rounded-xl border border-white/5 space-y-4 md:sticky md:top-[calc(3rem+env(safe-area-inset-top,0px))] md:z-20"
-      style={{ backgroundColor: SURFACE }}
+      className="lg-surface-card p-3 sm:p-4 rounded-xl space-y-4 md:sticky md:top-[calc(3rem+env(safe-area-inset-top,0px))] md:z-20"
     >
       <div className="flex flex-col lg:flex-row lg:items-end gap-4">
         <div className="flex-1 min-w-0 space-y-2">
@@ -73,8 +72,7 @@ export function MediaManagerFilterBar({
               placeholder="Search titles, artists, genres…"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full border border-white/15 rounded-xl pl-12 pr-12 py-3.5 text-base focus:border-[#00FFFF] outline-none ring-0 focus:ring-2 focus:ring-[#00FFFF]/20 min-h-12"
-              style={{ backgroundColor: BG, color: '#fff' }}
+              className="w-full border border-white/15 rounded-xl pl-12 pr-12 py-3.5 text-base lg-neon-input min-h-12"
               autoComplete="off"
               spellCheck={false}
             />
@@ -121,7 +119,7 @@ export function MediaManagerFilterBar({
                 onClick={() => onBatchFilterChange(pill.id)}
                 className={`px-3 py-2 min-h-10 rounded-full text-xs font-semibold border transition-colors touch-manipulation ${
                   active
-                    ? 'border-[#00FFFF]/60 bg-[#00FFFF]/10 text-[#00FFFF]'
+                    ? 'border-[var(--lg-neon)]/60 bg-[var(--lg-neon)]/10 text-[var(--lg-neon)]'
                     : 'border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'
                 }`}
               >

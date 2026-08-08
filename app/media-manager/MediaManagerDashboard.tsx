@@ -36,8 +36,8 @@ import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
-const BG = '#121212'
-const SURFACE = '#1E1E1E'
+const BG = 'var(--lg-canvas)'
+const SURFACE = 'var(--lg-surface)'
 const PAGE_SIZE = 50
 const SEARCH_DEBOUNCE_MS = 300
 
@@ -443,8 +443,7 @@ function MediaManagerDashboardInner() {
 
   return (
     <main
-      className="min-h-dvh text-white overflow-x-hidden pb-28"
-      style={{ backgroundColor: BG }}
+      className="min-h-dvh lg-surface-canvas overflow-x-hidden pb-28"
     >
       <div className="max-w-[1600px] mx-auto p-3 sm:p-5 md:p-6 space-y-4 sm:space-y-5">
         <header className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-white/5">

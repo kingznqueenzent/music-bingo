@@ -4,8 +4,8 @@ import { LayoutGrid } from 'lucide-react'
 import { MEDIA_MANAGER_GENRE_ROWS } from '@/lib/decade-theme-catalog'
 import type { CatalogTheme } from './types'
 
-const SURFACE = '#1E1E1E'
-const NEON = '#00FFFF'
+const SURFACE = 'var(--lg-surface)'
+const NEON = 'var(--lg-neon)'
 
 type Density = 'empty' | 'low' | 'normal'
 
@@ -16,16 +16,16 @@ function density(count: number): Density {
 }
 
 function cardStyles(d: Density, active: boolean): string {
-  const base = active ? 'ring-2 ring-[#00FFFF]/50 bg-[#00FFFF]/5 ' : 'bg-black/20 '
+  const base = active ? 'ring-2 ring-[var(--lg-neon)]/50 bg-[var(--lg-neon)]/5 ' : 'bg-black/20 '
   if (d === 'empty') return base + 'border-red-500/45'
   if (d === 'low') return base + 'border-yellow-500/45'
-  return base + 'border-[#00FFFF]/40 hover:border-[#00FFFF]/55'
+  return base + 'border-white/12 hover:border-white/25'
 }
 
 function countStyles(d: Density): string {
   if (d === 'empty') return 'text-red-400'
   if (d === 'low') return 'text-yellow-400'
-  return 'text-[#00FFFF]'
+  return 'text-white/80'
 }
 
 export type ThemeCoverageGridProps = {
@@ -94,7 +94,7 @@ export function ThemeCoverageGrid({
             <span className="w-2 h-2 rounded-full bg-yellow-400" /> low
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-cyan-400" /> normal
+            <span className="w-2 h-2 rounded-full bg-white/50" /> stocked
           </span>
         </div>
       </div>
@@ -136,7 +136,7 @@ export function ThemeCoverageGrid({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {visibleThemes.map((t) => {
           const count = themeCounts[t.id] ?? 0
           const d = density(count)

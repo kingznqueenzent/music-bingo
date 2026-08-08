@@ -56,22 +56,22 @@ export function PastGamesPanel({ hostId, className = '' }: PastGamesPanelProps) 
 
   return (
     <section
-      className={`rounded-2xl border border-slate-800 bg-slate-900/70 shadow-md shadow-black/40 p-4 sm:p-6 space-y-5 ${className}`}
+      className={`lg-surface-card rounded-2xl p-4 sm:p-6 space-y-5 ${className}`}
       aria-label="Past games and leaderboard"
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h3 className="text-xl font-bold text-slate-50">Past Games & Leaderboard</h3>
-          <p className="text-slate-400 text-sm mt-1">
+          <h3 className="text-xl font-bold text-white">Past Games & Leaderboard</h3>
+          <p className="text-white/45 text-sm mt-1">
             Historical winners, participation, and session duration for community engagement.
           </p>
         </div>
-        <div className="flex rounded-xl border border-slate-700 p-1 gap-1">
+        <div className="flex rounded-xl border border-white/10 p-1 gap-1 bg-black/20">
           <button
             type="button"
             onClick={() => setScope('host')}
             className={`px-3 py-2 min-h-11 rounded-lg text-sm font-medium touch-manipulation ${
-              scope === 'host' ? 'bg-[#00FFFF]/15 text-[#00FFFF]' : 'text-slate-400'
+              scope === 'host' ? 'bg-[var(--lg-neon)]/15 text-[var(--lg-neon)]' : 'text-white/45'
             }`}
           >
             My games
@@ -80,7 +80,7 @@ export function PastGamesPanel({ hostId, className = '' }: PastGamesPanelProps) 
             type="button"
             onClick={() => setScope('all')}
             className={`px-3 py-2 min-h-11 rounded-lg text-sm font-medium touch-manipulation ${
-              scope === 'all' ? 'bg-[#00FFFF]/15 text-[#00FFFF]' : 'text-slate-400'
+              scope === 'all' ? 'bg-[var(--lg-neon)]/15 text-[var(--lg-neon)]' : 'text-white/45'
             }`}
           >
             Community
@@ -135,9 +135,9 @@ export function PastGamesPanel({ hostId, className = '' }: PastGamesPanelProps) 
           No archived games yet. Verify a bingo win to start building history.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
+        <div className="overflow-x-auto rounded-xl border border-white/10">
           <table className="w-full text-sm text-left min-w-[36rem]">
-            <thead className="bg-slate-950/80 text-slate-500 text-xs uppercase tracking-wider">
+            <thead className="bg-black/30 text-white/40 text-xs uppercase tracking-wider">
               <tr>
                 <th className="px-3 py-3 font-semibold">Code</th>
                 <th className="px-3 py-3 font-semibold">Winners</th>
@@ -146,11 +146,11 @@ export function PastGamesPanel({ hostId, className = '' }: PastGamesPanelProps) 
                 <th className="px-3 py-3 font-semibold">Ended</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-white/10">
               {rows.map((r) => (
-                <tr key={r.id} className="hover:bg-white/[0.02]">
-                  <td className="px-3 py-3 font-mono text-emerald-400">{r.game_code}</td>
-                  <td className="px-3 py-3 text-slate-200">
+                <tr key={r.id} className="hover:bg-white/[0.03]">
+                  <td className="px-3 py-3 font-mono text-[var(--lg-neon)]">{r.game_code}</td>
+                  <td className="px-3 py-3 text-white/80">
                     {(r.winner_names ?? []).join(', ') || '—'}
                   </td>
                   <td className="px-3 py-3 text-slate-300 tabular-nums">{r.total_players}</td>
@@ -178,12 +178,12 @@ function StatCard({
   icon: ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-3">
-      <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wider mb-1">
+    <div className="rounded-xl border border-white/10 bg-black/20 px-4 py-3">
+      <div className="flex items-center gap-2 text-white/40 text-xs uppercase tracking-wider mb-1">
         {icon}
         {label}
       </div>
-      <p className="text-2xl font-bold text-slate-50 tabular-nums">{value}</p>
+      <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
     </div>
   )
 }
