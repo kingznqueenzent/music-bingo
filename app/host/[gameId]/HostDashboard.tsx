@@ -13,7 +13,8 @@ import {
   type CardCellVerification,
   type WinPattern,
 } from '@/app/actions/game'
-import { getMaxPlayersForTier } from '@/lib/tiers'
+import { formatPlayerCapLabel, type GameTier } from '@/lib/tiers'
+import { debounce } from '@/lib/debounce'
 import { generateBingoCardsPdf } from '@/lib/pdf-export'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
@@ -40,7 +41,7 @@ import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
-import { PlayerListPanel, type PlayerBoardStatus } from '@/components/host/PlayerListPanel'
+import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
 
 type HostDashboardProps = {
   gameId: string
@@ -103,7 +104,15 @@ export function HostDashboard({
     cardId: string
     pattern: string
     verified: boolean
-  }>({ open: false, playerName: '', cardId: '', pattern: 'LINE', verified: false })
+    markedPlaylistSongIds: string[]
+  }>({
+    open: false,
+    playerName: '',
+    cardId: '',
+    pattern: 'LINE',
+    verified: false,
+    markedPlaylistSongIds: [],
+  })
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
@@ -195,9 +204,7 @@ export function HostDashboard({
           ? getWinProgress(markedIds, cells, gridSizeLocal, mode)
           : { current: 0, target: gridSizeLocal, label: `0 / ${gridSizeLocal}` }
 
-      let status: PlayerBoardStatus['status'] = 'playing'
-      if (progress.current >= progress.target) status = 'near_win'
-      if (progress.current >= progress.target - 1 && progress.target > 1) status = 'near_win'
+      let status: PlayerBoardStatus['status'] = playerStatusFromProgress(progress.current, progress.target)
 
       return {
         cardId: card.id,
@@ -210,6 +217,32 @@ export function HostDashboard({
     })
     setPlayerBoards(boards)
   }, [game?.grid_size, game?.mode, gameId, supabase])
+
+  const debouncedRefreshPlayerBoards = useMemo(
+    () => debounce(() => void refreshPlayerBoards(), 2500),
+    [refreshPlayerBoards]
+  )
+
+  const applyBoardProgress = useCallback(
+    (payload: { cardId: string; markedCount: number }) => {
+      setPlayerBoards((prev) => {
+        const idx = prev.findIndex((p) => p.cardId === payload.cardId)
+        if (idx === -1) {
+          debouncedRefreshPlayerBoards()
+          return prev
+        }
+        const row = prev[idx]
+        const next = [...prev]
+        next[idx] = {
+          ...row,
+          markedCount: payload.markedCount,
+          status: playerStatusFromProgress(payload.markedCount, row.target),
+        }
+        return next
+      })
+    },
+    [debouncedRefreshPlayerBoards]
+  )
 
   useEffect(() => {
     void refreshPlayerBoards()
@@ -259,6 +292,7 @@ export function HostDashboard({
         cardId: payload.cardId,
         pattern,
         verified: result.valid,
+        markedPlaylistSongIds: [...(payload.markedPlaylistSongIds ?? [])],
       })
       pushWinnerAlert({
         playerName: payload.playerName ?? 'Player',
@@ -285,6 +319,7 @@ export function HostDashboard({
           .select('*', { count: 'exact', head: true })
           .eq('game_id', gameId)
           .then(({ count }) => setPlayerCount(count ?? 0))
+        debouncedRefreshPlayerBoards()
       },
       onBingoWinner: (p) => {
         pushWinnerAlert({ playerName: p.playerName ?? 'Player', cardId: p.cardId ?? '' })
@@ -292,14 +327,14 @@ export function HostDashboard({
       onBingoClaim: (payload) => {
         void handleBingoClaim(payload)
       },
-      onBoardUpdate: () => {
-        void refreshPlayerBoards()
+      onBoardUpdate: (payload) => {
+        applyBoardProgress(payload)
       },
     })
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [gameId, supabase, pushWinnerAlert, handleBingoClaim, refreshPlayerBoards])
+  }, [gameId, supabase, pushWinnerAlert, handleBingoClaim, applyBoardProgress, debouncedRefreshPlayerBoards])
 
   useEffect(() => {
     const ch = supabase.channel(`play-${gameId}`)
@@ -618,7 +653,11 @@ export function HostDashboard({
       const res = await fetch('/api/verify-bingo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, cardId }),
+        body: JSON.stringify({
+          gameId,
+          cardId,
+          markedPlaylistSongIds: winnersCircle.markedPlaylistSongIds,
+        }),
       })
       const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
       if (data.valid) {
@@ -793,12 +832,10 @@ export function HostDashboard({
           </span>
         </div>
         <p className="text-lg text-slate-300">
-          📊 {playerCount} players joined
-          {game.tier && (
-            <span className="ml-2 text-slate-500 text-sm">
-              (max {getMaxPlayersForTier(game.tier)} for {game.tier})
-            </span>
-          )}
+          📊 {playerCount.toLocaleString()} players joined
+          {game.tier ? (
+            <span className="ml-2 text-slate-500 text-sm">({formatPlayerCapLabel(game.tier as GameTier)})</span>
+          ) : null}
         </p>
 
         <FeatureGate flag="host_analytics">

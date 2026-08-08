@@ -490,7 +490,7 @@ export async function updateGameSettings(
   if (settings.crossfadeSeconds != null)
     updates.crossfade_seconds = Math.min(10, Math.max(0, settings.crossfadeSeconds))
   if (settings.logoUrl !== undefined) updates.logo_url = settings.logoUrl || null
-  if (settings.winPattern != null && ['line', 'x', 'blackout'].includes(settings.winPattern))
+  if (settings.winPattern != null && ['line', 'x', 'blackout', 'corners'].includes(settings.winPattern))
     updates.mode = settings.winPattern
   if (settings.stageShowLeaderboard !== undefined)
     updates.stage_show_leaderboard = settings.stageShowLeaderboard

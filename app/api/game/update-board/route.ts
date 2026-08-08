@@ -35,5 +35,5 @@ export async function POST(req: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.error }, { status: 400 })
   }
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, markedCount: result.markedCount })
 }

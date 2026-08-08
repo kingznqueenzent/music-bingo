@@ -18,7 +18,8 @@ import { PlayerProgressBar } from '@/components/bingo/PlayerProgressBar'
 import { normalizeWinPattern, hasWinningPatternFromMarks, type WinPattern } from '@/lib/bingo-win-pattern'
 import { getMarkedPositions, getWinProgress } from '@/lib/bingo/player-progress'
 import { triggerHaptic } from '@/lib/haptic-feedback'
-import { broadcastBingoClaim } from '@/lib/supabase-realtime'
+import { broadcastBingoClaim, broadcastBoardProgress } from '@/lib/supabase-realtime'
+import { debounce } from '@/lib/debounce'
 import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { FeatureGate } from '@/components/FeatureGate'
@@ -95,6 +96,7 @@ export function PlayView({
   const [profileIdentifier, setProfileIdentifier] = useState('')
   const bingoSkipClickRef = useRef(false)
   const participationSentRef = useRef(false)
+  const latestMarksRef = useRef<Set<string>>(new Set())
   const [envelopeSponsor, setEnvelopeSponsor] = useState<GameSponsor | null>(null)
   const [gameStatus, setGameStatus] = useState<GameStatus>('lobby')
   const [chatEmail, setChatEmail] = useState('')
@@ -107,6 +109,37 @@ export function PlayView({
     [gameId, cardId]
   )
 
+  const flushBoardSync = useMemo(
+    () =>
+      debounce((ids: Set<string>, identifier: string) => {
+        void (async () => {
+          try {
+            const res = await fetch('/api/game/update-board', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                gameId,
+                cardId,
+                markedPlaylistSongIds: [...ids],
+                playerIdentifier: identifier || undefined,
+              }),
+            })
+            const data = (await res.json()) as { ok?: boolean; markedCount?: number }
+            if (res.ok && data.ok) {
+              void broadcastBoardProgress(supabase, gameId, {
+                cardId,
+                markedCount: data.markedCount ?? ids.size,
+                playerIdentifier: identifier || null,
+              })
+            }
+          } catch {
+            // Marks stay in localStorage; host refreshes on next poll if needed.
+          }
+        })()
+      }, 400),
+    [supabase, gameId, cardId]
+  )
+
   const handleMarkChange = useCallback(
     (playlistSongId: string, marked: boolean) => {
       setMarkedSongIds((prev) => {
@@ -114,20 +147,12 @@ export function PlayView({
         if (marked) next.add(playlistSongId)
         else next.delete(playlistSongId)
         persistMarks(next)
-        void fetch('/api/game/update-board', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            gameId,
-            cardId,
-            markedPlaylistSongIds: [...next],
-            playerIdentifier: profileIdentifier || undefined,
-          }),
-        })
+        latestMarksRef.current = next
+        flushBoardSync(next, profileIdentifier || cardId)
         return next
       })
     },
-    [persistMarks, gameId, cardId, profileIdentifier]
+    [persistMarks, flushBoardSync, profileIdentifier, cardId]
   )
 
   const sendParticipationSession = useCallback(() => {
@@ -424,6 +449,22 @@ export function PlayView({
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
+        (payload) => {
+          const row = payload.old as { playlist_song_id?: string }
+          if (row.playlist_song_id) {
+            setPlayedSongIds((prev) => {
+              const next = new Set(prev)
+              next.delete(row.playlist_song_id!)
+              return next
+            })
+          } else {
+            setPlayedSongIds(new Set())
+          }
+        }
+      )
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
@@ -437,7 +478,7 @@ export function PlayView({
       .from('leaderboard')
       .select('id, player_name, identifier, wins, points, total_xp, last_played, updated_at')
       .order('points', { ascending: false })
-      .limit(10)
+      .limit(50)
     promise.then(({ data }) => {
       setLeaderboardList((data ?? []) as LeaderboardEntry[])
     }).then(() => setLeaderboardLoading(false), () => setLeaderboardLoading(false))

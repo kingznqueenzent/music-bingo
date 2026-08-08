@@ -49,7 +49,12 @@ export async function verifyBingo(
   }
 
   const calledIds = played?.map((p) => p.playlist_song_id) ?? []
-  const markedIds = cells.map((c) => c.playlist_song_id)
+  const calledSet = new Set(calledIds)
+  // Auto-mark only cells whose songs appear in the confirmed call history
+  // (host Master Board confirm / zero-dispute path without client tap marks).
+  const markedIds = cells
+    .map((c) => c.playlist_song_id)
+    .filter((id) => calledSet.has(id))
   const result = verifyBingoFromCells(
     cells,
     markedIds,

@@ -5,6 +5,7 @@ import { getLevelFromXp } from '@/lib/xp-levels'
 import { evaluateNewBadges } from '@/lib/badge-definitions'
 import { applyTournamentParticipation, applyTournamentWinClaim } from '@/lib/tournament-points'
 import { isFeatureEnabled } from '@/lib/feature-flags'
+import { incrementPlayerStats } from '@/lib/player-stats'
 
 const XP_PLAY_GAME = 10
 const XP_PER_CORRECT_MARK = 2
@@ -219,6 +220,12 @@ export async function applyParticipationSession(
   )
   if (err.error) return { ok: false, error: err.error }
 
+  await incrementPlayerStats(supabase, playerName, {
+    gamesPlayed: 1,
+    wins: 0,
+    score: xpGained,
+  })
+
   await supabase.from('player_game_sessions').upsert(
     {
       game_id: gameId,
@@ -365,6 +372,12 @@ export async function applyWinClaimProgress(
       : null
   )
   if (err.error) return { ok: false, error: err.error }
+
+  await incrementPlayerStats(supabase, playerName, {
+    gamesPlayed: gamesDelta,
+    wins: winsDelta,
+    score: xpGained,
+  })
 
   await supabase.from('player_game_sessions').upsert(
     {

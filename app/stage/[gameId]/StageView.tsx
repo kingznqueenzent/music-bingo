@@ -16,9 +16,11 @@ import {
   type SpinWheelStartPayload,
   type WinnerCrownedPayload,
 } from '@/lib/supabase-realtime'
-import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
+import { debounce } from '@/lib/debounce'
 import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
+import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { getLevelFromXp } from '@/lib/xp-levels'
+import { JoinGameQRCode } from '@/components/JoinGameQRCode'
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: 'Single Line',
@@ -56,12 +58,17 @@ export function StageView({ gameId }: { gameId: string }) {
     let q = supabase
       .from('leaderboard')
       .select('id, player_name, identifier, wins, points, last_played, updated_at')
-      .limit(10)
+      .limit(25)
     q = xpOn ? q.order('points', { ascending: false }) : q.order('wins', { ascending: false })
     const { data } = await q
     setLeaderboard((data ?? []) as LeaderboardEntry[])
     setLeaderboardUpdatedAt(new Date())
   }, [supabase, xpOn])
+
+  const debouncedFetchLeaderboard = useMemo(
+    () => debounce(() => void fetchLeaderboard(), 1500),
+    [fetchLeaderboard]
+  )
 
   useEffect(() => {
     async function load() {
@@ -158,13 +165,13 @@ export function StageView({ gameId }: { gameId: string }) {
     const channel = supabase
       .channel('leaderboard-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leaderboard' }, () => {
-        void fetchLeaderboard()
+        debouncedFetchLeaderboard()
       })
       .subscribe()
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [showLeaderboardOnStage, supabase, fetchLeaderboard])
+  }, [showLeaderboardOnStage, supabase, debouncedFetchLeaderboard])
 
   const clipSeconds = game?.clip_seconds ?? 20
   const crossfadeSeconds = game?.crossfade_seconds ?? 0
@@ -256,6 +263,9 @@ export function StageView({ gameId }: { gameId: string }) {
               {gameCode}
             </p>
           </div>
+          {gameCode && gameCode !== '——' ? (
+            <JoinGameQRCode gameCode={gameCode} size={88} className="hidden md:flex shrink-0" />
+          ) : null}
         </div>
         <div className="text-center flex-1 min-w-0 px-2">
           <p className="text-xs uppercase tracking-widest text-slate-500">Venue</p>
@@ -373,7 +383,7 @@ export function StageView({ gameId }: { gameId: string }) {
             {leaderboard.length === 0 ? (
               <div className="py-16 text-center text-xl text-[#00FFFF]/70">No scores yet</div>
             ) : (
-              <ul className="divide-y divide-[#00FFFF]/20">
+              <ul className="divide-y divide-[#00FFFF]/20 max-h-[min(60vh,520px)] overflow-y-auto overscroll-contain">
                 {leaderboard.map((p, i) => {
                   const lvl = xpOn ? getLevelFromXp(p.points ?? 0) : null
                   return (

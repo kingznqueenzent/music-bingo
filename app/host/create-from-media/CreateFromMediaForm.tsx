@@ -9,6 +9,12 @@ import {
   songHasPlayableSource,
   type CatalogSongListItem,
 } from '@/lib/media/fetch-all-songs'
+import { filterSongsByBatchTheme } from '@/lib/media/filter-songs-by-batch-theme'
+import {
+  BATCH_THEME_PILLS,
+  type BatchThemeFilter,
+} from '@/app/media-manager/MediaManagerFilterBar'
+import type { CatalogSong } from '@/app/media-manager/types'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 import { type GameTier } from '@/lib/tiers'
 
@@ -25,9 +31,11 @@ export function CreateFromMediaForm() {
   const router = useRouter()
   const supabase = createClient()
   const [items, setItems] = useState<CatalogSongListItem[]>([])
+  const [themeNameById, setThemeNameById] = useState<Map<string, string>>(new Map())
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [name, setName] = useState('')
   const [search, setSearch] = useState('')
+  const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
   const [gridSize, setGridSize] = useState<4 | 5>(5)
   const [tier, setTier] = useState<GameTier>('pro')
   const [loading, setLoading] = useState(false)
@@ -38,14 +46,19 @@ export function CreateFromMediaForm() {
   const minSongs = gridSize === 5 ? MIN_5X5 : MIN_4X4
 
   const filteredItems = useMemo(() => {
+    const byTheme = filterSongsByBatchTheme(
+      items as CatalogSong[],
+      themeNameById,
+      batchFilter
+    ) as CatalogSongListItem[]
     const q = search.trim().toLowerCase()
-    if (!q) return items
-    return items.filter((s) => {
+    if (!q) return byTheme
+    return byTheme.filter((s) => {
       const title = s.title.toLowerCase()
       const artist = (s.artist ?? '').toLowerCase()
       return title.includes(q) || artist.includes(q)
     })
-  }, [items, search])
+  }, [items, search, batchFilter, themeNameById])
 
   const playableSelected = useMemo(() => {
     let n = 0
@@ -61,7 +74,13 @@ export function CreateFromMediaForm() {
   async function loadLibrary() {
     setLoadError('')
     setLoadingList(true)
-    const { songs, error } = await fetchAllCatalogSongs(supabase)
+    const [{ songs, error }, themesResult] = await Promise.all([
+      fetchAllCatalogSongs(supabase),
+      supabase.from('themes').select('id, name').order('name'),
+    ])
+    if (themesResult.data) {
+      setThemeNameById(new Map(themesResult.data.map((t) => [t.id, t.name])))
+    }
     if (error) {
       setLoadError(withSupabaseKeyHint(error))
       setItems([])
@@ -221,6 +240,26 @@ export function CreateFromMediaForm() {
               Select all playable (filtered)
             </button>
           </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Theme filter">
+          {BATCH_THEME_PILLS.map((pill) => {
+            const active = batchFilter === pill.id
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setBatchFilter(pill.id)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium border transition-colors ${
+                  active
+                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                    : 'bg-slate-800/60 border-slate-600 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {pill.label}
+              </button>
+            )
+          })}
         </div>
 
         <input

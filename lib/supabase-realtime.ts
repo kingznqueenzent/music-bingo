@@ -41,6 +41,12 @@ export type SpinWheelStopPayload = {
   winnerName?: string
 }
 
+export type BoardProgressPayload = {
+  cardId: string
+  markedCount: number
+  playerIdentifier?: string | null
+}
+
 export type BingoClaimPayload = {
   cardId: string
   playerId?: string | null
@@ -62,11 +68,7 @@ export type HostGameRealtimeHandlers = {
   onGameEvent?: (event: { event_type: string; payload: Record<string, unknown> }) => void
   onBingoWinner?: (payload: { playerName?: string; cardId?: string }) => void
   onBingoClaim?: (payload: BingoClaimPayload) => void
-  onBoardUpdate?: (payload: {
-    cardId?: string
-    markedPlaylistSongIds?: string[]
-    playerIdentifier?: string | null
-  }) => void
+  onBoardUpdate?: (payload: BoardProgressPayload) => void
   onHostShoutout?: (payload: HostShoutoutPayload) => void
 }
 
@@ -109,6 +111,11 @@ export function subscribeHostGameChannel(
     )
     .on(
       'postgres_changes',
+      { event: 'DELETE', schema: 'public', table: 'played_songs', filter: `game_id=eq.${gameId}` },
+      () => handlers.onSongCalled?.()
+    )
+    .on(
+      'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'cards', filter: `game_id=eq.${gameId}` },
       () => handlers.onPlayerJoined?.()
     )
@@ -130,14 +137,28 @@ export function subscribeHostGameChannel(
           })
         }
         if (row.event_type === 'board_update') {
-          handlers.onBoardUpdate?.({
-            cardId: row.payload?.cardId as string | undefined,
-            markedPlaylistSongIds: row.payload?.markedPlaylistSongIds as string[] | undefined,
-            playerIdentifier: row.payload?.playerIdentifier as string | null | undefined,
-          })
+          const p = row.payload ?? {}
+          const cardId = p.cardId as string | undefined
+          const markedCount =
+            typeof p.markedCount === 'number'
+              ? p.markedCount
+              : Array.isArray(p.markedPlaylistSongIds)
+                ? p.markedPlaylistSongIds.length
+                : undefined
+          if (cardId && markedCount != null) {
+            handlers.onBoardUpdate?.({
+              cardId,
+              markedCount,
+              playerIdentifier: p.playerIdentifier as string | null | undefined,
+            })
+          }
         }
       }
     )
+    .on('broadcast', { event: 'board_progress' }, (msg) => {
+      const p = (msg as { payload?: BoardProgressPayload }).payload
+      if (p?.cardId && typeof p.markedCount === 'number') handlers.onBoardUpdate?.(p)
+    })
     .on('broadcast', { event: 'bingo_winner' }, (msg) => {
       const p = (msg as { payload?: { playerName?: string; cardId?: string } }).payload
       handlers.onBingoWinner?.({ playerName: p?.playerName, cardId: p?.cardId })
@@ -153,6 +174,23 @@ export function subscribeHostGameChannel(
 
   channel.subscribe()
   return channel
+}
+
+export async function broadcastBoardProgress(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: BoardProgressPayload
+): Promise<void> {
+  const channel = supabase.channel(gameChannelName(gameId))
+  await new Promise<void>((resolve) => {
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({ type: 'broadcast', event: 'board_progress', payload })
+        resolve()
+      }
+    })
+  })
+  supabase.removeChannel(channel)
 }
 
 export async function broadcastBingoClaim(
@@ -172,25 +210,35 @@ export async function broadcastBingoClaim(
   supabase.removeChannel(channel)
 }
 
-export async function broadcastHostShoutout(
+async function broadcastOnChannel(
   supabase: SupabaseClient,
-  gameId: string,
-  payload: HostShoutoutPayload
+  channelName: string,
+  event: string,
+  payload: object
 ): Promise<void> {
-  const channel = supabase.channel(gameChannelName(gameId))
+  const channel = supabase.channel(channelName)
   await new Promise<void>((resolve) => {
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        channel.send({
-          type: 'broadcast',
-          event: 'host_shoutout',
-          payload: { ...payload, sentAt: payload.sentAt ?? new Date().toISOString() },
-        })
+        channel.send({ type: 'broadcast', event, payload })
         resolve()
       }
     })
   })
   supabase.removeChannel(channel)
+}
+
+export async function broadcastHostShoutout(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: HostShoutoutPayload
+): Promise<void> {
+  const body = { ...payload, sentAt: payload.sentAt ?? new Date().toISOString() }
+  // Stage listens on game-*; player cards listen on play-*
+  await Promise.all([
+    broadcastOnChannel(supabase, gameChannelName(gameId), 'host_shoutout', body),
+    broadcastOnChannel(supabase, playChannelName(gameId), 'host_shoutout', body),
+  ])
 }
 
 export async function broadcastPlaybackState(
