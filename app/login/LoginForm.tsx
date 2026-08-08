@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import type { AuthError } from '@supabase/supabase-js'
 import { createClient, getSupabaseBrowserConfig } from '@/lib/supabase/client'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
+import { refreshAdminAuth } from '@/lib/admin-auth-store'
 import { AuthTimeoutError, withAuthTimeout } from '@/lib/auth-timeout'
 
 const AUTH_TIMEOUT_MS = 10_000
@@ -36,11 +37,13 @@ function friendlyAuthError(err: AuthError | Error | { message?: string } | null 
 }
 
 export function LoginForm() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('from') || '/host'
   const supabaseConfig = useMemo(() => getSupabaseBrowserConfig(), [])
   const supabase = useMemo(() => createClient(), [])
-  const { isAdmin, loading: adminLoading } = useIsAdmin()
+  const { isAdmin, loading: adminLoading, ready: adminReady } = useIsAdmin()
+  const redirectedRef = useRef(false)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -59,12 +62,13 @@ export function LoginForm() {
   }, [supabaseConfig])
 
   useEffect(() => {
-    if (!adminLoading && isAdmin) {
-      const target = redirectTo.startsWith('/') ? redirectTo : '/host'
-      console.log('[LyricGrid login] Already authenticated — redirecting to', target)
-      window.location.href = target
-    }
-  }, [adminLoading, isAdmin, redirectTo])
+    // Soft redirect once — hard window.location loops caused login ↔ media-manager flashes on mobile.
+    if (adminLoading || !adminReady || !isAdmin || redirectedRef.current) return
+    redirectedRef.current = true
+    const target = redirectTo.startsWith('/') ? redirectTo : '/host'
+    console.log('[LyricGrid login] Already authenticated — redirecting to', target)
+    router.replace(target)
+  }, [adminLoading, adminReady, isAdmin, redirectTo, router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -131,9 +135,11 @@ export function LoginForm() {
         return
       }
 
+      refreshAdminAuth()
       const target = body.redirect ?? (redirectTo.startsWith('/') ? redirectTo : '/host')
       console.log('[LyricGrid login] Success — hard redirect to', target)
-      window.location.href = target
+      // Hard navigation once after cookie write so middleware/proxy sees admin_verified.
+      window.location.assign(target)
     } catch (err) {
       console.error('[LyricGrid login] Unexpected error:', err)
       setError(friendlyAuthError(err instanceof Error ? err : { message: String(err) }))
@@ -143,8 +149,18 @@ export function LoginForm() {
 
   const displayError = configError ?? error
 
+  if (adminLoading || !adminReady || isAdmin) {
+    return (
+      <main className="min-h-[calc(100dvh-3.5rem)] bg-[#121212] text-white flex items-center justify-center p-6">
+        <p className="text-slate-400 text-sm">
+          {isAdmin ? 'Opening host portal…' : 'Checking session…'}
+        </p>
+      </main>
+    )
+  }
+
   return (
-    <main className="min-h-[calc(100dvh-3rem)] bg-[#121212] text-white flex items-center justify-center p-6">
+    <main className="min-h-[calc(100dvh-3.5rem)] bg-[#121212] text-white flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-[#00FFFF]/20 bg-[#1E1E1E] p-8 shadow-[0_0_48px_rgba(0,255,255,0.08)]">
           <div className="flex flex-col items-center text-center mb-8">

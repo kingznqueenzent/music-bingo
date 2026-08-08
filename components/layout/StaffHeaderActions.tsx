@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
@@ -25,22 +25,30 @@ export function StaffHeaderActions({
   showAdminLabel = true,
 }: StaffHeaderActionsProps) {
   const [open, setOpen] = useState(false)
-  const { isAdmin, loading } = useIsAdmin()
+  const { isAdmin, loading, ready } = useIsAdmin()
+
+  // Keep menu chrome stable: once admin is known, don't swap to Host Portal on revalidation.
+  const showAdminControls = isAdmin
+  const showHostLogin = ready && !loading && !isAdmin
 
   const handleClose = useCallback(() => setOpen(false), [])
+
+  useEffect(() => {
+    if (!showAdminControls && open) setOpen(false)
+  }, [showAdminControls, open])
 
   return (
     <>
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-        {!loading && !isAdmin && (
+        {showHostLogin ? (
           <Link
             href={`/login?from=${encodeURIComponent(loginFrom)}`}
             className={loginClassName}
           >
             Host Portal
           </Link>
-        )}
-        {isAdmin && (
+        ) : null}
+        {showAdminControls ? (
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
@@ -54,9 +62,11 @@ export function StaffHeaderActions({
               <span className="hidden sm:inline text-sm font-semibold tracking-wide">Admin</span>
             ) : null}
           </button>
-        )}
+        ) : null}
       </div>
-      {isAdmin && <AdminNavDrawer open={open} onClose={handleClose} />}
+      {showAdminControls ? (
+        <AdminNavDrawer open={open} onClose={handleClose} />
+      ) : null}
     </>
   )
 }
