@@ -23,6 +23,7 @@ import { debounce } from '@/lib/debounce'
 import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { FeatureGate } from '@/components/FeatureGate'
+import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
 
@@ -610,13 +611,20 @@ export function PlayView({
   const size = gridSize
   const bingoCardCells = useMemo(
     () =>
-      cells.map((c) => ({
-        id: c.id,
-        position: c.position,
-        playlistSongId: c.playlist_song_id,
-        label: c.song?.title || c.song?.youtube_id || '—',
-        albumArtUrl: c.song?.album_art_url ?? null,
-      })),
+      cells.map((c) => {
+        const parts = c.song
+          ? playlistSongDisplayParts(c.song)
+          : { title: '—', artist: null as string | null, full: '—' }
+        return {
+          id: c.id,
+          position: c.position,
+          playlistSongId: c.playlist_song_id,
+          label: parts.full || playlistSongLabel(c.song ?? {}) || '—',
+          title: parts.title,
+          artist: parts.artist,
+          albumArtUrl: c.song?.album_art_url ?? null,
+        }
+      }),
     [cells]
   )
   const progress = useMemo(

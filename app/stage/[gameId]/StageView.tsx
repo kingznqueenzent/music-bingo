@@ -21,6 +21,7 @@ import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { getLevelFromXp } from '@/lib/xp-levels'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
+import { playlistSongDisplayParts } from '@/lib/media-display'
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: 'Single Line',
@@ -179,7 +180,9 @@ export function StageView({ gameId }: { gameId: string }) {
   const isYouTube = clipKind === 'youtube'
   const isMp3Clip = clipKind === 'mp3'
   const isLegacyLocal = !isMp3Clip && currentSong?.source === 'local' && !!currentSong?.file_url
-  const nowPlayingLabel = currentSong?.title || currentSong?.youtube_id || 'Music Bingo'
+  const nowPlayingParts = currentSong
+    ? playlistSongDisplayParts(currentSong)
+    : { title: 'Music Bingo', artist: null as string | null, full: 'Music Bingo' }
   const source = isMp3Clip || (currentSong?.source === 'local' && currentSong?.file_url) ? 'local' : 'youtube'
   const showAdCarousel = !currentSong || playbackPaused
 
@@ -287,13 +290,22 @@ export function StageView({ gameId }: { gameId: string }) {
         {currentSong && (
           <div className="w-full max-w-6xl mb-4 flex items-center justify-center gap-4">
             <SourceIndicator source={source} />
-            <div className="flex-1 min-w-0 text-center">
+            <div className="flex-1 min-w-0 text-center px-1">
               <h1
-                className="text-2xl md:text-4xl lg:text-5xl font-bold text-white truncate"
+                className="stage-now-playing-title text-white"
                 style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+                title={nowPlayingParts.full}
               >
-                {nowPlayingLabel}
+                {nowPlayingParts.title}
               </h1>
+              {nowPlayingParts.artist ? (
+                <p
+                  className="mt-1 text-slate-300 font-medium"
+                  style={{ fontSize: 'clamp(0.85rem, 0.6rem + 1.4vw, 1.35rem)' }}
+                >
+                  {nowPlayingParts.artist}
+                </p>
+              ) : null}
             </div>
             {currentSong.album_art_url && (
               // eslint-disable-next-line @next/next/no-img-element

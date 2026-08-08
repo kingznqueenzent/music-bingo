@@ -167,6 +167,96 @@ input[type="button"],
   animation: drawer-slide-in 0.28s ease-out forwards;
 }
 
+/* Bingo / stage song titles — fluid type that stays readable on narrow Android viewports */
+.bingo-grid {
+  container-type: inline-size;
+  container-name: bingo-grid;
+}
+
+.bingo-cell {
+  container-type: size;
+  min-width: 0;
+}
+
+.bingo-cell-title {
+  font-size: clamp(0.55rem, 0.35rem + 2.8cqi, 0.95rem);
+  line-height: 1.2;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.bingo-cell-artist {
+  font-size: clamp(0.48rem, 0.3rem + 1.8cqi, 0.72rem);
+  line-height: 1.15;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+@container bingo-grid (max-width: 22rem) {
+  .bingo-cell-title {
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    font-size: clamp(0.52rem, 0.3rem + 3.2cqi, 0.8rem);
+  }
+}
+
+.stage-now-playing-title {
+  font-size: clamp(1.15rem, 0.7rem + 3.2vw, 3rem);
+  line-height: 1.15;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.host-song-title {
+  font-size: clamp(0.7rem, 0.55rem + 0.6vw, 0.95rem);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
+.host-verify-cell-title {
+  font-size: clamp(0.55rem, 0.4rem + 0.8cqi, 0.75rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  max-width: 100%;
+}
+
 /* Bingo card: gold glow when a called song is marked */
 @keyframes bingo-gold-flash {
   0% {

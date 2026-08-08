@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getFreeCenterPosition } from '@/lib/bingo-win-pattern'
+import { splitSongDisplayParts } from '@/lib/media-display'
 
 export type BingoCardCell = {
   id: string
   position: number
   playlistSongId: string
   label: string
+  title?: string | null
+  artist?: string | null
   albumArtUrl?: string | null
 }
 
@@ -90,10 +93,10 @@ export function BingoCard({
 
   return (
     <div
-      className={`bg-[#1E1E1E] rounded-2xl p-3 sm:p-5 border border-[#00FFFF]/25 shadow-[0_0_24px_rgba(0,255,255,0.08)] transform-gpu contain-paint ${className}`}
+      className={`bingo-card-shell bg-[#1E1E1E] rounded-2xl p-2 sm:p-4 md:p-5 border border-[#00FFFF]/25 shadow-[0_0_24px_rgba(0,255,255,0.08)] transform-gpu contain-paint ${className}`}
     >
       <div
-        className="grid gap-1.5 sm:gap-2.5 will-change-auto"
+        className="bingo-grid grid gap-1 sm:gap-2 md:gap-2.5"
         style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: size }, (_, row) =>
@@ -109,13 +112,13 @@ export function BingoCard({
               return (
                 <div
                   key={`free-${position}`}
-                  className="aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-2 text-center border-2 border-[#FFD700]/70 bg-gradient-to-br from-[#FFD700]/20 to-[#1E1E1E] text-[#FFD700] min-h-[4.5rem] min-w-[3rem] shadow-[inset_0_0_20px_rgba(255,215,0,0.12)]"
+                  className="bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center p-1 sm:p-2 text-center border-2 border-[#FFD700]/70 bg-gradient-to-br from-[#FFD700]/20 to-[#1E1E1E] text-[#FFD700] min-h-11 sm:min-h-[4.5rem] shadow-[inset_0_0_20px_rgba(255,215,0,0.12)]"
                   aria-label="Free space"
                 >
-                  <span className="text-xl sm:text-2xl leading-none" aria-hidden>
+                  <span className="text-lg sm:text-2xl leading-none" aria-hidden>
                     ★
                   </span>
-                  <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest mt-1">
+                  <span className="bingo-cell-artist mt-0.5 font-black uppercase tracking-wider text-[#FFD700]">
                     Free
                   </span>
                 </div>
@@ -126,19 +129,29 @@ export function BingoCard({
               return (
                 <div
                   key={`missing-${position}`}
-                  className="aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 border-2 border-dashed border-amber-600/40 text-amber-200/70 min-h-[4.5rem] min-w-[3rem] text-xs uppercase"
+                  className="bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center p-1 border-2 border-dashed border-amber-600/40 text-amber-200/70 min-h-11 sm:min-h-[4.5rem] uppercase"
                 >
-                  Missing
+                  <span className="bingo-cell-title">Missing</span>
                 </div>
               )
             }
 
-            const label = cell.label || '—'
+            const parts =
+              cell.title || cell.artist
+                ? {
+                    title: (cell.title || cell.label || '—').trim() || '—',
+                    artist: cell.artist?.trim() || null,
+                    full: cell.label || cell.title || '—',
+                  }
+                : splitSongDisplayParts(cell.label)
+
             return (
               <button
                 key={cell.id}
                 type="button"
                 aria-pressed={isMarked}
+                aria-label={parts.full}
+                title={parts.full}
                 onPointerDown={(e) => {
                   if (e.pointerType !== 'touch') return
                   e.preventDefault()
@@ -156,9 +169,10 @@ export function BingoCard({
                   handleCellTap(cell, row, col)
                 }}
                 className={`
-                  aspect-square rounded-xl flex flex-col items-center justify-center p-1.5 sm:p-2.5 text-center
-                  text-xs sm:text-sm font-medium border-2 transition-colors duration-200 overflow-hidden cursor-pointer
-                  touch-manipulation min-h-[4.5rem] min-w-[3rem] select-none active:scale-[0.98]
+                  bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center
+                  p-1 sm:p-1.5 md:p-2 text-center border-2 transition-colors duration-200
+                  overflow-hidden cursor-pointer touch-manipulation min-h-11 sm:min-h-[4.5rem]
+                  select-none active:scale-[0.98] transform-gpu
                   ${goldAnim ? 'animate-bingo-gold-flash' : ''}
                   ${shakeAnim ? 'animate-bingo-red-shake' : ''}
                   ${
@@ -174,10 +188,15 @@ export function BingoCard({
                   <img
                     src={cell.albumArtUrl}
                     alt=""
-                    className="w-5 h-5 sm:w-6 sm:h-6 rounded object-cover shrink-0 mb-0.5 pointer-events-none"
+                    className="hidden sm:block w-5 h-5 md:w-6 md:h-6 rounded object-cover shrink-0 mb-0.5 pointer-events-none"
                   />
                 ) : null}
-                <span className="line-clamp-4 leading-snug break-words pointer-events-none">{label}</span>
+                <span className="bingo-cell-title pointer-events-none w-full px-0.5">{parts.title}</span>
+                {parts.artist ? (
+                  <span className="bingo-cell-artist pointer-events-none w-full px-0.5 mt-0.5 opacity-80">
+                    {parts.artist}
+                  </span>
+                ) : null}
               </button>
             )
           })

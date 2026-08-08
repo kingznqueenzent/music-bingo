@@ -1,7 +1,7 @@
 'use client'
 
 import type { PlaylistSong } from '@/lib/supabase/types'
-import { playlistSongLabel } from '@/lib/media-display'
+import { playlistSongDisplayParts } from '@/lib/media-display'
 
 export type HostSongControlsProps = {
   clipSeconds: number
@@ -96,19 +96,23 @@ export function CalledSongsLog({ songs, className = '' }: CalledSongsLogProps) {
       {songs.length === 0 ? (
         <p className="text-slate-500 text-sm">No tracks called yet — play from Up Next.</p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-56 overflow-y-auto">
-          {songs.map((song, i) => (
-            <div
-              key={song.id}
-              className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-2 py-2 text-center"
-              title={playlistSongLabel(song)}
-            >
-              <span className="text-[10px] text-emerald-400/80 font-mono">#{i + 1}</span>
-              <p className="text-xs text-emerald-100 line-clamp-2 leading-tight mt-0.5">
-                {playlistSongLabel(song)}
-              </p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-56 overflow-y-auto overscroll-contain">
+          {songs.map((song, i) => {
+            const parts = playlistSongDisplayParts(song)
+            return (
+              <div
+                key={song.id}
+                className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-2 py-2 text-center min-w-0"
+                title={parts.full}
+              >
+                <span className="text-[10px] text-emerald-400/80 font-mono">#{i + 1}</span>
+                <p className="host-song-title text-emerald-100 mt-0.5">{parts.title}</p>
+                {parts.artist ? (
+                  <p className="text-[10px] text-emerald-200/70 truncate mt-0.5">{parts.artist}</p>
+                ) : null}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

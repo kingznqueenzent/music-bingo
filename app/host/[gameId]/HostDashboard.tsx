@@ -23,7 +23,7 @@ import { FeatureGate } from '@/components/FeatureGate'
 import { GameSponsorsPanel } from '@/components/GameSponsorsPanel'
 import { HostChatModeration } from '@/components/HostChatModeration'
 import Link from 'next/link'
-import { playlistSongLabel } from '@/lib/media-display'
+import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display'
 import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
 import { useAutoDismissStack } from '@/hooks/useAutoDismissStack'
 import {
@@ -1146,12 +1146,12 @@ export function HostDashboard({
             <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wide mb-2">
               Up next – click to play
             </h4>
-            <ul className="space-y-1.5 max-h-72 overflow-y-auto">
+            <ul className="space-y-1.5 max-h-72 overflow-y-auto overscroll-contain">
               {upNext.map((song, idx) => {
-                const label = playlistSongLabel(song)
+                const parts = playlistSongDisplayParts(song)
                 const isPlaying = playingSongId === song.id
                 return (
-                  <li key={song.id}>
+                  <li key={song.id} className="min-w-0">
                     <button
                       type="button"
                       onClick={() => {
@@ -1167,14 +1167,20 @@ export function HostDashboard({
                         handleNextSong(song)
                         setTimeout(() => { playRowTouchHandledRef.current = false }, 400)
                       }}
-                      className="w-full flex items-center gap-2 py-3 px-3 rounded-lg hover:bg-slate-800/80 active:bg-slate-700/80 transition-colors cursor-pointer touch-manipulation select-none text-left min-h-[48px] border-0"
+                      className="w-full flex items-center gap-2 py-3 px-3 rounded-lg hover:bg-slate-800/80 active:bg-slate-700/80 transition-colors cursor-pointer touch-manipulation select-none text-left min-h-12 border-0"
                       style={{ WebkitTapHighlightColor: 'transparent' }}
+                      title={parts.full}
                     >
                       <span className="rounded-full bg-emerald-500 text-white font-semibold py-1.5 px-3 text-xs shrink-0 min-w-[4rem] text-center pointer-events-none">
                         {isPlaying ? 'Playing…' : 'Play'}
                       </span>
                       <span className="text-slate-500 w-6 text-sm shrink-0 pointer-events-none">{idx + 1}</span>
-                      <span className="flex-1 truncate text-slate-200 text-sm pointer-events-none">{label}</span>
+                      <span className="flex-1 min-w-0 pointer-events-none">
+                        <span className="host-song-title text-slate-200 block">{parts.title}</span>
+                        {parts.artist ? (
+                          <span className="text-slate-500 text-xs truncate block">{parts.artist}</span>
+                        ) : null}
+                      </span>
                     </button>
                   </li>
                 )
@@ -1188,12 +1194,17 @@ export function HostDashboard({
             <h4 className="text-sm font-semibold text-slate-500 uppercase tracking-wide mb-2">
               Recently Played (Master list)
             </h4>
-            <ul className="space-y-1.5 max-h-72 overflow-y-auto">
+            <ul className="space-y-1.5 max-h-72 overflow-y-auto overscroll-contain">
               {playedSongs.map((song) => {
-                const label = playlistSongLabel(song)
+                const parts = playlistSongDisplayParts(song)
                 return (
-                  <li key={song.id} className="flex items-center gap-2 opacity-70">
-                    <span className="text-slate-500 text-sm line-through flex-1 truncate">{label}</span>
+                  <li key={song.id} className="flex items-center gap-2 opacity-70 min-w-0">
+                    <span className="flex-1 min-w-0">
+                      <span className="host-song-title text-slate-400 line-through block">{parts.title}</span>
+                      {parts.artist ? (
+                        <span className="text-slate-600 text-xs truncate block">{parts.artist}</span>
+                      ) : null}
+                    </span>
                     <span className="text-slate-600 text-xs shrink-0">Played</span>
                   </li>
                 )
@@ -1238,7 +1249,7 @@ export function HostDashboard({
               )}
             </p>
             <div
-              className="inline-grid gap-1 p-2 rounded-xl bg-slate-800/50"
+              className="bingo-grid w-full max-w-md inline-grid gap-1.5 p-2 rounded-xl bg-slate-800/50"
               style={{
                 gridTemplateColumns: `repeat(${gridSize}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${gridSize}, auto)`,
@@ -1249,14 +1260,14 @@ export function HostDashboard({
                 .map((cell) => (
                   <div
                     key={cell.position}
-                    className={`rounded-lg px-2 py-1.5 text-xs font-medium min-h-[2.5rem] flex items-center justify-center text-center ${
+                    className={`bingo-cell rounded-lg px-1.5 py-2 font-medium min-h-11 min-w-0 flex items-center justify-center text-center ${
                       cell.played
                         ? 'bg-emerald-600/80 text-white'
                         : 'bg-slate-700/80 text-slate-400'
                     }`}
                     title={cell.title ?? undefined}
                   >
-                    {cell.title ? (cell.title.length > 12 ? cell.title.slice(0, 11) + '…' : cell.title) : '—'}
+                    <span className="host-verify-cell-title">{cell.title?.trim() || '—'}</span>
                   </div>
                 ))}
             </div>

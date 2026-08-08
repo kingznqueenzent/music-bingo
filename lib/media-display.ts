@@ -38,3 +38,32 @@ export function playlistSongLabel(song: {
   }
   return mediaDisplayName({ name: raw })
 }
+
+export type SongDisplayParts = {
+  title: string
+  artist: string | null
+  /** Combined label for tooltips / aria */
+  full: string
+}
+
+/** Split "Title — Artist" / "Title - Artist" style labels for responsive bingo/stage UI. */
+export function splitSongDisplayParts(label: string | null | undefined): SongDisplayParts {
+  const full = (label ?? '').trim() || 'Track'
+  const emDash = full.match(/^(.*?)\s+[—–]\s+(.+)$/)
+  if (emDash?.[1]?.trim() && emDash[2]?.trim()) {
+    return { title: emDash[1].trim(), artist: emDash[2].trim(), full }
+  }
+  const hyphen = full.match(/^(.*?)\s+-\s+(.+)$/)
+  if (hyphen?.[1]?.trim() && hyphen[2]?.trim() && hyphen[1].trim().length >= 2) {
+    return { title: hyphen[1].trim(), artist: hyphen[2].trim(), full }
+  }
+  return { title: full, artist: null, full }
+}
+
+export function playlistSongDisplayParts(song: {
+  title?: string | null
+  youtube_id?: string | null
+  file_url?: string | null
+}): SongDisplayParts {
+  return splitSongDisplayParts(playlistSongLabel(song))
+}
