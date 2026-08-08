@@ -2,8 +2,10 @@ import Link from 'next/link'
 import { HostCreateForm } from './HostCreateForm'
 import { HostMonetizationTeasers } from '@/components/HostMonetizationTeasers'
 import { HostTournamentsNavLink } from '@/components/HostTournamentsNavLink'
-import { HostCommandCenter } from '@/components/host/HostCommandCenter'
 import { requireAdminSession } from '@/lib/admin-guard-server'
+import { HostCommandCenter } from '@/components/host/HostCommandCenter'
+
+export const dynamic = 'force-dynamic'
 
 export default async function HostPage() {
   await requireAdminSession('/host')
@@ -23,7 +25,7 @@ export default async function HostPage() {
           href="/host/create-from-media"
           className="rounded-2xl border border-slate-700 bg-slate-900/70 px-8 py-4 text-lg font-semibold text-slate-100 hover:border-emerald-500/50 hover:bg-slate-800/70 transition-colors"
         >
-          📁 Create from Media Library
+          📁 Create from song catalog
         </a>
         <a
           href="/host/import-youtube"

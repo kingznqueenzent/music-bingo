@@ -37,25 +37,40 @@ export function useBingoTrackLibrary() {
   }, [supabase])
 
   const refetchMediaItems = useCallback(async () => {
-    const { data, error: mediaError } = await supabase
-      .from('media_library')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const pageSize = 1000
+    const items: MediaLibraryItem[] = []
+    let page = 0
+    const fullSelect = '*'
+    const fallbackSelect =
+      'id, name, file_path, file_url, storage_bucket, file_type, file_size_bytes, created_at'
+    let useFallback = false
 
-    if (mediaError) {
-      const isSchemaCache = /theme_id|schema cache|column.*media_library/i.test(mediaError.message)
-      if (isSchemaCache) {
-        const { data: fallbackData, error: fallbackErr } = await supabase
-          .from('media_library')
-          .select('id, name, file_path, file_url, storage_bucket, file_type, file_size_bytes, created_at')
-          .order('created_at', { ascending: false })
-        if (fallbackErr) throw new Error(fallbackErr.message)
-        setMediaItems((fallbackData ?? []) as MediaLibraryItem[])
-        return
+    while (true) {
+      const from = page * pageSize
+      const to = from + pageSize - 1
+      const { data, error: mediaError } = await supabase
+        .from('media_library')
+        .select(useFallback ? fallbackSelect : fullSelect)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+
+      if (mediaError) {
+        const isSchemaCache = /theme_id|schema cache|column.*media_library/i.test(mediaError.message)
+        if (!useFallback && isSchemaCache) {
+          useFallback = true
+          page = 0
+          items.length = 0
+          continue
+        }
+        throw new Error(mediaError.message)
       }
-      throw new Error(mediaError.message)
+      if (!data?.length) break
+      items.push(...(data as unknown as MediaLibraryItem[]))
+      if (data.length < pageSize) break
+      page += 1
     }
-    setMediaItems((data ?? []) as MediaLibraryItem[])
+
+    setMediaItems(items)
   }, [supabase])
 
   const refetchThemes = useCallback(async () => {

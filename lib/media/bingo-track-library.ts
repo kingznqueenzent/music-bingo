@@ -23,15 +23,29 @@ export async function loadLibraryTracks(supabase: SupabaseClient): Promise<{
   tracks: BingoTrackLibraryRow[]
   error?: string
 }> {
-  const { data, error } = await supabase
-    .from(CHOICE_A_TRACKS_TABLE)
-    .select(LIBRARY_TRACK_SELECT)
-    .is('game_id', null)
-    .order('genre', { ascending: true })
-    .order('title', { ascending: true })
+  const pageSize = 1000
+  const tracks: BingoTrackLibraryRow[] = []
+  let page = 0
 
-  if (error) return { tracks: [], error: error.message }
-  return { tracks: (data ?? []) as BingoTrackLibraryRow[] }
+  while (true) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const { data, error } = await supabase
+      .from(CHOICE_A_TRACKS_TABLE)
+      .select(LIBRARY_TRACK_SELECT)
+      .is('game_id', null)
+      .order('genre', { ascending: true })
+      .order('title', { ascending: true })
+      .range(from, to)
+
+    if (error) return { tracks: [], error: error.message }
+    if (!data?.length) break
+    tracks.push(...(data as BingoTrackLibraryRow[]))
+    if (data.length < pageSize) break
+    page += 1
+  }
+
+  return { tracks }
 }
 
 /** Catalog summary for host media / parity checks (theme_songs source + library rows). */
@@ -113,12 +127,29 @@ export async function syncMediaLibraryToTracks(
   genres: Genre[],
   eras: Era[]
 ): Promise<{ inserted: number; skipped: number; error?: string }> {
-  const { data: mediaRows, error: mediaError } = await supabase
-    .from('media_library')
-    .select('id, name, file_url, file_path, theme_id')
-    .order('created_at', { ascending: false })
-
-  if (mediaError) return { inserted: 0, skipped: 0, error: mediaError.message }
+  const pageSize = 1000
+  const mediaRows: {
+    id: string
+    name: string
+    file_url: string | null
+    file_path: string | null
+    theme_id: string | null
+  }[] = []
+  let mediaPage = 0
+  while (true) {
+    const from = mediaPage * pageSize
+    const to = from + pageSize - 1
+    const { data, error: mediaError } = await supabase
+      .from('media_library')
+      .select('id, name, file_url, file_path, theme_id')
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (mediaError) return { inserted: 0, skipped: 0, error: mediaError.message }
+    if (!data?.length) break
+    mediaRows.push(...data)
+    if (data.length < pageSize) break
+    mediaPage += 1
+  }
 
   const { tracks: existing } = await loadLibraryTracks(supabase)
   const existingKeys = new Set(existing.map((t) => normalizeTrackKey(t.title, t.artist)))
@@ -126,7 +157,7 @@ export async function syncMediaLibraryToTracks(
   let inserted = 0
   let skipped = 0
 
-  for (const row of mediaRows ?? []) {
+  for (const row of mediaRows) {
     const { title, artist } = parseTitleArtist(row.name)
     const key = normalizeTrackKey(title, artist)
     if (existingKeys.has(key)) {

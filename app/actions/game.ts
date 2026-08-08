@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createGameFromThemeDirect } from '@/lib/db'
 import { generateCardLayout, minSongsForGrid } from '@/lib/bingo/cards'
-import { getMaxPlayersForTier, type GameTier } from '@/lib/tiers'
+import type { GameTier } from '@/lib/tiers'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
 import { findLyricLobbyGame, insertGameOrReuseLobby } from '@/lib/game-room-code'
@@ -99,10 +99,40 @@ export async function createGame(
   return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
 }
 
-/** Host: create a game from Media Library (uploaded MP3/MP4) — requires Pro or Enterprise */
+type CatalogSongRow = {
+  id: string
+  title: string
+  artist: string | null
+  media_url: string | null
+  youtube_url: string | null
+  media_type: string
+}
+
+async function fetchSongsByIds(
+  supabase: ReturnType<typeof createClient>,
+  ids: string[]
+): Promise<{ rows: CatalogSongRow[]; error?: string }> {
+  const CHUNK = 100
+  const rows: CatalogSongRow[] = []
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK)
+    const { data, error } = await supabase
+      .from('songs')
+      .select('id, title, artist, media_url, youtube_url, media_type')
+      .in('id', chunk)
+    if (error) return { rows: [], error: error.message }
+    if (data?.length) rows.push(...(data as CatalogSongRow[]))
+  }
+  return { rows }
+}
+
+/**
+ * Host: create a game from the songs catalog (`public.songs`).
+ * Accepts catalog song IDs (Media Manager / create-from-media). Pro+ recommended for local media.
+ */
 export async function createGameFromMediaLibrary(
   playlistName: string,
-  mediaIds: string[],
+  songIds: string[],
   options: GameCreateOptions = {}
 ) {
   const supabase = createClient()
@@ -115,45 +145,35 @@ export async function createGameFromMediaLibrary(
     return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
   }
 
-  const uniqueIds = [...new Set(mediaIds)]
+  const uniqueIds = [...new Set(songIds)]
   if (uniqueIds.length < minSongs) {
     return {
       error: `Select at least ${minSongs} tracks for a ${gridSize}×${gridSize} grid (selected ${uniqueIds.length} unique).`,
     }
   }
 
-  const { data: mediaRows, error: mediaError } = await supabase
-    .from('media_library')
-    .select('id, name, file_url, file_path, file_type')
-    .in('id', uniqueIds)
-
-  if (mediaError || !mediaRows?.length) {
-    return { error: mediaError?.message ?? 'Could not load media files.' }
+  const { rows: catalogRows, error: catalogError } = await fetchSongsByIds(supabase, uniqueIds)
+  if (catalogError || !catalogRows.length) {
+    return { error: catalogError ?? 'Could not load catalog tracks.' }
   }
 
-  const byId = new Map(mediaRows.map((m) => [m.id, m]))
-  const ordered = uniqueIds.map((id) => byId.get(id)).filter(Boolean) as typeof mediaRows
-  if (ordered.length < minSongs) {
-    return { error: `Only ${ordered.length} valid files found; need ${minSongs}.` }
-  }
+  const byId = new Map(catalogRows.map((s) => [s.id, s]))
+  const ordered = uniqueIds.map((id) => byId.get(id)).filter(Boolean) as CatalogSongRow[]
 
-  const seenPaths = new Set<string>()
-  const deduped = ordered.filter((m) => {
-    const path = m.file_path ?? m.file_url ?? m.id
-    if (seenPaths.has(path)) return false
-    seenPaths.add(path)
+  const seenKeys = new Set<string>()
+  const playable = ordered.filter((s) => {
+    const mediaUrl = s.media_url?.trim() || null
+    const youtubeUrl = s.youtube_url?.trim() || null
+    if (!mediaUrl && !youtubeUrl) return false
+    const key = `${(s.title || '').toLowerCase()}|${(s.artist || '').toLowerCase()}|${mediaUrl || youtubeUrl}`
+    if (seenKeys.has(key)) return false
+    seenKeys.add(key)
     return true
   })
-  if (deduped.length < minSongs) {
+
+  if (playable.length < minSongs) {
     return {
-      error: `After removing duplicates, only ${deduped.length} unique tracks; need ${minSongs}.`,
-    }
-  }
-  // Only include YouTube and local (MP3/MP4); Spotify is not used in this app
-  const songsToInsert = deduped.filter((m) => m.file_type !== 'spotify')
-  if (songsToInsert.length < minSongs) {
-    return {
-      error: `Need ${minSongs} playable tracks (YouTube or uploaded files). Spotify is not supported.`,
+      error: `Only ${playable.length} playable tracks (with media or YouTube URL) after filtering; need ${minSongs}.`,
     }
   }
 
@@ -167,14 +187,31 @@ export async function createGameFromMediaLibrary(
     return { error: playlistError?.message ?? 'Failed to create playlist' }
   }
 
-  const songs = songsToInsert.map((m, index) => ({
-    playlist_id: playlist.id,
-    source: 'local' as const,
-    youtube_id: null,
-    file_url: m.file_url ?? null,
-    title: m.name,
-    position: index,
-  }))
+  const songs = playable.map((s, index) => {
+    const youtubeId = s.youtube_url ? extractYoutubeId(s.youtube_url) : null
+    const mediaUrl = s.media_url?.trim() || null
+    const title = s.artist ? `${s.title} — ${s.artist}` : s.title
+    if (youtubeId && !mediaUrl) {
+      return {
+        playlist_id: playlist.id,
+        source: 'youtube' as const,
+        youtube_id: youtubeId,
+        file_url: null,
+        audio_url: null,
+        title,
+        position: index,
+      }
+    }
+    return {
+      playlist_id: playlist.id,
+      source: 'local' as const,
+      youtube_id: youtubeId,
+      file_url: mediaUrl,
+      audio_url: mediaUrl,
+      title,
+      position: index,
+    }
+  })
 
   const { error: songsError } = await supabase.from('playlist_songs').insert(songs)
   if (songsError) {
@@ -305,18 +342,6 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
   }
   if (game.status === 'ended') {
     return { error: 'This game has ended.' }
-  }
-
-  const tier = (game.tier as GameTier) ?? 'free'
-  const maxPlayers = getMaxPlayersForTier(tier)
-  const { count } = await supabase
-    .from('cards')
-    .select('*', { count: 'exact', head: true })
-    .eq('game_id', game.id)
-  if ((count ?? 0) >= maxPlayers) {
-    return {
-      error: `This game has reached the ${tier} tier limit (${maxPlayers} players). Upgrade to add more.`,
-    }
   }
 
   const gridSize = (game.grid_size === 4 ? 4 : 5) as 4 | 5
