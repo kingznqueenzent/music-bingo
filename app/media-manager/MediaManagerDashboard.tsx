@@ -33,6 +33,7 @@ import { MediaManagerFilterTabs, MediaManagerFiltersPanel } from './MediaManager
 import { MediaSongRow } from './MediaSongRow'
 import { useMediaCatalog } from './hooks/useMediaCatalog'
 import { useHostTier } from './hooks/useHostTier'
+import { MediaManagerUpgradeWall } from './MediaManagerUpgradeWall'
 import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { TrackQuotaUpgradeModal } from '@/components/media/TrackQuotaUpgradeModal'
@@ -74,6 +75,21 @@ function buildUpdatePayload(form: Partial<CatalogSong>): SongUpdatePayload {
 
 /** Client shell for `/media-manager` — search, filters, table selection, bulk toolbar. */
 export function MediaManagerPageClient() {
+  const hostTier = useHostTier(0)
+
+  if (hostTier.loading) {
+    return (
+      <main className="min-h-dvh lg-surface-canvas flex items-center justify-center text-slate-400 gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Loading Media Manager…
+      </main>
+    )
+  }
+
+  if (!hostTier.hasMediaLibraryAccess) {
+    return <MediaManagerUpgradeWall tier={hostTier.tier} />
+  }
+
   return <MediaManagerDashboardInner />
 }
 
@@ -100,32 +116,24 @@ function MediaManagerDashboardInner() {
   const [quotaModalOpen, setQuotaModalOpen] = useState(false)
   const [quotaModalMessage, setQuotaModalMessage] = useState<string | undefined>()
 
-  const atQuotaCap =
-    !hostTier.loading &&
-    !hostTier.isUnlimited &&
-    hostTier.limit != null &&
-    songs.length >= hostTier.limit
+  const atQuotaCap = false
 
   const handleQuotaBlocked = useCallback(
     (message: string) => {
-      if (hostTier.isUnlimited || hostTier.loading) return
       setQuotaModalMessage(message)
       setQuotaModalOpen(true)
       setError(message)
     },
-    [hostTier.isUnlimited, hostTier.loading, setError]
+    [setError]
   )
 
   const trackQuotaGate = useMemo(
-    () =>
-      hostTier.isUnlimited
-        ? undefined
-        : {
-            tier: hostTier.tier,
-            catalogCount: songs.length,
-            onQuotaBlocked: handleQuotaBlocked,
-          },
-    [hostTier.isUnlimited, hostTier.tier, songs.length, handleQuotaBlocked]
+    () => ({
+      tier: hostTier.tier,
+      catalogCount: songs.length,
+      onQuotaBlocked: handleQuotaBlocked,
+    }),
+    [hostTier.tier, songs.length, handleQuotaBlocked]
   )
 
   const { playingSongId, togglePlayback, stop } = useAudioPreview()
@@ -495,13 +503,7 @@ function MediaManagerDashboardInner() {
                 {loading ? '…' : songs.length}
               </span>
               {!hostTier.loading && (
-                <span
-                  className={`text-[10px] px-2 py-0.5 rounded-full border tabular-nums shrink-0 ${
-                    atQuotaCap
-                      ? 'border-amber-500/40 text-amber-300 bg-amber-500/10'
-                      : 'border-white/10 text-white/45 bg-white/5'
-                  }`}
-                >
+                <span className="text-[10px] px-2 py-0.5 rounded-full border tabular-nums shrink-0 border-white/10 text-white/45 bg-white/5">
                   {hostTier.badgeLabel}
                 </span>
               )}
@@ -631,7 +633,7 @@ function MediaManagerDashboardInner() {
             onError={setError}
             themeCounts={themeCounts.counts}
             trackQuota={trackQuotaGate}
-            quotaLabel={hostTier.isUnlimited ? 'Unlimited tracks' : hostTier.label}
+            quotaLabel={hostTier.label}
             atQuotaCap={atQuotaCap}
           />
 
@@ -799,7 +801,6 @@ function MediaManagerDashboardInner() {
         open={quotaModalOpen}
         onClose={() => setQuotaModalOpen(false)}
         tier={hostTier.tier}
-        currentCount={songs.length}
         message={quotaModalMessage}
       />
     </main>

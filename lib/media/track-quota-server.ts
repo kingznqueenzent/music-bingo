@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveHostTier } from '@/lib/host-tier'
 import {
   checkTrackQuota,
-  TRACK_QUOTA_EXCEEDED_CODE,
+  MEDIA_LIBRARY_REQUIRES_PRO_CODE,
   type TrackQuotaCheckResult,
 } from '@/lib/media/track-quota'
 
@@ -28,7 +28,7 @@ export async function assertTrackQuotaForInsert(
 export function trackQuotaErrorResponse(result: Extract<TrackQuotaCheckResult, { allowed: false }>) {
   return {
     error: result.reason,
-    code: TRACK_QUOTA_EXCEEDED_CODE,
+    code: MEDIA_LIBRARY_REQUIRES_PRO_CODE,
     tier: result.snapshot.tier,
     currentCount: result.snapshot.currentCount,
     limit: result.snapshot.limit,

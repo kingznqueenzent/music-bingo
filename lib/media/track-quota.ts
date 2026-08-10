@@ -1,7 +1,11 @@
 import type { GameTier } from '@/lib/tiers'
+import { hasMediaLibraryAccess } from '@/lib/tiers'
 
-/** Free-tier cap on `public.songs` rows (the shared media library catalog). */
-export const FREE_TIER_TRACK_LIMIT = 50
+/** Error code returned by upload/catalog APIs when Free tier lacks library access. */
+export const MEDIA_LIBRARY_REQUIRES_PRO_CODE = 'MEDIA_LIBRARY_REQUIRES_PRO'
+
+/** @deprecated Use MEDIA_LIBRARY_REQUIRES_PRO_CODE */
+export const TRACK_QUOTA_EXCEEDED_CODE = MEDIA_LIBRARY_REQUIRES_PRO_CODE
 
 export type TrackQuotaSnapshot = {
   tier: GameTier
@@ -9,66 +13,57 @@ export type TrackQuotaSnapshot = {
   limit: number | null
   remaining: number | null
   isUnlimited: boolean
+  mediaLibraryAccess: boolean
 }
 
 export function getTrackLimitForTier(tier: GameTier): number | null {
-  if (tier === 'pro' || tier === 'enterprise') return null
-  return FREE_TIER_TRACK_LIMIT
+  if (hasMediaLibraryAccess(tier)) return null
+  return 0
 }
 
 export function isUnlimitedTrackTier(tier: GameTier): boolean {
-  return tier === 'pro' || tier === 'enterprise'
+  return hasMediaLibraryAccess(tier)
 }
 
 export function buildTrackQuotaSnapshot(tier: GameTier, currentCount: number): TrackQuotaSnapshot {
+  const mediaLibraryAccess = hasMediaLibraryAccess(tier)
   const limit = getTrackLimitForTier(tier)
-  const isUnlimited = limit === null
-  const remaining = isUnlimited ? null : Math.max(0, limit - currentCount)
-  return { tier, currentCount, limit, remaining, isUnlimited }
+  const isUnlimited = mediaLibraryAccess
+  const remaining = isUnlimited ? null : 0
+  return { tier, currentCount, limit, remaining, isUnlimited, mediaLibraryAccess }
 }
 
 export function formatTrackQuotaLabel(snapshot: TrackQuotaSnapshot): string {
-  if (snapshot.isUnlimited) return 'Unlimited tracks'
-  return `${snapshot.currentCount} / ${snapshot.limit} tracks used`
+  if (!snapshot.mediaLibraryAccess) return 'Media Library requires Pro+'
+  return 'Unlimited tracks'
 }
 
 export type TrackQuotaCheckResult =
   | { allowed: true; snapshot: TrackQuotaSnapshot }
   | { allowed: false; snapshot: TrackQuotaSnapshot; reason: string }
 
-/** Returns whether `addingCount` new catalog rows fit under the host tier cap. */
+const MEDIA_LIBRARY_BLOCKED_REASON =
+  'Media Library requires Pro+. Upgrade to Pro for unlimited library storage and management.'
+
+/** Returns whether `addingCount` new catalog rows are allowed for the host tier. */
 export function checkTrackQuota(
   tier: GameTier,
   currentCount: number,
   addingCount: number
 ): TrackQuotaCheckResult {
   const snapshot = buildTrackQuotaSnapshot(tier, currentCount)
-  if (snapshot.isUnlimited || addingCount <= 0) {
+
+  if (!hasMediaLibraryAccess(tier)) {
+    return {
+      allowed: false,
+      snapshot,
+      reason: MEDIA_LIBRARY_BLOCKED_REASON,
+    }
+  }
+
+  if (addingCount <= 0) {
     return { allowed: true, snapshot }
-  }
-
-  const limit = snapshot.limit!
-  if (currentCount >= limit) {
-    return {
-      allowed: false,
-      snapshot,
-      reason: `Free plan is limited to ${limit} tracks. Upgrade to Pro or Enterprise for unlimited library storage.`,
-    }
-  }
-
-  if (currentCount + addingCount > limit) {
-    const room = Math.max(0, limit - currentCount)
-    return {
-      allowed: false,
-      snapshot,
-      reason:
-        room === 0
-          ? `Free plan is limited to ${limit} tracks. Upgrade to Pro or Enterprise for unlimited library storage.`
-          : `Free plan allows ${limit} tracks (${room} slot${room === 1 ? '' : 's'} left). Remove tracks or upgrade for unlimited storage.`,
-    }
   }
 
   return { allowed: true, snapshot }
 }
-
-export const TRACK_QUOTA_EXCEEDED_CODE = 'TRACK_QUOTA_EXCEEDED'

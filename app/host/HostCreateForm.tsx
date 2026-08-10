@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createGame } from '@/app/actions/game'
-import { type GameTier } from '@/lib/tiers'
+import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 
 const MIN_5X5 = 45
@@ -14,11 +14,7 @@ function parseYoutubeId(url: string): string | null {
   return m ? m[1] : null
 }
 
-const TIER_LABELS: Record<GameTier, string> = {
-  free: 'Free (50-track library, unlimited players)',
-  pro: 'Pro (unlimited library + stage features)',
-  enterprise: 'Enterprise (unlimited library + white-label branding)',
-}
+const TIER_LABELS = TIER_FEATURE_LABELS
 
 const fieldClass =
   'w-full p-4 rounded-2xl lg-neon-input text-white placeholder-white/35 resize-y font-mono text-sm'

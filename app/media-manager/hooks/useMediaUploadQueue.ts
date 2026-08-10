@@ -15,7 +15,11 @@ import {
 } from '@/lib/media/apply-auto-category-to-track'
 import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
 import type { GameTier } from '@/lib/tiers'
-import { checkTrackQuota } from '@/lib/media/track-quota'
+import {
+  checkTrackQuota,
+  MEDIA_LIBRARY_REQUIRES_PRO_CODE,
+  TRACK_QUOTA_EXCEEDED_CODE,
+} from '@/lib/media/track-quota'
 import type { CatalogTheme, SongInsertPayload } from '../types'
 
 export const MAX_UPLOAD_FILES = 20
@@ -56,8 +60,8 @@ async function insertSongRow(
   })
   const body = (await res.json()) as { error?: string; code?: string }
   if (res.ok) return
-  if (res.status === 403 && body.code === 'TRACK_QUOTA_EXCEEDED') {
-    throw new Error(body.error ?? 'Track library limit reached.')
+  if (res.status === 403 && (body.code === MEDIA_LIBRARY_REQUIRES_PRO_CODE || body.code === TRACK_QUOTA_EXCEEDED_CODE)) {
+    throw new Error(body.error ?? 'Media Library requires Pro+.')
   }
 
   const { error: insertError } = await supabase.from('songs').insert([payload])

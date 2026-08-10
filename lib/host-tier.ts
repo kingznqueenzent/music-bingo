@@ -9,10 +9,10 @@ function normalizeTier(value: string | null | undefined): GameTier | null {
 }
 
 /**
- * Host tier resolution for media-library quota (not per-game tier):
+ * Host tier resolution for media-library and branding gates:
  * 1. Explicit profile tier when provided (future: `player_profiles.tier`).
  * 2. `HOST_TIER` env override — ops / Vercel production default for venue accounts.
- * 3. Fallback `free` (50-track cap applies).
+ * 3. Fallback `free` (media library blocked; core hosting still available).
  */
 export function resolveHostTier(options?: {
   profileTier?: string | null

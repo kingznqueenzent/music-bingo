@@ -199,9 +199,9 @@ export function MediaUploadDropzone({
             <div className="mx-auto w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-300 mb-3">
               <Upload className="w-5 h-5" />
             </div>
-            <p className="text-sm font-medium text-white mb-1">Library limit reached</p>
+            <p className="text-sm font-medium text-white mb-1">Media Library requires Pro+</p>
             <p className="text-xs text-white/40">
-              Free plan is limited to 50 tracks. Upgrade to Pro or Enterprise for unlimited storage.
+              Upgrade to Pro for unlimited uploads, catalog management, and playback.
             </p>
           </>
         ) : (

@@ -18,16 +18,12 @@ import {
 import type { CatalogSong } from '@/app/media-manager/types'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
-import { type GameTier } from '@/lib/tiers'
+import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
 
 const MIN_5X5 = 45
 const MIN_4X4 = 32
 
-const TIER_LABELS: Record<GameTier, string> = {
-  free: 'Free (unlimited players)',
-  pro: 'Pro (unlimited + media)',
-  enterprise: 'Enterprise (unlimited + branding)',
-}
+const TIER_LABELS = TIER_FEATURE_LABELS
 
 export function CreateFromMediaForm() {
   const router = useRouter()

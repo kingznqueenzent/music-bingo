@@ -23,6 +23,7 @@ import { PastGamesPanel } from '@/components/host/PastGamesPanel'
 import { RoomHealthPanel } from '@/components/host/RoomHealthPanel'
 import { SourceIndicator } from '@/components/SourceIndicator'
 import { FeatureGate } from '@/components/FeatureGate'
+import { EnterpriseBrandingGate } from '@/components/host/EnterpriseBrandingGate'
 import { GameSponsorsPanel } from '@/components/GameSponsorsPanel'
 import { HostChatModeration } from '@/components/HostChatModeration'
 import Link from 'next/link'
@@ -1061,6 +1062,7 @@ export function HostDashboard({
         </div>
 
         <FeatureGate flag="b2b_white_label">
+          <EnterpriseBrandingGate>
           <div className="mt-6 pt-6 border-t border-slate-700 space-y-4">
             <h4 className="text-sm font-semibold text-slate-400 uppercase tracking-wide">Venue branding</h4>
             <p className="text-slate-500 text-sm">
@@ -1121,6 +1123,7 @@ export function HostDashboard({
               {brandingSaving ? 'Saving…' : 'Save venue branding'}
             </button>
           </div>
+          </EnterpriseBrandingGate>
         </FeatureGate>
 
         <FeatureGate flag="paid_entry_games">

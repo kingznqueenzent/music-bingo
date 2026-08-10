@@ -9,7 +9,8 @@ export function HostMonetizationTeasers() {
     <div className="mt-8 flex flex-col gap-3 max-w-2xl w-full">
       <FeatureGate flag="venue_packages">
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-100/90">
-          <span className="font-semibold">Venue packages</span> — choose Basic, Pro, or Premium and send a booking request.{' '}
+          <span className="font-semibold">Venue packages</span> — Free for hosting; Pro unlocks the media library;
+          Enterprise adds custom branding.{' '}
           <Link href="/venue-packages" className="underline hover:text-white">
             Open packages
           </Link>

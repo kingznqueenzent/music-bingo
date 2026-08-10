@@ -31,7 +31,7 @@ const requiredForProduction = [
   },
   {
     name: 'HOST_TIER',
-    description: 'Host subscription tier for media library quota: free (50 tracks) | pro | enterprise',
+    description: 'Host subscription tier: free (hosting only) | pro (media library) | enterprise (media + branding)',
   },
   {
     name: 'NEXT_PUBLIC_HOST_TIER',
