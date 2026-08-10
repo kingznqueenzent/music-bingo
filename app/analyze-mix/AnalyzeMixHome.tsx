@@ -124,7 +124,7 @@ export function AnalyzeMixHome() {
         </h1>
         <p className="text-slate-400 mt-3 max-w-lg mx-auto text-sm sm:text-base">
           Upload an MP3. We fingerprint segments and estimate risk. Results need the FastAPI backend
-          (<code className="text-cyan-300/90 text-xs">MIX_API_URL</code>).
+          (<code className="text-green-300/90 text-xs">MIX_API_URL</code>).
         </p>
       </div>
 

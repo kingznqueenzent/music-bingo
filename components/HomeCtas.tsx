@@ -37,7 +37,7 @@ export function HomeCtas() {
       <FeatureGate flag="community_chat">
         <Link
           href="/community"
-          className="inline-flex items-center justify-center rounded-full border border-cyan-500/60 px-8 py-3 text-lg font-semibold text-cyan-200 hover:border-cyan-400 hover:bg-cyan-500/10 transition-colors"
+          className="inline-flex items-center justify-center rounded-full border border-green-500/60 px-8 py-3 text-lg font-semibold text-green-200 hover:border-green-400 hover:bg-green-500/10 transition-colors"
         >
           Community Hub
         </Link>

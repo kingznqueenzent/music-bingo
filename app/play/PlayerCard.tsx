@@ -676,7 +676,7 @@ export function PlayView({
     [markedSongIds, cells, size]
   )
 
-  const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FFFF'
+  const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FF66'
   const accent = whiteLabel?.brandAccentHex?.trim() || '#34d399'
   const hideLyricgrid = !!whiteLabel?.brandHideLyricgrid
 
@@ -726,7 +726,7 @@ export function PlayView({
             <>
               <LyricGridLogo size={48} className="shrink-0" />
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-[#00FFFF] to-cyan-300 bg-clip-text text-transparent">
+                <h1 className="text-2xl sm:text-4xl font-bold bg-gradient-to-r from-[#00FF66] to-green-300 bg-clip-text text-transparent">
                   Your Bingo Card
                 </h1>
                 <p className="text-slate-400 text-sm mt-0.5 truncate">{playerName}</p>
@@ -756,11 +756,11 @@ export function PlayView({
         <div className="flex items-center gap-2 shrink-0">
           {gameCode ? (
             <div
-              className="rounded-xl border border-[#00FFFF]/40 bg-[#1E1E1E] px-3 py-2 text-center"
+              className="rounded-xl border border-[#00FF66]/40 bg-[#1E1E1E] px-3 py-2 text-center"
               aria-label={`Game code ${gameCode}`}
             >
-              <p className="text-[10px] uppercase tracking-widest text-[#00FFFF]/70">Game code</p>
-              <p className="text-lg font-black text-[#00FFFF] tabular-nums tracking-wider">{gameCode}</p>
+              <p className="text-[10px] uppercase tracking-widest text-[#00FF66]/70">Game code</p>
+              <p className="text-lg font-black text-[#00FF66] tabular-nums tracking-wider">{gameCode}</p>
             </div>
           ) : null}
           {!hideLyricgrid && logoUrl ? (
@@ -772,11 +772,11 @@ export function PlayView({
 
       {lyricHint ? (
         <div
-          className="mb-4 rounded-xl border border-[#00FFFF]/35 bg-[#00FFFF]/5 px-4 py-3 text-sm text-cyan-100"
+          className="mb-4 rounded-xl border border-[#00FF66]/35 bg-[#00FF66]/5 px-4 py-3 text-sm text-green-100"
           role="note"
           aria-label="Lyric hint"
         >
-          <p className="text-[10px] uppercase tracking-widest text-[#00FFFF]/80 font-semibold mb-1">Lyric hint</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#00FF66]/80 font-semibold mb-1">Lyric hint</p>
           <p>{lyricHint}</p>
         </div>
       ) : null}
@@ -787,7 +787,7 @@ export function PlayView({
             hostShoutout.kind === 'warning'
               ? 'border-red-500/50 bg-red-950/40 text-red-100'
               : hostShoutout.kind === 'venue'
-                ? 'border-[#00FFFF]/40 bg-[#00FFFF]/10 text-cyan-100'
+                ? 'border-[#00FF66]/40 bg-[#00FF66]/10 text-green-100'
                 : 'border-amber-500/40 bg-amber-950/30 text-amber-100'
           }`}
           role="status"
@@ -825,7 +825,7 @@ export function PlayView({
       ) : null}
 
       {hideSongTitles ? (
-        <p className="mb-3 text-center text-xs uppercase tracking-widest text-[#00FFFF]/80 font-semibold">
+        <p className="mb-3 text-center text-xs uppercase tracking-widest text-[#00FF66]/80 font-semibold">
           Blind Mode — titles hidden · listen carefully
         </p>
       ) : null}
@@ -866,7 +866,7 @@ export function PlayView({
             void handleBingoClick()
           }}
           disabled={!canClaimBingo || bingoSubmitting}
-          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#00FFFF] hover:bg-cyan-300 text-[#121212] shadow-lg shadow-[#00FFFF]/30 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
+          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#00FF66] hover:bg-green-300 text-[#121212] shadow-lg shadow-[#00FF66]/30 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
         >
           {bingoSubmitting ? 'Checking…' : 'BINGO!'}
         </button>
@@ -943,7 +943,7 @@ export function PlayView({
         <FeatureGate flag="xp_and_badges">
           <Link
             href={`/profile?identifier=${encodeURIComponent(profileIdentifier || cardId)}`}
-            className="text-lg text-cyan-400/90 hover:text-cyan-300 transition-colors touch-manipulation pointer-events-auto"
+            className="text-lg text-green-400/90 hover:text-green-300 transition-colors touch-manipulation pointer-events-auto"
           >
             View your profile (XP & badges)
           </Link>

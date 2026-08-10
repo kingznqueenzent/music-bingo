@@ -47,8 +47,8 @@ export function CommunityHubClient() {
             onClick={() => setChannel(c.id)}
             className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
               channel === c.id
-                ? 'bg-cyan-600 text-white'
-                : 'bg-slate-800 text-slate-300 border border-slate-600 hover:border-cyan-500/50'
+                ? 'bg-green-600 text-white'
+                : 'bg-slate-800 text-slate-300 border border-slate-600 hover:border-green-500/50'
             }`}
           >
             {c.label}

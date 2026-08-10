@@ -72,7 +72,7 @@ export function InlineEditableField({
           }
         }}
         placeholder={placeholder}
-        className={`w-full border border-[#00FFFF]/60 rounded px-2 py-1 text-xs outline-none disabled:opacity-50 ${inputClassName}`}
+        className={`w-full border border-[#00FF66]/60 rounded px-2 py-1 text-xs outline-none disabled:opacity-50 ${inputClassName}`}
         style={{ backgroundColor: BG }}
       />
     )

@@ -29,7 +29,7 @@ export function YouTubePlayer({
   const startSeconds = getSongStartTime(song as unknown as PlayableSongFields)
 
   return (
-    <div className={`relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-[0_0_48px_rgba(0,255,255,0.15)] ${className}`}>
+    <div className={`relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-[0_0_48px_rgba(0,255,102,0.15)] ${className}`}>
       <YouTubeClipPlayer
         key={song.id}
         videoId={song.youtube_id}

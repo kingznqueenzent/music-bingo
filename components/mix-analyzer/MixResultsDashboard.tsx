@@ -83,7 +83,7 @@ export function MixResultsDashboard({ report }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
-          icon={<ShieldAlert className="h-5 w-5 text-cyan-400" />}
+          icon={<ShieldAlert className="h-5 w-5 text-green-400" />}
           label="YouTube risk (model)"
           value={String(risk)}
           hint={conf != null ? `${conf}% confidence` : undefined}
@@ -134,7 +134,7 @@ export function MixResultsDashboard({ report }: Props) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="inline-flex items-center rounded-lg bg-cyan-500/15 text-cyan-200 px-3 py-1 text-sm font-medium tabular-nums">
+                  <span className="inline-flex items-center rounded-lg bg-green-500/15 text-green-200 px-3 py-1 text-sm font-medium tabular-nums">
                     {Math.round(m.confidence * 100)}% match
                   </span>
                 </div>

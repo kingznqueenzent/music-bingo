@@ -8,7 +8,7 @@ export function LyricGridLogo({ className = '', size = 48 }: { className?: strin
   const gridH = gridRows * cell * 1.05
   const gridY = size - gridH - cell * 0.5
   const gridX = cell * 1.4
-  const neon = '#00FFFF'
+  const neon = '#00FF66'
   return (
     <svg
       width={size}

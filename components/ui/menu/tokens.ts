@@ -5,7 +5,7 @@ export const MENU_TOKENS = {
   surface: '#1A1A1A',
   surfaceElevated: '#1E1E1E',
   dark: '#121212',
-  accent: '#00FFFF',
+  accent: '#00FF66',
   radiusPanel: '1rem',
   radiusItem: '0.75rem',
   /** 48px touch target */
@@ -16,7 +16,7 @@ export const MENU_TOKENS = {
   subtitleClass: 'text-xs text-white/35',
   itemBaseClass:
     'flex w-full items-center gap-3 px-3 py-2.5 min-h-11 rounded-xl text-sm font-medium transition-colors touch-manipulation border border-transparent',
-  itemActiveClass: 'bg-[#00FFFF]/10 text-[#00FFFF] border-[#00FFFF]/25',
+  itemActiveClass: 'bg-[#00FF66]/10 text-[#00FF66] border-[#00FF66]/25',
   itemIdleClass: 'text-white/55 hover:text-white hover:bg-white/5 active:bg-white/10',
 } as const
 

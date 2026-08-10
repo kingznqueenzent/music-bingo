@@ -19,7 +19,7 @@ export default async function HostAnalyticsPage() {
     <main className="min-h-dvh bg-slate-950 text-white p-6 md:p-12">
       <div className="max-w-4xl mx-auto space-y-10">
         <div>
-          <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-400">
+          <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-400">
             Host analytics
           </h1>
           <p className="text-slate-400 mt-2">Aggregated LyricGrid usage across your deployment.</p>
@@ -66,7 +66,7 @@ export default async function HostAnalyticsPage() {
         </section>
 
         <p className="text-center">
-          <Link href="/host" className="text-cyan-400 hover:text-cyan-300">
+          <Link href="/host" className="text-green-400 hover:text-green-300">
             ← Host dashboard
           </Link>
         </p>

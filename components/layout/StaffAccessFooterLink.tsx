@@ -5,7 +5,7 @@ import Link from 'next/link'
 /** Subtle footer link to the Supabase host login portal. */
 export function StaffAccessFooterLink({
   from = '/host',
-  className = 'text-xs text-slate-500 hover:text-[#00FFFF]/80 transition-colors',
+  className = 'text-xs text-slate-500 hover:text-[#00FF66]/80 transition-colors',
 }: {
   from?: string
   className?: string

@@ -215,7 +215,7 @@ export function ChatPanel({
         onClick={() => setExpanded((e) => !e)}
         className="flex items-center justify-between gap-2 px-3 py-2.5 bg-slate-800/80 text-left w-full shrink-0"
       >
-        <span className="font-semibold text-cyan-200 text-sm">{title}</span>
+        <span className="font-semibold text-green-200 text-sm">{title}</span>
         <span className="flex items-center gap-2">
           {unread > 0 && (
             <span className="rounded-full bg-rose-500 text-white text-xs font-bold px-2 py-0.5 min-w-[1.25rem] text-center">
@@ -239,7 +239,7 @@ export function ChatPanel({
                 return (
                 <div key={m.id} className="text-sm">
                   <span className="inline-flex flex-wrap items-center gap-1.5">
-                    <span className={`font-medium ${showDj ? 'text-amber-200' : 'text-cyan-400/90'}`}>
+                    <span className={`font-medium ${showDj ? 'text-amber-200' : 'text-green-400/90'}`}>
                       {m.player_name}
                     </span>
                     {showDj && (
@@ -297,7 +297,7 @@ export function ChatPanel({
               <button
                 type="submit"
                 disabled={sending || !input.trim()}
-                className="rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-4 py-2 text-sm font-semibold text-white shrink-0"
+                className="rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 px-4 py-2 text-sm font-semibold text-white shrink-0"
               >
                 Send
               </button>

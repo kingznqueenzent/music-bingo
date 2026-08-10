@@ -96,7 +96,7 @@ export function MixAnalysisProgressBar({ phase: phaseProp, status, uploadPercent
               ? 'bg-red-500'
               : phase === 'completed'
                 ? 'bg-emerald-400'
-                : 'bg-gradient-to-r from-cyan-500 to-brand-neon'
+                : 'bg-gradient-to-r from-green-500 to-brand-neon'
           }`}
           style={{ width: `${w}%` }}
         />

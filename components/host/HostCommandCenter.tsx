@@ -49,7 +49,7 @@ export function HostCommandCenter() {
   }
 
   return (
-    <section className="lg-surface-card rounded-2xl p-6 md:p-8 max-w-2xl w-full mb-8 shadow-[0_0_32px_rgba(0,255,255,0.06)]">
+    <section className="lg-surface-card rounded-2xl p-6 md:p-8 max-w-2xl w-full mb-8 shadow-[0_0_32px_rgba(0,255,102,0.06)]">
       <h2 className="text-xl font-bold text-[var(--lg-neon)] mb-1">Host command center</h2>
       <p className="text-white/45 text-sm mb-6">
         Generate a join PIN, pick a default win pattern, and jump to bingo claim verification.

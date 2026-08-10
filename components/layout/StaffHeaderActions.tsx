@@ -17,11 +17,11 @@ export type StaffHeaderActionsProps = {
 }
 
 const DEFAULT_MENU_BUTTON =
-  'inline-flex items-center justify-center gap-2 min-h-12 min-w-12 md:min-w-0 md:h-12 md:px-4 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-[#00FFFF] hover:border-[#00FFFF]/40 hover:bg-[#00FFFF]/5 active:bg-[#00FFFF]/10 transition-colors touch-manipulation shadow-sm'
+  'inline-flex items-center justify-center gap-2 min-h-12 min-w-12 md:min-w-0 md:h-12 md:px-4 rounded-xl border border-white/15 bg-white/5 text-white/80 hover:text-[#00FF66] hover:border-[#00FF66]/40 hover:bg-[#00FF66]/5 active:bg-[#00FF66]/10 transition-colors touch-manipulation shadow-sm'
 
 export function StaffHeaderActions({
   loginFrom = '/host',
-  loginClassName = 'text-sm text-white/50 hover:text-[#00FFFF]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center px-2',
+  loginClassName = 'text-sm text-white/50 hover:text-[#00FF66]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center px-2',
   menuButtonClassName = DEFAULT_MENU_BUTTON,
   showAdminLabel = true,
 }: StaffHeaderActionsProps) {

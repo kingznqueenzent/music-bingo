@@ -205,7 +205,7 @@ export function ResponsiveMenu({
         className={
           isRightSheet
             ? 'h-7 w-7 min-h-7 min-w-7 rounded-md border border-white/10 flex items-center justify-center text-white/50 hover:text-white hover:bg-white/5 transition-colors touch-manipulation shrink-0'
-            : 'inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-white/15 text-white/70 hover:text-white hover:border-[#00FFFF]/40 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation shrink-0'
+            : 'inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-white/15 text-white/70 hover:text-white hover:border-[#00FF66]/40 hover:bg-white/5 active:bg-white/10 transition-colors touch-manipulation shrink-0'
         }
         aria-label="Close menu"
       >

@@ -3,7 +3,7 @@ import type { Game, WheelSegment } from '@/lib/supabase/types'
 export type { WheelSegment }
 
 const DEFAULT_COLORS = [
-  '#00FFFF',
+  '#00FF66',
   '#FFD700',
   '#a78bfa',
   '#f472b6',

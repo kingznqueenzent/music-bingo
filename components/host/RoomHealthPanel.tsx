@@ -99,7 +99,7 @@ export function RoomHealthPanel({
       aria-label="Room connection health"
     >
       <span className="inline-flex items-center gap-1.5 font-medium text-slate-300">
-        <Activity className="w-3.5 h-3.5 text-[#00FFFF]/80" />
+        <Activity className="w-3.5 h-3.5 text-[#00FF66]/80" />
         Room health
       </span>
 

@@ -66,7 +66,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
   return (
     <main className="min-h-dvh bg-slate-950 text-white flex flex-col items-center p-6 md:p-12">
       <div className="w-full max-w-2xl">
-        <h1 className="text-4xl md:text-5xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-400">
+        <h1 className="text-4xl md:text-5xl font-black text-center mb-2 text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-400">
           Player profile
         </h1>
         <p className="text-slate-400 text-center mb-10">
@@ -83,11 +83,11 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
             type="text"
             defaultValue={identifier}
             placeholder="Your identifier"
-            className="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            className="flex-1 rounded-xl bg-slate-900 border border-slate-700 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-green-500"
           />
           <button
             type="submit"
-            className="rounded-xl bg-cyan-600 hover:bg-cyan-500 font-semibold px-6 py-3 text-white shrink-0"
+            className="rounded-xl bg-green-600 hover:bg-green-500 font-semibold px-6 py-3 text-white shrink-0"
           >
             Load profile
           </button>
@@ -116,10 +116,10 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
               className={`rounded-2xl border bg-slate-900/80 p-6 shadow-xl ${
                 premiumOn && profile.premium_subscriber
                   ? 'border-sky-400/60 ring-2 ring-sky-400/30 ring-offset-2 ring-offset-slate-950'
-                  : 'border-cyan-500/30'
+                  : 'border-green-500/30'
               }`}
             >
-              <h2 className="text-sm uppercase tracking-widest text-cyan-400/80 mb-1">Player</h2>
+              <h2 className="text-sm uppercase tracking-widest text-green-400/80 mb-1">Player</h2>
               <p className="text-3xl font-bold text-white mb-4">{profile.player_name}</p>
               {premiumOn && profile.premium_subscriber && (
                 <p className="text-sky-300 text-sm font-semibold mb-4">✨ Premium member — 1.5× XP on games</p>
@@ -131,7 +131,7 @@ export default async function ProfilePage({ searchParams }: ProfilePageProps) {
                 </div>
                 <div className="h-3 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500 transition-all"
+                    className="h-full rounded-full bg-gradient-to-r from-green-500 to-emerald-500 transition-all"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>

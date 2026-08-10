@@ -21,7 +21,7 @@ import { ThemeSelect } from './ThemeSelect'
 import type { CatalogSong, CatalogTheme } from './types'
 
 const BG = '#121212'
-const NEON = '#00FFFF'
+const NEON = '#00FF66'
 const SURFACE = '#1E1E1E'
 
 function MediaTypeIcon({ type }: { type: string }) {
@@ -82,9 +82,9 @@ function MediaSongRowInner({
   const showCleanYoutube = Boolean(getSongYoutubeCandidate(s))
 
   const cardRing = isPlaying
-    ? 'border-[#00FFFF]/40 ring-1 ring-[#00FFFF]/20'
+    ? 'border-[#00FF66]/40 ring-1 ring-[#00FF66]/20'
     : isEditing
-      ? 'border-[#00FFFF]/30'
+      ? 'border-[#00FF66]/30'
       : isSelected
         ? 'border-white/15'
         : 'border-white/5 hover:border-white/10'
@@ -103,7 +103,7 @@ function MediaSongRowInner({
           className="rounded border-white/20 mt-2 min-h-5 min-w-5 shrink-0"
         />
 
-        <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center text-[#00FFFF] shrink-0 mt-0.5">
+        <div className="w-9 h-9 rounded-lg bg-white/5 flex items-center justify-center text-[#00FF66] shrink-0 mt-0.5">
           <MediaTypeIcon type={s.media_type} />
         </div>
 
@@ -201,7 +201,7 @@ function MediaSongRowInner({
                   type="button"
                   disabled={isSaving}
                   onClick={() => onSaveEdit(s.id)}
-                  className="p-2 min-h-10 min-w-10 rounded-lg hover:bg-[#00FFFF]/20 disabled:opacity-50 touch-manipulation"
+                  className="p-2 min-h-10 min-w-10 rounded-lg hover:bg-[#00FF66]/20 disabled:opacity-50 touch-manipulation"
                   style={{ color: NEON }}
                   aria-label="Save"
                 >
@@ -222,7 +222,7 @@ function MediaSongRowInner({
                 <button
                   type="button"
                   onClick={() => onStartEdit(s)}
-                  className="p-2 min-h-10 min-w-10 rounded-lg hover:bg-white/10 text-white/40 hover:text-[#00FFFF] touch-manipulation"
+                  className="p-2 min-h-10 min-w-10 rounded-lg hover:bg-white/10 text-white/40 hover:text-[#00FF66] touch-manipulation"
                   aria-label="Edit media URLs"
                   title="Edit media URLs"
                 >
@@ -234,8 +234,8 @@ function MediaSongRowInner({
                   onClick={() => onTogglePlayback(s)}
                   className={`p-2 min-h-10 min-w-10 rounded-lg border transition-all disabled:opacity-30 touch-manipulation ${
                     isPlaying
-                      ? 'border-[#00FFFF] bg-[#00FFFF]/15 text-[#00FFFF]'
-                      : 'border-white/10 text-white/40 hover:border-[#00FFFF]/50 hover:text-[#00FFFF]'
+                      ? 'border-[#00FF66] bg-[#00FF66]/15 text-[#00FF66]'
+                      : 'border-white/10 text-white/40 hover:border-[#00FF66]/50 hover:text-[#00FF66]'
                   }`}
                   aria-label={isPlaying ? 'Pause' : 'Play preview'}
                   title={hasPreview ? 'Play preview' : 'No storage URL'}

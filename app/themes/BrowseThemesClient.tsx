@@ -48,7 +48,7 @@ function FilterPills<T extends string>({
               onClick={() => onChange(option)}
               className={`text-sm px-3.5 py-1.5 rounded-full border transition-colors touch-manipulation min-h-9 ${
                 active
-                  ? 'border-[#00FFFF]/60 bg-[#00FFFF]/10 text-[#00FFFF]'
+                  ? 'border-[#00FF66]/60 bg-[#00FF66]/10 text-[#00FF66]'
                   : 'border-white/10 text-white/55 hover:border-white/25 hover:text-white/80'
               }`}
             >
@@ -87,11 +87,11 @@ function ThemeBrowseCard({
     >
       <Link
         href={browseThemeHostHref(theme.id)}
-        className="group flex flex-col h-full rounded-2xl border border-white/10 px-4 py-5 transition-colors hover:border-[#00FFFF]/40 hover:bg-[#00FFFF]/5 touch-manipulation"
+        className="group flex flex-col h-full rounded-2xl border border-white/10 px-4 py-5 transition-colors hover:border-[#00FF66]/40 hover:bg-[#00FF66]/5 touch-manipulation"
         style={{ backgroundColor: SURFACE }}
       >
         <div className="flex justify-center mb-4 py-3">
-          <div className="w-14 h-14 rounded-full border border-white/10 bg-black/25 flex items-center justify-center group-hover:border-[#00FFFF]/30 transition-colors">
+          <div className="w-14 h-14 rounded-full border border-white/10 bg-black/25 flex items-center justify-center group-hover:border-[#00FF66]/30 transition-colors">
             <ThemeIcon kind={iconKind} />
           </div>
         </div>
@@ -131,7 +131,7 @@ export function BrowseThemesClient() {
           <div className="flex items-start gap-3">
             <Link
               href="/host"
-              className="h-9 w-9 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:text-[#00FFFF] hover:border-[#00FFFF]/30 transition-colors shrink-0 mt-0.5"
+              className="h-9 w-9 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors shrink-0 mt-0.5"
               aria-label="Back to host dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -167,7 +167,7 @@ export function BrowseThemesClient() {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="text-[#00FFFF] hover:underline text-sm font-medium"
+              className="text-[#00FF66] hover:underline text-sm font-medium"
             >
               Retry
             </button>

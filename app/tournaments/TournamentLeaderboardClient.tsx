@@ -195,7 +195,7 @@ export function TournamentLeaderboardClient({
             >
               {regSubmitting ? 'Saving…' : 'Register'}
             </button>
-            {regMsg && <p className="text-sm text-cyan-300">{regMsg}</p>}
+            {regMsg && <p className="text-sm text-green-300">{regMsg}</p>}
           </form>
         </section>
       )}

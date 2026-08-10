@@ -74,7 +74,7 @@ export function JoinForm({ initialGameCode = getDefaultJoinRoomCode() }: { initi
     setPaymentConfirmed(false)
   }, [gameCode])
 
-  const primary = preview?.brandPrimaryHex?.trim() || '#00FFFF'
+  const primary = preview?.brandPrimaryHex?.trim() || '#00FF66'
   const accent = preview?.brandAccentHex?.trim() || '#10b981'
   const showVenueHeader =
     whiteLabelOn && preview && (preview.venueDisplayName || preview.logoUrl || preview.brandPrimaryHex)
@@ -154,7 +154,7 @@ export function JoinForm({ initialGameCode = getDefaultJoinRoomCode() }: { initi
 
       {!showVenueHeader && !flagsLoading && (
         <div className="flex justify-center mb-6">
-          <LyricGridLogo size={48} className="text-[#00FFFF]" />
+          <LyricGridLogo size={48} className="text-[#00FF66]" />
         </div>
       )}
 

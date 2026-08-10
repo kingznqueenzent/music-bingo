@@ -42,8 +42,8 @@ export function HostSongControls({
   className = '',
 }: HostSongControlsProps) {
   return (
-    <div className={`rounded-2xl border border-[#00FFFF]/25 bg-[#1E1E1E]/90 p-4 ${className}`}>
-      <h3 className="text-sm font-semibold uppercase tracking-widest text-[#00FFFF]/80 mb-3">
+    <div className={`rounded-2xl border border-[#00FF66]/25 bg-[#1E1E1E]/90 p-4 ${className}`}>
+      <h3 className="text-sm font-semibold uppercase tracking-widest text-[#00FF66]/80 mb-3">
         Song Controls
       </h3>
       <div className="flex flex-wrap gap-2 mb-4">
@@ -62,7 +62,7 @@ export function HostSongControls({
             disabled={!hasUpNext && !autoPlayEnabled}
             className={`rounded-full px-4 py-2 text-sm font-semibold min-h-[44px] ${
               autoPlayEnabled
-                ? 'bg-[#00FFFF] text-[#121212] hover:bg-[#00FFFF]/90'
+                ? 'bg-[#00FF66] text-[#121212] hover:bg-[#00FF66]/90'
                 : 'bg-slate-800 text-slate-100 hover:bg-slate-700'
             } disabled:opacity-40`}
           >
@@ -96,7 +96,7 @@ export function HostSongControls({
               onClick={() => onPaceChange(sec)}
               className={`rounded-full px-4 py-2 text-sm font-medium min-h-[40px] ${
                 gamePaceSeconds === sec
-                  ? 'bg-[#00FFFF] text-[#121212]'
+                  ? 'bg-[#00FF66] text-[#121212]'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
@@ -119,7 +119,7 @@ export function HostSongControls({
             onClick={() => onTimerChange(sec)}
             className={`rounded-full px-4 py-2 text-sm font-medium min-h-[40px] ${
               clipSeconds === sec
-                ? 'bg-[#00FFFF] text-[#121212]'
+                ? 'bg-[#00FF66] text-[#121212]'
                 : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
             }`}
           >

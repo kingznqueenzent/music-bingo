@@ -153,7 +153,7 @@ export function CsvBatchUploader({
   return (
     <div className="bg-[#1E1E1E] rounded-xl border border-white/10 p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-[#00FFFF] flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-[#00FF66] flex items-center gap-2">
           <FileSpreadsheet className="w-4 h-4" /> Batch CSV Song Uploader
         </h3>
         {parsedData.length > 0 ? (
@@ -168,8 +168,8 @@ export function CsvBatchUploader({
       </div>
 
       {isCategorizing ? (
-        <div className="border border-[#00FFFF]/30 rounded-xl p-8 text-center text-sm text-gray-400">
-          <Sparkles className="w-8 h-8 text-[#00FFFF] mx-auto mb-3 animate-pulse" />
+        <div className="border border-[#00FF66]/30 rounded-xl p-8 text-center text-sm text-gray-400">
+          <Sparkles className="w-8 h-8 text-[#00FF66] mx-auto mb-3 animate-pulse" />
           Auto-categorizing tracks…
         </div>
       ) : parsedData.length === 0 ? (
@@ -185,8 +185,8 @@ export function CsvBatchUploader({
           }}
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
             isDragging
-              ? 'border-[#00FFFF] bg-[#00FFFF]/5 scale-[0.99]'
-              : 'border-white/20 hover:border-[#00FFFF]/50 hover:bg-white/[0.02]'
+              ? 'border-[#00FF66] bg-[#00FF66]/5 scale-[0.99]'
+              : 'border-white/20 hover:border-[#00FF66]/50 hover:bg-white/[0.02]'
           }`}
         >
           <input
@@ -199,14 +199,14 @@ export function CsvBatchUploader({
             }}
             className="hidden"
           />
-          <UploadCloud className="w-10 h-10 text-[#00FFFF] mx-auto mb-3 opacity-80" />
+          <UploadCloud className="w-10 h-10 text-[#00FF66] mx-auto mb-3 opacity-80" />
           <p className="text-sm font-medium text-white">
-            Drag and drop your <span className="text-[#00FFFF]">.CSV file</span> here, or click to browse
+            Drag and drop your <span className="text-[#00FF66]">.CSV file</span> here, or click to browse
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Headers: title, artist, year, theme_name, youtube_url, start_time_sec, duration_sec
           </p>
-          <p className="text-xs text-[#00FFFF]/70 mt-2 flex items-center justify-center gap-1">
+          <p className="text-xs text-[#00FF66]/70 mt-2 flex items-center justify-center gap-1">
             <Sparkles className="w-3 h-3" />
             Missing themes auto-detected from keywords + MusicBrainz
           </p>
@@ -215,7 +215,7 @@ export function CsvBatchUploader({
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-black/30 p-3 rounded-lg border border-white/5 text-xs text-gray-300">
             <span>
-              Ready to import <strong className="text-[#00FFFF]">{parsedData.length} tracks</strong>
+              Ready to import <strong className="text-[#00FF66]">{parsedData.length} tracks</strong>
             </span>
             <span className="text-gray-500">
               Auto-matched theme names: {parsedData.filter((p) => p.theme_id).length} / {parsedData.length}
@@ -228,7 +228,7 @@ export function CsvBatchUploader({
               <div key={idx} className="p-2.5 grid grid-cols-12 gap-2 items-center">
                 <div className="col-span-4 font-medium text-white truncate">{song.title}</div>
                 <div className="col-span-3 text-gray-400 truncate">{song.artist || '—'}</div>
-                <div className="col-span-2 text-[#00FFFF]">{song.year || '—'}</div>
+                <div className="col-span-2 text-[#00FF66]">{song.year || '—'}</div>
                 <div className="col-span-3 text-gray-300 truncate">
                   {song.theme_id ? (
                     <span className="text-emerald-400">✓ {song.theme_name_raw}</span>
@@ -259,7 +259,7 @@ export function CsvBatchUploader({
               type="button"
               onClick={() => void handleBatchInsert()}
               disabled={isUploading}
-              className="px-5 py-2 rounded-lg bg-[#00FFFF] text-black font-semibold text-xs hover:bg-[#00FFFF]/80 transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-5 py-2 rounded-lg bg-[#00FF66] text-black font-semibold text-xs hover:bg-[#00FF66]/80 transition-all flex items-center gap-2 disabled:opacity-50"
             >
               {isUploading ? 'Uploading to Supabase…' : `Upload ${parsedData.length} Tracks`}
             </button>

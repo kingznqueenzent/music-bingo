@@ -91,7 +91,7 @@ export function HostDashboard({
   const [pdfPerPage, setPdfPerPage] = useState<2 | 4>(4)
   const [logoUrlInput, setLogoUrlInput] = useState(initialGame?.logo_url ?? '')
   const [venueNameInput, setVenueNameInput] = useState(initialGame?.venue_display_name ?? '')
-  const [brandPrimary, setBrandPrimary] = useState(initialGame?.brand_primary_hex ?? '#00FFFF')
+  const [brandPrimary, setBrandPrimary] = useState(initialGame?.brand_primary_hex ?? '#00FF66')
   const [brandAccent, setBrandAccent] = useState(initialGame?.brand_accent_hex ?? '#10b981')
   const [hideLyricgrid, setHideLyricgrid] = useState(!!initialGame?.brand_hide_lyricgrid)
   const [entryFeeDollars, setEntryFeeDollars] = useState(
@@ -169,7 +169,7 @@ export function HostDashboard({
       const gg = g as Game
       setLogoUrlInput(gg.logo_url ?? '')
       setVenueNameInput(gg.venue_display_name ?? '')
-      setBrandPrimary(gg.brand_primary_hex ?? '#00FFFF')
+      setBrandPrimary(gg.brand_primary_hex ?? '#00FF66')
       setBrandAccent(gg.brand_accent_hex ?? '#10b981')
       setHideLyricgrid(!!gg.brand_hide_lyricgrid)
       setEntryFeeDollars(gg.entry_fee_cents != null ? String((gg.entry_fee_cents / 100).toFixed(2)) : '0')
@@ -950,7 +950,7 @@ export function HostDashboard({
           <LyricGridLogo size={44} className="shrink-0 sm:hidden" />
           <LyricGridLogo size={52} className="shrink-0 hidden sm:block" />
           <div className="min-w-0">
-            <h2 className="text-xl sm:text-2xl font-bold text-[#00FFFF]/90">LyricGrid</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#00FF66]/90">LyricGrid</h2>
             <p className="text-slate-400 text-sm">Host Control</p>
           </div>
         </div>
@@ -974,7 +974,7 @@ export function HostDashboard({
               onClick={() => setHostTab(tab.id)}
               className={`px-3 sm:px-4 py-2.5 min-h-12 rounded-lg text-sm font-semibold touch-manipulation transition-colors ${
                 hostTab === tab.id
-                  ? 'bg-[#00FFFF]/15 text-[#00FFFF] border border-[#00FFFF]/30'
+                  ? 'bg-[#00FF66]/15 text-[#00FF66] border border-[#00FF66]/30'
                   : 'text-slate-400 hover:text-slate-200 border border-transparent'
               }`}
             >
@@ -999,7 +999,7 @@ export function HostDashboard({
             </h2>
             <p className="text-sm sm:text-lg text-slate-300">
               Share this code with players, or open Venue Assets for a high-res QR linking to{' '}
-              <span className="text-[#00FFFF]/80">lyricgrid.ca/room/{displayCode}</span>.
+              <span className="text-[#00FF66]/80">lyricgrid.ca/room/{displayCode}</span>.
             </p>
           </div>
           <VenueAssetsPanel
@@ -1034,7 +1034,7 @@ export function HostDashboard({
             )}
           </button>
           {gameAlreadyLive ? (
-            <p className="w-full text-[#00FFFF]/90 text-sm font-medium" role="status">
+            <p className="w-full text-[#00FF66]/90 text-sm font-medium" role="status">
               Game is live — use Song Controls or Up Next below to call tracks.
             </p>
           ) : null}
@@ -1087,7 +1087,7 @@ export function HostDashboard({
             href="/leaderboard"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto text-center rounded-full border-2 border-[#00FFFF]/70 bg-transparent px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FFFF] hover:bg-[#00FFFF]/10 hover:border-[#00FFFF] transition-all duration-300 min-h-12 inline-flex items-center justify-center touch-manipulation"
+            className="w-full sm:w-auto text-center rounded-full border-2 border-[#00FF66]/70 bg-transparent px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 hover:border-[#00FF66] transition-all duration-300 min-h-12 inline-flex items-center justify-center touch-manipulation"
           >
             🏆 View Leaderboard
           </a>
@@ -1135,7 +1135,7 @@ export function HostDashboard({
                   else setGame((g) => (g ? { ...g, hide_song_titles: next } : g))
                 }}
                 className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
-                  game.hide_song_titles ? 'bg-[#00FFFF]' : 'bg-slate-600'
+                  game.hide_song_titles ? 'bg-[#00FF66]' : 'bg-slate-600'
                 }`}
               >
                 <span
@@ -1158,16 +1158,16 @@ export function HostDashboard({
         </p>
 
         <FeatureGate flag="host_analytics">
-          <div className="mt-4 rounded-xl border border-cyan-500/20 bg-slate-900/50 p-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mt-4 rounded-xl border border-green-500/20 bg-slate-900/50 p-4 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h4 className="text-xs font-semibold text-cyan-400/90 uppercase tracking-wide mb-2">Analytics</h4>
+              <h4 className="text-xs font-semibold text-green-400/90 uppercase tracking-wide mb-2">Analytics</h4>
               <p className="text-slate-300 text-sm">
                 Live player count: <span className="font-semibold text-white">{playerCount}</span>
               </p>
             </div>
             <Link
               href="/host/analytics"
-              className="rounded-full border border-cyan-500/50 px-4 py-2 text-sm font-semibold text-cyan-200 hover:bg-cyan-500/10"
+              className="rounded-full border border-green-500/50 px-4 py-2 text-sm font-semibold text-green-200 hover:bg-green-500/10"
             >
               Open analytics dashboard
             </Link>
@@ -1223,7 +1223,7 @@ export function HostDashboard({
                 Primary
                 <input
                   type="color"
-                  value={brandPrimary.startsWith('#') ? brandPrimary : '#00FFFF'}
+                  value={brandPrimary.startsWith('#') ? brandPrimary : '#00FF66'}
                   onChange={(e) => setBrandPrimary(e.target.value)}
                   className="h-9 w-14 cursor-pointer rounded border border-slate-600 bg-slate-800"
                 />

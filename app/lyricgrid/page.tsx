@@ -9,14 +9,14 @@ export default function LyricGridHome() {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 flex flex-col items-center text-center gap-8">
         <div className="flex flex-col items-center gap-4">
-          <LyricGridLogo size={72} className="shrink-0 text-[#00FFFF]" />
-          <p className="text-sm uppercase tracking-[0.2em] text-[#00FFFF]/90">
+          <LyricGridLogo size={72} className="shrink-0 text-[#00FF66]" />
+          <p className="text-sm uppercase tracking-[0.2em] text-[#00FF66]/90">
             ✨ Interactive Music Entertainment
           </p>
         </div>
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight">
           <span className="block text-slate-100">LyricGrid</span>
-          <span className="block bg-gradient-to-r from-[#00FFFF] via-cyan-300 to-teal-300 bg-clip-text text-transparent mt-1">
+          <span className="block bg-gradient-to-r from-[#00FF66] via-green-300 to-teal-300 bg-clip-text text-transparent mt-1">
             Music Bingo for Livestreams
           </span>
         </h1>

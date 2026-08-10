@@ -3,7 +3,7 @@
 import { Search } from 'lucide-react'
 
 const BG = '#121212'
-const NEON = '#00FFFF'
+const NEON = '#00FF66'
 
 export type MediaManagerSearchBarProps = {
   value: string
@@ -23,7 +23,7 @@ export function MediaManagerSearchBar({
   return (
     <section
       aria-label="Search library"
-      className="p-4 rounded-xl border border-[#00FFFF]/25 shadow-lg shadow-black/20 space-y-2"
+      className="p-4 rounded-xl border border-[#00FF66]/25 shadow-lg shadow-black/20 space-y-2"
       style={{ backgroundColor: '#1E1E1E' }}
     >
       <label htmlFor="media-manager-search" className="text-xs font-semibold uppercase tracking-wider text-gray-400">
@@ -37,7 +37,7 @@ export function MediaManagerSearchBar({
           placeholder="Search title, artist, theme, or audio / YouTube URL…"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full border border-white/15 rounded-xl pl-12 pr-4 py-3 text-base focus:border-[#00FFFF] outline-none ring-0 focus:ring-2 focus:ring-[#00FFFF]/20"
+          className="w-full border border-white/15 rounded-xl pl-12 pr-4 py-3 text-base focus:border-[#00FF66] outline-none ring-0 focus:ring-2 focus:ring-[#00FF66]/20"
           style={{ backgroundColor: BG, color: '#fff' }}
           autoComplete="off"
         />

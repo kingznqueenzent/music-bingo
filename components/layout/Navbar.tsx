@@ -11,7 +11,7 @@ export function Navbar() {
       <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-12">
         <Link
           href="/lyricgrid"
-          className="text-[#00FFFF] font-black text-lg tracking-wider flex items-center gap-2 min-h-11 touch-manipulation"
+          className="text-[#00FF66] font-black text-lg tracking-wider flex items-center gap-2 min-h-11 touch-manipulation"
           aria-label="LyricGrid home"
         >
           <LyricGridLogo size={22} />
@@ -21,8 +21,8 @@ export function Navbar() {
         <StaffHeaderActions
           loginFrom="/host"
           showAdminLabel={false}
-          loginClassName="text-xs text-white/50 hover:text-[#00FFFF]/90 transition-colors min-h-11 inline-flex items-center px-2"
-          menuButtonClassName="h-9 w-9 min-h-9 min-w-9 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FFFF] hover:border-[#00FFFF]/30 transition-colors touch-manipulation"
+          loginClassName="text-xs text-white/50 hover:text-[#00FF66]/90 transition-colors min-h-11 inline-flex items-center px-2"
+          menuButtonClassName="h-9 w-9 min-h-9 min-w-9 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors touch-manipulation"
         />
       </div>
     </header>

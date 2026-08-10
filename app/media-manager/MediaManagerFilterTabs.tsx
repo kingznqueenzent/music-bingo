@@ -32,7 +32,7 @@ export function MediaManagerFilterTabs({
         onClick={onShowAll}
         className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
           allTracksActive
-            ? 'border-[#00FFFF]/60 bg-[#00FFFF]/10 text-[#00FFFF]'
+            ? 'border-[#00FF66]/60 bg-[#00FF66]/10 text-[#00FF66]'
             : 'border-white/10 text-gray-400 hover:border-white/25'
         }`}
       >

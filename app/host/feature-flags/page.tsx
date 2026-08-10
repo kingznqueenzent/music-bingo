@@ -11,7 +11,7 @@ export default function HostFeatureFlagsPage() {
         <Link href="/host" className="text-slate-400 hover:text-white text-sm">
           ← Host
         </Link>
-        <h1 className="text-3xl font-black mt-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-emerald-400">
+        <h1 className="text-3xl font-black mt-4 text-transparent bg-clip-text bg-gradient-to-r from-green-300 to-emerald-400">
           Feature flags
         </h1>
         <p className="text-slate-400 mt-2 mb-8">

@@ -97,7 +97,7 @@ export function BingoCard({
 
   return (
     <div
-      className={`bingo-card-shell bg-[#1E1E1E] rounded-2xl p-2 sm:p-4 md:p-5 border border-[#00FFFF]/25 shadow-[0_0_24px_rgba(0,255,255,0.08)] transform-gpu contain-paint ${className}`}
+      className={`bingo-card-shell bg-[#1E1E1E] rounded-2xl p-2 sm:p-4 md:p-5 border border-[#00FF66]/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu contain-paint ${className}`}
     >
       <div
         className="bingo-grid grid gap-1 sm:gap-2 md:gap-2.5"
@@ -183,8 +183,8 @@ export function BingoCard({
                   ${isActive ? 'bingo-cell-called-glow' : ''}
                   ${
                     isMarked
-                      ? 'bg-[#00FFFF]/10 border-[#00FFFF]/60 text-cyan-100 shadow-[inset_0_0_16px_rgba(0,255,255,0.12)]'
-                      : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-[#00FFFF]/40 hover:text-white'
+                      ? 'bg-[#00FF66]/10 border-[#00FF66]/60 text-green-100 shadow-[inset_0_0_16px_rgba(0,255,102,0.12)]'
+                      : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-[#00FF66]/40 hover:text-white'
                   }
                 `}
                 style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}

@@ -48,22 +48,22 @@ export function AdSlideManager({
 
   return (
     <div
-      className={`relative w-full aspect-video rounded-2xl overflow-hidden border border-[#00FFFF]/20 bg-[#1E1E1E] flex flex-col items-center justify-center p-8 animate-stage-song-in ${className}`}
+      className={`relative w-full aspect-video rounded-2xl overflow-hidden border border-[#00FF66]/20 bg-[#1E1E1E] flex flex-col items-center justify-center p-8 animate-stage-song-in ${className}`}
       aria-live="polite"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,255,0.08),transparent_70%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(0,255,102,0.08),transparent_70%)]" />
       {slide.logo_url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={slide.logo_url}
           alt={slide.name}
-          className="relative z-10 max-h-[40%] max-w-[70%] object-contain mb-6 drop-shadow-[0_0_24px_rgba(0,255,255,0.35)]"
+          className="relative z-10 max-h-[40%] max-w-[70%] object-contain mb-6 drop-shadow-[0_0_24px_rgba(0,255,102,0.35)]"
         />
       ) : (
         <div className="relative z-10 text-6xl md:text-8xl mb-4">🎵</div>
       )}
       <h3
-        className="relative z-10 text-3xl md:text-5xl font-black text-[#00FFFF] text-center tracking-tight"
+        className="relative z-10 text-3xl md:text-5xl font-black text-[#00FF66] text-center tracking-tight"
         style={{ fontFamily: 'var(--font-inter), sans-serif' }}
       >
         {slide.name}
@@ -75,7 +75,7 @@ export function AdSlideManager({
             <span
               key={i}
               className={`h-2 rounded-full transition-all duration-300 ${
-                i === index ? 'w-8 bg-[#00FFFF]' : 'w-2 bg-slate-600'
+                i === index ? 'w-8 bg-[#00FF66]' : 'w-2 bg-slate-600'
               }`}
             />
           ))}

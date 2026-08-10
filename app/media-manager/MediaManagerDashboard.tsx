@@ -492,14 +492,14 @@ function MediaManagerDashboardInner() {
           <div className="flex items-center gap-3 min-w-0">
             <Link
               href="/host"
-              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:text-[#00FFFF] hover:border-[#00FFFF]/30 transition-colors shrink-0"
+              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center text-white/60 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors shrink-0"
               aria-label="Back to host dashboard"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2 min-w-0">
               Media Manager
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[#00FFFF]/10 text-[#00FFFF] tabular-nums shrink-0">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-[#00FF66]/10 text-[#00FF66] tabular-nums shrink-0">
                 {loading ? '…' : songs.length}
               </span>
               {!hostTier.loading && (
@@ -555,7 +555,7 @@ function MediaManagerDashboardInner() {
             <button
               type="button"
               onClick={() => void refetch()}
-              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FFFF] hover:border-[#00FFFF]/30 transition-colors"
+              className="h-8 w-8 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors"
               aria-label="Refresh catalog"
               title="Refresh catalog"
             >
@@ -759,7 +759,7 @@ function MediaManagerDashboardInner() {
                     <button
                       type="button"
                       onClick={() => setDisplayLimit((n) => n + PAGE_SIZE)}
-                      className="px-4 py-2 rounded-lg text-sm font-semibold border border-[#00FFFF]/40 text-[#00FFFF] hover:bg-[#00FFFF]/10 transition-colors"
+                      className="px-4 py-2 rounded-lg text-sm font-semibold border border-[#00FF66]/40 text-[#00FF66] hover:bg-[#00FF66]/10 transition-colors"
                     >
                       Load more ({Math.min(PAGE_SIZE, filteredSongs.length - displayLimit)} of{' '}
                       {filteredSongs.length - displayLimit} remaining)

@@ -70,7 +70,7 @@ export function PlayerListPanel({
                 key={p.cardId}
                 className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-700/50 px-3 py-2.5"
               >
-                <div className="w-9 h-9 rounded-full bg-[#00FFFF]/15 border border-[#00FFFF]/30 flex items-center justify-center text-sm font-bold text-[#00FFFF] shrink-0">
+                <div className="w-9 h-9 rounded-full bg-[#00FF66]/15 border border-[#00FF66]/30 flex items-center justify-center text-sm font-bold text-[#00FF66] shrink-0">
                   {p.playerName.slice(0, 1).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -78,7 +78,7 @@ export function PlayerListPanel({
                   <p className="text-slate-500 text-xs truncate font-mono">{p.cardId.slice(0, 8)}…</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[#00FFFF] font-bold text-sm tabular-nums">
+                  <p className="text-[#00FF66] font-bold text-sm tabular-nums">
                     {p.markedCount}/{p.target}
                   </p>
                   <p

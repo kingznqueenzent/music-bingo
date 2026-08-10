@@ -79,7 +79,7 @@ export function WinnersCircle({
             <button
               type="button"
               onClick={onLaunchPrizeWheel}
-              className="w-full rounded-xl border border-[#00FFFF]/50 text-[#00FFFF] hover:bg-[#00FFFF]/10 font-semibold py-3 transition-colors"
+              className="w-full rounded-xl border border-[#00FF66]/50 text-[#00FF66] hover:bg-[#00FF66]/10 font-semibold py-3 transition-colors"
             >
               Launch Prize Wheel
             </button>

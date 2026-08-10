@@ -229,7 +229,7 @@ export function HostTournamentAdmin({
           >
             {submitting ? 'Creating…' : 'Create tournament'}
           </button>
-          {msg && <p className="text-sm text-cyan-300">{msg}</p>}
+          {msg && <p className="text-sm text-green-300">{msg}</p>}
         </form>
       </section>
 

@@ -27,7 +27,7 @@ function StatusBadge({ status }: { status: GameStatus }) {
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
         live
-          ? 'border-[#00FFFF]/50 bg-[#00FFFF]/10 text-[#00FFFF]'
+          ? 'border-[#00FF66]/50 bg-[#00FF66]/10 text-[#00FF66]'
           : lobby
             ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
             : 'border-white/15 bg-white/5 text-white/50'
@@ -36,7 +36,7 @@ function StatusBadge({ status }: { status: GameStatus }) {
       <span
         className={`w-1.5 h-1.5 rounded-full ${
           live
-            ? 'bg-[#00FFFF] shadow-[0_0_6px_#00FFFF] animate-pulse'
+            ? 'bg-[#00FF66] shadow-[0_0_6px_#00FF66] animate-pulse'
             : lobby
               ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]'
               : 'bg-white/30'
@@ -68,9 +68,9 @@ function GameListItem({ game }: { game: HostGameListRow }) {
   return (
     <Link
       href={href}
-      className="group flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3 min-h-[4.25rem] hover:border-[#00FFFF]/35 hover:bg-[#00FFFF]/5 transition-colors touch-manipulation"
+      className="group flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3 min-h-[4.25rem] hover:border-[#00FF66]/35 hover:bg-[#00FF66]/5 transition-colors touch-manipulation"
     >
-      <div className="shrink-0 w-11 h-11 rounded-xl bg-[#00FFFF]/10 border border-[#00FFFF]/20 flex items-center justify-center text-[#00FFFF]">
+      <div className="shrink-0 w-11 h-11 rounded-xl bg-[#00FF66]/10 border border-[#00FF66]/20 flex items-center justify-center text-[#00FF66]">
         <Music className="w-5 h-5" aria-hidden />
       </div>
 
@@ -80,14 +80,14 @@ function GameListItem({ game }: { game: HostGameListRow }) {
           <StatusBadge status={game.status} />
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/45">
-          <span className="font-mono text-[#00FFFF]/80">{game.code}</span>
+          <span className="font-mono text-[#00FF66]/80">{game.code}</span>
           <span>{game.callCount} call{game.callCount === 1 ? '' : 's'}</span>
           <span>{formatRelativeTime(game.createdAt)}</span>
         </div>
       </div>
 
       <ChevronRight
-        className="w-5 h-5 shrink-0 text-white/25 group-hover:text-[#00FFFF] transition-colors"
+        className="w-5 h-5 shrink-0 text-white/25 group-hover:text-[#00FF66] transition-colors"
         aria-hidden
       />
     </Link>
@@ -133,7 +133,7 @@ export function HostGamesList({ hostId, className = '' }: HostGamesListProps) {
           <p className="text-white/45 text-sm mt-1">Open a room dashboard or resume a live session.</p>
         </div>
         {!loading && activeRows.length > 0 ? (
-          <span className="text-xs font-semibold tabular-nums text-[#00FFFF]/80 bg-[#00FFFF]/10 border border-[#00FFFF]/25 rounded-full px-2.5 py-1">
+          <span className="text-xs font-semibold tabular-nums text-[#00FF66]/80 bg-[#00FF66]/10 border border-[#00FF66]/25 rounded-full px-2.5 py-1">
             {activeRows.length} active
           </span>
         ) : null}

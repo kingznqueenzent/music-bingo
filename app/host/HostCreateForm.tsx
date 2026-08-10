@@ -97,7 +97,7 @@ export function HostCreateForm() {
               name="gridSize"
               checked={gridSize === 5}
               onChange={() => setGridSize(5)}
-              className="accent-[#00FFFF]"
+              className="accent-[#00FF66]"
             />
             <span>5×5 (min {MIN_5X5} songs)</span>
           </label>
@@ -107,7 +107,7 @@ export function HostCreateForm() {
               name="gridSize"
               checked={gridSize === 4}
               onChange={() => setGridSize(4)}
-              className="accent-[#00FFFF]"
+              className="accent-[#00FF66]"
             />
             <span>4×4 (min {MIN_4X4} songs)</span>
           </label>
@@ -134,7 +134,7 @@ export function HostCreateForm() {
                 <li key={`${index}-${id}`} className="text-white/45">
                   <span className="text-white/30">{index}.</span>{' '}
                   {id ? (
-                    <span className="text-[#00FFFF]/90">Video ID: {id}</span>
+                    <span className="text-[#00FF66]/90">Video ID: {id}</span>
                   ) : (
                     <span className="text-amber-400/90">Invalid link (skipped)</span>
                   )}

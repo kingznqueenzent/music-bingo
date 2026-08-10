@@ -38,7 +38,7 @@ export function EnterpriseBrandingUpgradeModal({
     <>
       <div className={`flex items-start justify-between gap-3 ${modal ? 'px-5 pt-5 pb-3 border-b border-white/5 bg-[#121212]' : ''}`}>
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#00FFFF]/70 mb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#00FF66]/70 mb-1">
             Enterprise feature
           </p>
           <h2 id="enterprise-branding-upgrade-title" className="text-lg font-bold text-white">
@@ -60,9 +60,9 @@ export function EnterpriseBrandingUpgradeModal({
 
       <div className={`space-y-3 ${modal ? 'p-5' : 'mt-4'}`}>
         {tier === 'pro' ? (
-          <div className="rounded-xl border border-[#00FFFF]/35 bg-[#00FFFF]/5 p-4">
+          <div className="rounded-xl border border-[#00FF66]/35 bg-[#00FF66]/5 p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-[#00FFFF]" />
+              <Sparkles className="w-4 h-4 text-[#00FF66]" />
               <span className="font-bold text-white">Pro</span>
               <span className="text-[10px] uppercase tracking-wide text-white/50 font-semibold ml-auto">
                 Current plan
@@ -78,11 +78,11 @@ export function EnterpriseBrandingUpgradeModal({
           </div>
         )}
 
-        <div className="rounded-xl border border-white/10 bg-[#121212] p-4 hover:border-[#00FFFF]/30 transition-colors">
+        <div className="rounded-xl border border-white/10 bg-[#121212] p-4 hover:border-[#00FF66]/30 transition-colors">
           <div className="flex items-center gap-2 mb-2">
-            <Building2 className="w-4 h-4 text-[#00FFFF]" />
+            <Building2 className="w-4 h-4 text-[#00FF66]" />
             <span className="font-bold text-white">Enterprise</span>
-            <span className="text-[10px] uppercase tracking-wide text-[#00FFFF]/80 font-semibold ml-auto flex items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-[#00FF66]/80 font-semibold ml-auto flex items-center gap-1">
               <Palette className="w-3 h-3" />
               Custom branding
             </span>
@@ -90,14 +90,14 @@ export function EnterpriseBrandingUpgradeModal({
           <ul className="text-xs text-white/45 space-y-1 mb-3">
             {ENTERPRISE_BRANDING_FEATURES.map((f) => (
               <li key={f} className="flex items-start gap-1.5">
-                <CheckCircle2 className="w-3 h-3 text-[#00FFFF]/70 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-3 h-3 text-[#00FF66]/70 shrink-0 mt-0.5" />
                 {f}
               </li>
             ))}
           </ul>
           <Link
             href="/venue-packages"
-            className="inline-flex items-center justify-center w-full rounded-lg bg-gradient-to-r from-[#00FFFF] to-cyan-400 text-[#121212] font-semibold text-sm py-2.5 hover:from-cyan-300 hover:to-[#00FFFF] transition-all"
+            className="inline-flex items-center justify-center w-full rounded-lg bg-gradient-to-r from-[#00FF66] to-green-400 text-[#121212] font-semibold text-sm py-2.5 hover:from-green-300 hover:to-[#00FF66] transition-all"
             onClick={onClose}
           >
             Contact for Enterprise
@@ -128,7 +128,7 @@ export function EnterpriseBrandingUpgradeModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-[#00FFFF]/25 bg-[#1E1E1E] shadow-[0_0_48px_rgba(0,255,255,0.12)] overflow-hidden"
+        className="w-full max-w-lg rounded-2xl border border-[#00FF66]/25 bg-[#1E1E1E] shadow-[0_0_48px_rgba(0,255,102,0.12)] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {body}

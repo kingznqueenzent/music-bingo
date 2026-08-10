@@ -27,7 +27,7 @@ export type CrownedWinnerOverlayProps = {
 function fireWinnerConfetti() {
   const duration = 3600
   const end = Date.now() + duration
-  const colors = ['#00FFFF', '#FFD700', '#ffffff', '#a78bfa', '#f472b6']
+  const colors = ['#00FF66', '#FFD700', '#ffffff', '#a78bfa', '#f472b6']
 
   confetti({
     particleCount: 160,
@@ -96,7 +96,7 @@ export function CrownedWinnerOverlay({
       aria-labelledby="crowned-winner-title"
     >
       <div className="relative flex flex-col items-center text-center px-8 max-w-4xl animate-crown-breathe">
-        <div className="absolute inset-0 -z-10 rounded-full blur-3xl bg-[#00FFFF]/20 animate-crown-glow" />
+        <div className="absolute inset-0 -z-10 rounded-full blur-3xl bg-[#00FF66]/20 animate-crown-glow" />
         <div className="animate-crown-pop text-7xl md:text-9xl mb-4 drop-shadow-[0_0_32px_rgba(255,215,0,0.8)]">
           👑
         </div>
@@ -117,13 +117,13 @@ export function CrownedWinnerOverlay({
         )}
         <h2
           id="crowned-winner-title"
-          className="text-5xl md:text-8xl font-black text-white mb-3 drop-shadow-[0_0_24px_rgba(0,255,255,0.55)]"
+          className="text-5xl md:text-8xl font-black text-white mb-3 drop-shadow-[0_0_24px_rgba(0,255,102,0.55)]"
           style={{ fontFamily: 'var(--font-inter), sans-serif' }}
         >
           {playerName}
         </h2>
         {(level != null || levelTitle) && (
-          <p className="text-xl md:text-2xl font-semibold text-[#00FFFF] mb-2">
+          <p className="text-xl md:text-2xl font-semibold text-[#00FF66] mb-2">
             Level {level ?? '—'}
             {levelTitle ? ` · ${levelTitle}` : ''}
           </p>

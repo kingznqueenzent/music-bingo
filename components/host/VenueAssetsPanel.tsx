@@ -70,14 +70,14 @@ export function VenueAssetsPanel({
 
   return (
     <section
-      className={`rounded-2xl border border-[#00FFFF]/25 bg-slate-900/70 shadow-md shadow-black/40 p-4 sm:p-6 space-y-5 ${className}`}
+      className={`rounded-2xl border border-[#00FF66]/25 bg-slate-900/70 shadow-md shadow-black/40 p-4 sm:p-6 space-y-5 ${className}`}
       aria-label="Venue assets and QR code"
     >
       <div>
         <h3 className="text-xl font-bold text-slate-50">Venue Assets / QR Code</h3>
         <p className="text-slate-400 text-sm mt-1">
           High-resolution code for stage overlays, projectors, and table tents. Scans open{' '}
-          <span className="text-[#00FFFF]/90">lyricgrid.ca/room/{code}</span>.
+          <span className="text-[#00FF66]/90">lyricgrid.ca/room/{code}</span>.
         </p>
       </div>
 
@@ -100,7 +100,7 @@ export function VenueAssetsPanel({
         <div className="flex-1 min-w-0 space-y-4 w-full">
           <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-4">
             <p className="text-xs uppercase tracking-wider text-slate-500 mb-1">Room link</p>
-            <p className="text-sm text-[#00FFFF] break-all font-mono">{url}</p>
+            <p className="text-sm text-[#00FF66] break-all font-mono">{url}</p>
             <p className="text-slate-500 text-xs mt-2">
               Room code: <span className="text-emerald-400 font-bold text-lg tracking-widest">{code}</span>
             </p>
@@ -110,7 +110,7 @@ export function VenueAssetsPanel({
             <button
               type="button"
               onClick={() => void copyLink()}
-              className="inline-flex items-center justify-center gap-2 min-h-12 rounded-full border border-[#00FFFF]/50 px-5 text-sm font-semibold text-[#00FFFF] hover:bg-[#00FFFF]/10 touch-manipulation"
+              className="inline-flex items-center justify-center gap-2 min-h-12 rounded-full border border-[#00FF66]/50 px-5 text-sm font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 touch-manipulation"
             >
               {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
               {copied ? 'Copied!' : 'Copy Room Link'}

@@ -189,11 +189,11 @@ function CreateFromMediaFormInner() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {selectedThemeName ? (
-        <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-100 flex flex-wrap items-center justify-between gap-2">
           <span>
             Showing songs for <strong>{selectedThemeName}</strong>
           </span>
-          <Link href="/themes" className="text-cyan-300 hover:text-white underline-offset-2 hover:underline">
+          <Link href="/themes" className="text-green-300 hover:text-white underline-offset-2 hover:underline">
             Browse themes
           </Link>
         </div>

@@ -6,18 +6,18 @@ Quick reference for the **player flow**, **bingo cards**, **stage view**, and **
 
 ## 1. Home & Join
 
-- **Home** (`/`): Dark gradient (slate-950 → slate-900), LyricGrid logo (cyan/teal), hero title “Music Bingo for Livestreams”, buttons: Join a Game, Browse Playlists, Leaderboard. Stats: 100+ players, 25 tracks per card.
+- **Home** (`/`): Dark gradient (slate-950 → slate-900), LyricGrid logo (neon green), hero title “Music Bingo for Livestreams”, buttons: Join a Game, Browse Playlists, Leaderboard. Stats: 100+ players, 25 tracks per card.
 - **Join** (`/join`): Same dark theme. Form: **Game Code**, **Display Name**, optional **Platform username** (Twitch/Kick/YouTube). Button: “Get My Bingo Card”. Submit → creates a card and redirects to `/play?cardId=…&gameId=…`.
 
 ---
 
 ## 2. Player Bingo Card (`/play`)
 
-- **Layout**: “Your Bingo Card” title (cyan gradient), optional game logo top-right, player name below. One **grid** (4×4 or 5×5) of squares.
+- **Layout**: “Your Bingo Card” title (neon green gradient), optional game logo top-right, player name below. One **grid** (4×4 or 5×5) of squares.
 - **Each square**:
   - Optional small **album art** (if `album_art_url`), then **song title** (or YouTube ID / “—”).
   - **Unmarked**: dark bg `#1E1E1E`, border `white/20`, text slate-300.
-  - **Marked** (when that song has been played): border **cyan** `#00FFFF`, cyan text, **pulse-glow** animation (soft cyan box-shadow breathing).
+  - **Marked** (when that song has been played): border **neon green** `#00FF66`, green text, **pulse-glow** animation (soft green box-shadow breathing).
 - **Copy**: “When you get N in a row (horizontal, vertical, or diagonal), type **BINGO** in chat!”
 - **Leaderboard**: Floating **trophy** button (bottom-right). Opens a bottom drawer: “Top 10 All-Time” with rank, name, points, wins.
 - **Win**: When host verifies BINGO, a **modal** appears: “BINGO VERIFIED!”, “Enter your name to join the Leaderboard”, input + “Join Leaderboard” / “Skip”.
@@ -48,7 +48,7 @@ Quick reference for the **player flow**, **bingo cards**, **stage view**, and **
 - **Playback**: “Now playing” (current song title), “Play next” list (upcoming songs). Buttons to play next song. Clip length / crossfade shown.
 - **Verify BINGO**: Input “Card ID or player identifier”, “Verify BINGO” – on success, that player’s device shows the win modal and can claim leaderboard.
 
-**Style**: Rounded panels (slate-800/900 borders), emerald for primary actions, cyan for LyricGrid/brand.
+**Style**: Rounded panels (slate-800/900 borders), emerald for primary actions, neon green for LyricGrid/brand.
 
 ---
 
@@ -56,7 +56,7 @@ Quick reference for the **player flow**, **bingo cards**, **stage view**, and **
 
 | Where            | What                         | How |
 |------------------|------------------------------|-----|
-| Bingo card cell  | Marked state                 | `animate-pulse-glow` (cyan glow 2s loop) |
+| Bingo card cell  | Marked state                 | `animate-pulse-glow` (neon green glow 2s loop) |
 | Bingo card cell  | Just marked (optional)       | Pop/scale (see globals.css) |
 | Win modal        | Open                         | Backdrop blur, modal scale-in (optional) |
 | Stage leaderboard| Toggle                       | `transition-all duration-500` opacity |

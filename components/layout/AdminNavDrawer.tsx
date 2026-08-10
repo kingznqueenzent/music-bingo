@@ -58,7 +58,7 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
       onClose={onClose}
       title="Admin Menu"
       description={navigating ? 'Opening…' : undefined}
-      titleIcon={<Shield className="w-3.5 h-3.5 text-[#00FFFF]" aria-hidden />}
+      titleIcon={<Shield className="w-3.5 h-3.5 text-[#00FF66]" aria-hidden />}
       forceSheet
       sheetSide="right"
       footer={
@@ -76,7 +76,7 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
               onClick={() => void navigate(href)}
               className={`flex w-full items-center gap-3 px-3 py-2.5 min-h-11 rounded-xl text-sm font-medium transition-colors touch-manipulation disabled:opacity-50 ${
                 active
-                  ? 'bg-[#00FFFF]/10 text-[#00FFFF]'
+                  ? 'bg-[#00FF66]/10 text-[#00FF66]'
                   : 'text-white/50 hover:text-white hover:bg-white/5'
               }`}
             >

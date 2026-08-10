@@ -30,7 +30,7 @@ function TrackCountBadge({ count }: { count: number }) {
       className={`shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums border ${
         empty
           ? 'border-white/10 text-white/35 bg-white/5'
-          : 'border-[#00FFFF]/35 text-[#00FFFF]/90 bg-[#00FFFF]/10'
+          : 'border-[#00FF66]/35 text-[#00FF66]/90 bg-[#00FF66]/10'
       }`}
     >
       {formatTrackCountLabel(count)}
@@ -112,7 +112,7 @@ export function ThemeSelect({
           if (disabled) return
           setOpen((o) => !o)
         }}
-        className="w-full max-w-full flex items-center gap-2 border border-white/15 rounded-xl px-3 py-3 min-h-12 text-sm text-gray-200 text-left touch-manipulation disabled:opacity-50 focus:border-[#00FFFF]/50 outline-none active:bg-white/5"
+        className="w-full max-w-full flex items-center gap-2 border border-white/15 rounded-xl px-3 py-3 min-h-12 text-sm text-gray-200 text-left touch-manipulation disabled:opacity-50 focus:border-[#00FF66]/50 outline-none active:bg-white/5"
         style={{ backgroundColor: MENU_TOKENS.dark }}
       >
         <span className="flex-1 truncate min-w-0">{selectedLabel}</span>
@@ -143,7 +143,7 @@ export function ThemeSelect({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Filter themes…"
-                  className="w-full rounded-xl border border-white/10 pl-10 pr-3 py-3 min-h-12 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#00FFFF]/50"
+                  className="w-full rounded-xl border border-white/10 pl-10 pr-3 py-3 min-h-12 text-sm text-white placeholder:text-gray-500 outline-none focus:border-[#00FF66]/50"
                   style={{ backgroundColor: MENU_TOKENS.dark }}
                   autoComplete="off"
                 />

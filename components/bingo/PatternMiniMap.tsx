@@ -28,10 +28,10 @@ export function PatternMiniMap({
 
   return (
     <div
-      className={`rounded-xl border border-[#00FFFF]/30 bg-[#1E1E1E]/90 p-3 ${className}`}
+      className={`rounded-xl border border-[#00FF66]/30 bg-[#1E1E1E]/90 p-3 ${className}`}
       aria-label={`Win pattern: ${PATTERN_LABELS[mode as PatternDisplayMode] ?? mode}`}
     >
-      <p className="text-[10px] uppercase tracking-widest text-[#00FFFF]/80 mb-2 font-semibold">
+      <p className="text-[10px] uppercase tracking-widest text-[#00FF66]/80 mb-2 font-semibold">
         Pattern · {PATTERN_LABELS[mode as PatternDisplayMode] ?? mode}
       </p>
       <div
@@ -50,9 +50,9 @@ export function PatternMiniMap({
                   isMarked && inPattern
                     ? 'bg-[#FFD700]/80 border-[#FFD700]'
                     : isMarked
-                      ? 'bg-[#00FFFF]/50 border-[#00FFFF]/70'
+                      ? 'bg-[#00FF66]/50 border-[#00FF66]/70'
                       : inPattern
-                        ? 'bg-[#00FFFF]/15 border-[#00FFFF]/35'
+                        ? 'bg-[#00FF66]/15 border-[#00FF66]/35'
                         : 'bg-[#121212] border-white/10'
                 }
               `}

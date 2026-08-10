@@ -26,7 +26,7 @@ export default async function KingzControlPage() {
   return (
     <main className="min-h-[calc(100dvh-3rem)] px-6 py-10 max-w-xl mx-auto bg-[#121212]">
       <p className="text-xs uppercase tracking-[0.25em] text-[#FFD700]/80 mb-2">System</p>
-      <h1 className="text-3xl font-black text-[#00FFFF] mb-1">KingzControl</h1>
+      <h1 className="text-3xl font-black text-[#00FF66] mb-1">KingzControl</h1>
       <p className="text-slate-400 text-sm mb-8">Master shortcuts for hosts and venue admins.</p>
       <KingzSponsorTeaser />
       <ul className="space-y-2">
@@ -34,7 +34,7 @@ export default async function KingzControlPage() {
           <li key={href}>
             <Link
               href={href}
-              className="block rounded-xl border border-[#00FFFF]/15 bg-[#1E1E1E] px-4 py-3 text-sm text-slate-200 hover:border-[#00FFFF]/40 hover:text-[#00FFFF] transition-colors"
+              className="block rounded-xl border border-[#00FF66]/15 bg-[#1E1E1E] px-4 py-3 text-sm text-slate-200 hover:border-[#00FF66]/40 hover:text-[#00FF66] transition-colors"
             >
               {label}
             </Link>

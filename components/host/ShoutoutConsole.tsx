@@ -56,7 +56,7 @@ export function ShoutoutConsole({ gameId, supabase, className = '' }: ShoutoutCo
                 ? p.kind === 'warning'
                   ? 'bg-red-500/80 text-white'
                   : p.kind === 'venue'
-                    ? 'bg-[#00FFFF]/20 text-[#00FFFF] border border-[#00FFFF]/40'
+                    ? 'bg-[#00FF66]/20 text-[#00FF66] border border-[#00FF66]/40'
                     : 'bg-emerald-500 text-white'
                 : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
             }`}
@@ -70,14 +70,14 @@ export function ShoutoutConsole({ gameId, supabase, className = '' }: ShoutoutCo
         onChange={(e) => setMessage(e.target.value)}
         placeholder={preset.placeholder}
         rows={3}
-        className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-100 placeholder-slate-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#00FFFF]/40"
+        className="w-full rounded-xl bg-slate-800 border border-slate-600 px-3 py-2 text-slate-100 placeholder-slate-500 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#00FF66]/40"
       />
       <div className="flex items-center justify-between gap-3 mt-3">
         <button
           type="button"
           onClick={handleSend}
           disabled={sending || !message.trim()}
-          className="rounded-full bg-[#00FFFF] hover:bg-cyan-300 disabled:opacity-40 text-[#121212] font-bold px-5 py-2 text-sm"
+          className="rounded-full bg-[#00FF66] hover:bg-green-300 disabled:opacity-40 text-[#121212] font-bold px-5 py-2 text-sm"
         >
           {sending ? 'Sending…' : 'Send overlay'}
         </button>

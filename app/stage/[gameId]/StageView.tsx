@@ -153,7 +153,7 @@ export function StageView({ gameId }: { gameId: string }) {
   const venueName = whiteLabelOn ? game?.venue_display_name?.trim() : ''
   const stageLogo = whiteLabelOn ? game?.logo_url : null
   const hideLyricgridStage = whiteLabelOn && !!game?.brand_hide_lyricgrid
-  const primaryHex = whiteLabelOn ? game?.brand_primary_hex?.trim() || '#00FFFF' : '#00FFFF'
+  const primaryHex = whiteLabelOn ? game?.brand_primary_hex?.trim() || '#00FF66' : '#00FF66'
   const prizePool = paidEntryOn ? game?.prize_pool_cents ?? 0 : 0
   const gameCode = game ? roomCodeFromGame(game) : '——'
   const patternLabel = winPatternLabel(game?.mode)
@@ -254,7 +254,7 @@ export function StageView({ gameId }: { gameId: string }) {
             hostShoutout.kind === 'warning'
               ? 'border-red-500/60 bg-red-950/90 text-red-100'
               : hostShoutout.kind === 'venue'
-                ? 'border-[#00FFFF]/50 bg-[#1E1E1E]/95 text-[#00FFFF]'
+                ? 'border-[#00FF66]/50 bg-[#1E1E1E]/95 text-[#00FF66]'
                 : 'border-amber-500/50 bg-amber-950/90 text-amber-100'
           }`}
         >
@@ -264,16 +264,16 @@ export function StageView({ gameId }: { gameId: string }) {
       ) : null}
 
       {/* Top HUD: join code, venue, pattern */}
-      <header className="absolute top-0 inset-x-0 z-30 flex flex-wrap items-center justify-between gap-4 px-6 py-4 bg-black/60 backdrop-blur-md border-b border-[#00FFFF]/15">
+      <header className="absolute top-0 inset-x-0 z-30 flex flex-wrap items-center justify-between gap-4 px-6 py-4 bg-black/60 backdrop-blur-md border-b border-[#00FF66]/15">
         <div className="flex items-center gap-4 min-w-0">
           {stageLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={stageLogo} alt="" className="h-10 w-auto max-w-[120px] object-contain shrink-0" />
           ) : null}
           <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-[#00FFFF]/70">Join Code</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-[#00FF66]/70">Join Code</p>
             <p
-              className="text-3xl md:text-5xl font-black tracking-wider text-[#00FFFF]"
+              className="text-3xl md:text-5xl font-black tracking-wider text-[#00FF66]"
               style={{ fontFamily: 'var(--font-inter), sans-serif' }}
             >
               {gameCode}
@@ -317,7 +317,7 @@ export function StageView({ gameId }: { gameId: string }) {
             </div>
             <div className="flex-1 min-w-0 text-center px-1">
               {hideTitles ? (
-                <p className="text-xs uppercase tracking-[0.3em] text-[#00FFFF]/80 mb-1 font-semibold">
+                <p className="text-xs uppercase tracking-[0.3em] text-[#00FF66]/80 mb-1 font-semibold">
                   Blind Mode
                 </p>
               ) : null}
@@ -360,7 +360,7 @@ export function StageView({ gameId }: { gameId: string }) {
           )}
 
           {!showAdCarousel && isMp3Clip && currentSong && (
-            <div className="w-full max-w-6xl aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl flex items-center justify-center p-4 border border-[#00FFFF]/10">
+            <div className="w-full max-w-6xl aspect-video rounded-2xl overflow-hidden bg-black shadow-2xl flex items-center justify-center p-4 border border-[#00FF66]/10">
               <GameClipPlayer
                 song={currentSong}
                 clipSeconds={clipSeconds}
@@ -372,7 +372,7 @@ export function StageView({ gameId }: { gameId: string }) {
           )}
 
           {!showAdCarousel && isLegacyLocal && currentSong && (
-            <div className="w-full max-w-6xl aspect-video rounded-2xl overflow-hidden bg-black border border-[#00FFFF]/10">
+            <div className="w-full max-w-6xl aspect-video rounded-2xl overflow-hidden bg-black border border-[#00FF66]/10">
               {currentSong.file_url!.match(/\.(mp4|webm)$/i) ? (
                 <video
                   key={currentSong.id}
@@ -390,10 +390,10 @@ export function StageView({ gameId }: { gameId: string }) {
           )}
 
           {!currentSong && !sponsorOn && (
-            <div className="w-full max-w-6xl aspect-video rounded-2xl bg-[#1E1E1E] flex flex-col items-center justify-center border border-[#00FFFF]/15">
-              <p className="text-[#00FFFF]/80 text-2xl md:text-4xl font-bold mb-2">LyricGrid</p>
+            <div className="w-full max-w-6xl aspect-video rounded-2xl bg-[#1E1E1E] flex flex-col items-center justify-center border border-[#00FF66]/15">
+              <p className="text-[#00FF66]/80 text-2xl md:text-4xl font-bold mb-2">LyricGrid</p>
               <p className="text-slate-500 text-lg">Waiting for host to call a track…</p>
-              <p className="text-[#00FFFF] text-5xl md:text-7xl font-black mt-6 tracking-widest">{gameCode}</p>
+              <p className="text-[#00FF66] text-5xl md:text-7xl font-black mt-6 tracking-widest">{gameCode}</p>
             </div>
           )}
         </div>
@@ -413,38 +413,38 @@ export function StageView({ gameId }: { gameId: string }) {
           >
             {hideLyricgridStage && venueName ? venueName : 'LyricGrid'}
           </h2>
-          <p className="text-center text-xl md:text-2xl font-bold mb-8 text-[#00FFFF]/90" style={{ color: primaryHex }}>
+          <p className="text-center text-xl md:text-2xl font-bold mb-8 text-[#00FF66]/90" style={{ color: primaryHex }}>
             LEADERBOARD
           </p>
-          <div className="rounded-xl border-2 border-[#00FFFF]/40 overflow-hidden bg-black/30">
+          <div className="rounded-xl border-2 border-[#00FF66]/40 overflow-hidden bg-black/30">
             {leaderboard.length === 0 ? (
-              <div className="py-16 text-center text-xl text-[#00FFFF]/70">No scores yet</div>
+              <div className="py-16 text-center text-xl text-[#00FF66]/70">No scores yet</div>
             ) : (
-              <ul className="divide-y divide-[#00FFFF]/20 max-h-[min(60vh,520px)] overflow-y-auto overscroll-contain">
+              <ul className="divide-y divide-[#00FF66]/20 max-h-[min(60vh,520px)] overflow-y-auto overscroll-contain">
                 {leaderboard.map((p, i) => {
                   const lvl = xpOn ? getLevelFromXp(p.points ?? 0) : null
                   return (
                     <li
                       key={p.id}
                       className="flex items-center justify-between gap-4 px-6 py-4 md:py-5"
-                      style={{ backgroundColor: i % 2 === 0 ? 'rgba(0,255,255,0.06)' : 'transparent' }}
+                      style={{ backgroundColor: i % 2 === 0 ? 'rgba(0,255,102,0.06)' : 'transparent' }}
                     >
-                      <span className="text-2xl md:text-4xl font-black text-[#00FFFF] shrink-0 w-14">#{i + 1}</span>
-                      <span className="text-xl md:text-3xl font-bold text-[#00FFFF] flex-1 truncate">{p.player_name}</span>
+                      <span className="text-2xl md:text-4xl font-black text-[#00FF66] shrink-0 w-14">#{i + 1}</span>
+                      <span className="text-xl md:text-3xl font-bold text-[#00FF66] flex-1 truncate">{p.player_name}</span>
                       {xpOn && lvl && (
                         <span className="text-sm md:text-lg text-[#FFD700]/90 shrink-0">Lv.{lvl.level}</span>
                       )}
                       {xpOn && (
-                        <span className="text-lg md:text-2xl font-semibold text-[#00FFFF]/95 shrink-0">{p.points} pts</span>
+                        <span className="text-lg md:text-2xl font-semibold text-[#00FF66]/95 shrink-0">{p.points} pts</span>
                       )}
-                      <span className="text-base md:text-xl text-[#00FFFF]/80 shrink-0">{p.wins} W</span>
+                      <span className="text-base md:text-xl text-[#00FF66]/80 shrink-0">{p.wins} W</span>
                     </li>
                   )
                 })}
               </ul>
             )}
           </div>
-          <p className="text-center text-base text-[#00FFFF]/70 mt-6">
+          <p className="text-center text-base text-[#00FF66]/70 mt-6">
             Last updated: {leaderboardUpdatedAt ? leaderboardUpdatedAt.toLocaleTimeString() : '—'}
           </p>
         </div>

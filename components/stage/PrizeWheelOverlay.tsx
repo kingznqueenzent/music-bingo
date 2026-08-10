@@ -14,7 +14,7 @@ export type PrizeWheelOverlayProps = {
   onDismiss?: () => void
 }
 
-const DEFAULT_COLORS = ['#00FFFF', '#FFD700', '#a78bfa', '#f472b6', '#34d399', '#fb923c', '#38bdf8', '#facc15']
+const DEFAULT_COLORS = ['#00FF66', '#FFD700', '#a78bfa', '#f472b6', '#34d399', '#fb923c', '#38bdf8', '#facc15']
 
 export function PrizeWheelOverlay({
   open,
@@ -76,7 +76,7 @@ export function PrizeWheelOverlay({
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
       <div className="relative w-full max-w-2xl flex flex-col items-center">
-        <p className="text-[#00FFFF] uppercase tracking-[0.3em] text-sm font-bold mb-4">Prize Wheel</p>
+        <p className="text-[#00FF66] uppercase tracking-[0.3em] text-sm font-bold mb-4">Prize Wheel</p>
         {winnerName ? (
           <p className="text-2xl md:text-3xl font-bold text-white mb-6">Spinning for {winnerName}</p>
         ) : null}
@@ -115,7 +115,7 @@ export function PrizeWheelOverlay({
               )
             })}
           </div>
-          <div className="absolute inset-[28%] rounded-full bg-[#121212] border-2 border-[#00FFFF]/40 flex items-center justify-center">
+          <div className="absolute inset-[28%] rounded-full bg-[#121212] border-2 border-[#00FF66]/40 flex items-center justify-center">
             <span className="text-3xl">🎡</span>
           </div>
         </div>
@@ -131,7 +131,7 @@ export function PrizeWheelOverlay({
               <button
                 type="button"
                 onClick={onDismiss}
-                className="rounded-full bg-[#00FFFF] hover:bg-cyan-300 text-[#121212] font-bold px-8 py-2.5"
+                className="rounded-full bg-[#00FF66] hover:bg-green-300 text-[#121212] font-bold px-8 py-2.5"
               >
                 Done
               </button>

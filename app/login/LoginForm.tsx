@@ -170,11 +170,11 @@ export function LoginForm() {
   return (
     <main className="min-h-[calc(100dvh-3.5rem)] bg-[#121212] text-white flex items-center justify-center p-6">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[#00FFFF]/20 bg-[#1E1E1E] p-8 shadow-[0_0_48px_rgba(0,255,255,0.08)]">
+        <div className="rounded-2xl border border-[#00FF66]/20 bg-[#1E1E1E] p-8 shadow-[0_0_48px_rgba(0,255,102,0.08)]">
           <div className="flex flex-col items-center text-center mb-8">
             <LyricGridLogo size={48} className="mb-4" />
             <p className="text-xs uppercase tracking-[0.25em] text-[#FFD700]/80 mb-2">Host Portal</p>
-            <h1 className="text-2xl font-black text-[#00FFFF]">Sign in to LyricGrid</h1>
+            <h1 className="text-2xl font-black text-[#00FF66]">Sign in to LyricGrid</h1>
             <p className="text-slate-400 text-sm mt-2">Access the host dashboard, media manager, and stage controls.</p>
           </div>
 
@@ -191,7 +191,7 @@ export function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={!!configError}
-                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FFFF]/60 focus:ring-1 focus:ring-[#00FFFF]/40 disabled:opacity-50"
+                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FF66]/60 focus:ring-1 focus:ring-[#00FF66]/40 disabled:opacity-50"
                 placeholder="you@venue.com"
               />
             </div>
@@ -207,7 +207,7 @@ export function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={!!configError}
-                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FFFF]/60 focus:ring-1 focus:ring-[#00FFFF]/40 disabled:opacity-50"
+                className="w-full rounded-xl bg-[#121212] border border-slate-600 px-4 py-3 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-[#00FF66]/60 focus:ring-1 focus:ring-[#00FF66]/40 disabled:opacity-50"
                 placeholder="••••••••"
               />
             </div>
@@ -221,7 +221,7 @@ export function LoginForm() {
             <button
               type="submit"
               disabled={loading || !!configError}
-              className="w-full rounded-full bg-gradient-to-r from-[#00FFFF] to-cyan-400 hover:from-cyan-300 hover:to-[#00FFFF] disabled:opacity-50 text-[#121212] font-bold py-3.5 transition-all shadow-lg shadow-[#00FFFF]/20"
+              className="w-full rounded-full bg-gradient-to-r from-[#00FF66] to-green-400 hover:from-green-300 hover:to-[#00FF66] disabled:opacity-50 text-[#121212] font-bold py-3.5 transition-all shadow-lg shadow-[#00FF66]/20"
             >
               {loading ? 'Signing in…' : configError ? 'Login unavailable' : 'Sign In'}
             </button>
@@ -236,7 +236,7 @@ export function LoginForm() {
         </div>
 
         <p className="text-center mt-6">
-          <Link href="/lyricgrid" className="text-slate-400 hover:text-[#00FFFF] text-sm transition-colors">
+          <Link href="/lyricgrid" className="text-slate-400 hover:text-[#00FF66] text-sm transition-colors">
             ← Back to LyricGrid
           </Link>
         </p>

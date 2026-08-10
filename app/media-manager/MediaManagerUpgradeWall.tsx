@@ -12,7 +12,7 @@ export function MediaManagerUpgradeWall({ tier }: { tier: GameTier }) {
       <div className="w-full max-w-lg space-y-4">
         <Link
           href="/host"
-          className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-[#00FFFF] transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-[#00FF66] transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to host dashboard

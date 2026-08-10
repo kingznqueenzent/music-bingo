@@ -55,7 +55,7 @@ function statusLabel(item: UploadQueueItem): string {
 function statusClass(status: UploadQueueItem['status']): string {
   if (status === 'completed') return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
   if (status === 'error') return 'text-red-300 border-red-500/30 bg-red-500/10'
-  if (status === 'uploading') return 'text-[#00FFFF] border-[#00FFFF]/30 bg-[#00FFFF]/10'
+  if (status === 'uploading') return 'text-[#00FF66] border-[#00FF66]/30 bg-[#00FF66]/10'
   return 'text-gray-400 border-white/10 bg-white/5'
 }
 

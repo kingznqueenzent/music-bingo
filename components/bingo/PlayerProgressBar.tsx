@@ -27,10 +27,10 @@ export function PlayerProgressBar({
   const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0
 
   return (
-    <div className={`rounded-xl border border-[#00FFFF]/25 bg-[#1E1E1E]/90 p-3 ${className}`}>
+    <div className={`rounded-xl border border-[#00FF66]/25 bg-[#1E1E1E]/90 p-3 ${className}`}>
       <div className="flex items-center justify-between gap-2 mb-2">
         <p className="text-xs uppercase tracking-widest text-slate-400 font-semibold">Progress</p>
-        <p className="text-sm font-bold text-[#00FFFF] tabular-nums">{label}</p>
+        <p className="text-sm font-bold text-[#00FF66] tabular-nums">{label}</p>
       </div>
       <div
         className="h-2.5 rounded-full bg-[#121212] border border-white/10 overflow-hidden"
@@ -41,7 +41,7 @@ export function PlayerProgressBar({
         aria-label={label}
       >
         <div
-          className="h-full rounded-full bg-gradient-to-r from-[#00FFFF]/70 to-[#FFD700]/90 transition-all duration-300 ease-out"
+          className="h-full rounded-full bg-gradient-to-r from-[#00FF66]/70 to-[#FFD700]/90 transition-all duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>

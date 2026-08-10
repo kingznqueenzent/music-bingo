@@ -32,7 +32,7 @@ export function LibrarySearchEmpty({
       <button
         type="button"
         onClick={onClear}
-        className="min-h-11 rounded-full border border-[#00FFFF]/40 px-5 py-2 text-sm font-semibold text-[#00FFFF] hover:bg-[#00FFFF]/10 touch-manipulation"
+        className="min-h-11 rounded-full border border-[#00FF66]/40 px-5 py-2 text-sm font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 touch-manipulation"
       >
         Clear search & filters
       </button>

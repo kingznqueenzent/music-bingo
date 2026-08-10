@@ -107,7 +107,7 @@ export function ThemeCoverageGrid({
             onClick={() => onSelectGenre('')}
             className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
               selectedGenreFilter === ''
-                ? 'border-[#00FFFF]/60 bg-[#00FFFF]/10 text-[#00FFFF]'
+                ? 'border-[#00FF66]/60 bg-[#00FF66]/10 text-[#00FF66]'
                 : 'border-white/10 text-gray-400 hover:border-white/25'
             }`}
           >
@@ -123,7 +123,7 @@ export function ThemeCoverageGrid({
                 onClick={() => onSelectGenre(active ? '' : row.label)}
                 className={`text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
                   active
-                    ? 'border-[#00FFFF]/60 bg-[#00FFFF]/10 text-[#00FFFF]'
+                    ? 'border-[#00FF66]/60 bg-[#00FF66]/10 text-[#00FF66]'
                     : 'border-white/10 text-gray-400 hover:border-white/25'
                 }`}
                 title={`${total} tracks`}

@@ -63,14 +63,14 @@ export function SitemapClient() {
           <button
             type="button"
             onClick={handleCopyForGoogleDoc}
-            className="rounded-full bg-[#00FFFF] hover:bg-cyan-300 text-[#121212] font-semibold px-4 py-2 text-sm"
+            className="rounded-full bg-[#00FF66] hover:bg-green-300 text-[#121212] font-semibold px-4 py-2 text-sm"
           >
             Copy for Google Doc
           </button>
           <button
             type="button"
             onClick={handleExportMarkdown}
-            className="rounded-full border border-[#00FFFF]/40 text-[#00FFFF] hover:bg-[#00FFFF]/10 font-semibold px-4 py-2 text-sm"
+            className="rounded-full border border-[#00FF66]/40 text-[#00FF66] hover:bg-[#00FF66]/10 font-semibold px-4 py-2 text-sm"
           >
             Download .md
           </button>
@@ -92,7 +92,7 @@ export function SitemapClient() {
           if (pages.length === 0) return null
           return (
             <section key={section}>
-              <h2 className="text-xs uppercase tracking-[0.25em] text-[#00FFFF]/70 mb-3">{section}</h2>
+              <h2 className="text-xs uppercase tracking-[0.25em] text-[#00FF66]/70 mb-3">{section}</h2>
               <div className="grid gap-3 sm:grid-cols-2">
                 {pages.map((page) => {
                   const Icon = page.icon
@@ -100,18 +100,18 @@ export function SitemapClient() {
                   return (
                     <article
                       key={page.href}
-                      className="rounded-xl border border-white/10 bg-[#1E1E1E] p-4 hover:border-[#00FFFF]/25 transition-colors"
+                      className="rounded-xl border border-white/10 bg-[#1E1E1E] p-4 hover:border-[#00FF66]/25 transition-colors"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="rounded-lg bg-[#00FFFF]/10 p-2 shrink-0">
-                          <Icon className="h-5 w-5 text-[#00FFFF]" />
+                        <div className="rounded-lg bg-[#00FF66]/10 p-2 shrink-0">
+                          <Icon className="h-5 w-5 text-[#00FF66]" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="font-semibold text-white mb-1">{page.label}</h3>
                           <p className="text-slate-400 text-xs leading-relaxed mb-2">{page.description}</p>
                           <Link
                             href={page.href}
-                            className="text-[#00FFFF] text-xs font-mono break-all hover:underline"
+                            className="text-[#00FF66] text-xs font-mono break-all hover:underline"
                           >
                             {url}
                           </Link>
