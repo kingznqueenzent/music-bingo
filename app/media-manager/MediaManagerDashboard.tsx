@@ -101,13 +101,20 @@ function MediaManagerDashboardInner() {
   const [quotaModalMessage, setQuotaModalMessage] = useState<string | undefined>()
 
   const atQuotaCap =
-    !hostTier.isUnlimited && hostTier.limit != null && songs.length >= hostTier.limit
+    !hostTier.loading &&
+    !hostTier.isUnlimited &&
+    hostTier.limit != null &&
+    songs.length >= hostTier.limit
 
-  const handleQuotaBlocked = useCallback((message: string) => {
-    setQuotaModalMessage(message)
-    setQuotaModalOpen(true)
-    setError(message)
-  }, [setError])
+  const handleQuotaBlocked = useCallback(
+    (message: string) => {
+      if (hostTier.isUnlimited || hostTier.loading) return
+      setQuotaModalMessage(message)
+      setQuotaModalOpen(true)
+      setError(message)
+    },
+    [hostTier.isUnlimited, hostTier.loading, setError]
+  )
 
   const trackQuotaGate = useMemo(
     () =>
@@ -495,7 +502,7 @@ function MediaManagerDashboardInner() {
                       : 'border-white/10 text-white/45 bg-white/5'
                   }`}
                 >
-                  {hostTier.isUnlimited ? 'Unlimited' : hostTier.label}
+                  {hostTier.badgeLabel}
                 </span>
               )}
             </h1>

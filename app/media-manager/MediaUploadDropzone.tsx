@@ -200,7 +200,9 @@ export function MediaUploadDropzone({
               <Upload className="w-5 h-5" />
             </div>
             <p className="text-sm font-medium text-white mb-1">Library limit reached</p>
-            <p className="text-xs text-white/40">Upgrade to Pro or Enterprise to upload more tracks.</p>
+            <p className="text-xs text-white/40">
+              Free plan is limited to 50 tracks. Upgrade to Pro or Enterprise for unlimited storage.
+            </p>
           </>
         ) : (
           <>

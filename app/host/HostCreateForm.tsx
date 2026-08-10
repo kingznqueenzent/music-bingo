@@ -15,9 +15,9 @@ function parseYoutubeId(url: string): string | null {
 }
 
 const TIER_LABELS: Record<GameTier, string> = {
-  free: 'Free (10 players – great for testing)',
-  pro: 'Pro (50 players)',
-  enterprise: 'Enterprise (unlimited + branding)',
+  free: 'Free (50-track library, unlimited players)',
+  pro: 'Pro (unlimited library + stage features)',
+  enterprise: 'Enterprise (unlimited library + white-label branding)',
 }
 
 const fieldClass =

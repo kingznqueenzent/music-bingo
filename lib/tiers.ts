@@ -5,6 +5,12 @@
 
 export type GameTier = 'free' | 'pro' | 'enterprise'
 
+export const TIER_DISPLAY_NAMES: Record<GameTier, string> = {
+  free: 'Free',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+}
+
 /** @deprecated Player limits removed — always unlimited. Kept for legacy UI callers. */
 export function getMaxPlayersForTier(_tier: GameTier): number {
   return Number.POSITIVE_INFINITY

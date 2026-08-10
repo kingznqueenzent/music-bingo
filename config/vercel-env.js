@@ -29,6 +29,15 @@ const requiredForProduction = [
     name: 'ADMIN_EMAIL',
     description: 'Host portal allowlist email (enables proxy cookie guard on /host, /media-manager, etc.)',
   },
+  {
+    name: 'HOST_TIER',
+    description: 'Host subscription tier for media library quota: free (50 tracks) | pro | enterprise',
+  },
+  {
+    name: 'NEXT_PUBLIC_HOST_TIER',
+    description: 'Browser-visible mirror of HOST_TIER for quota UI bootstrap (must match HOST_TIER)',
+    public: true,
+  },
 ]
 
 /** @type {EnvVarDef[]} */
@@ -98,6 +107,8 @@ const pushByDefault = [
   'NEXT_PUBLIC_SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
   'ADMIN_EMAIL',
+  'HOST_TIER',
+  'NEXT_PUBLIC_HOST_TIER',
   'ADMIN_SECRET',
   'DATABASE_URL',
   'YOUTUBE_API_KEY',

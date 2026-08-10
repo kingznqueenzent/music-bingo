@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { X, Sparkles, Building2 } from 'lucide-react'
+import { X, Sparkles, Building2, Music2 } from 'lucide-react'
 import type { GameTier } from '@/lib/tiers'
 import { FREE_TIER_TRACK_LIMIT } from '@/lib/media/track-quota'
 
@@ -13,7 +13,7 @@ type TrackQuotaUpgradeModalProps = {
   message?: string
 }
 
-const PLANS = [
+const UPGRADE_PLANS = [
   {
     id: 'pro',
     name: 'Pro',
@@ -41,7 +41,8 @@ export function TrackQuotaUpgradeModal({
   currentCount,
   message,
 }: TrackQuotaUpgradeModalProps) {
-  if (!open) return null
+  // Pro/Enterprise hosts never see quota upsell.
+  if (!open || tier === 'pro' || tier === 'enterprise') return null
 
   const defaultMessage =
     tier === 'free'
@@ -83,7 +84,26 @@ export function TrackQuotaUpgradeModal({
         </div>
 
         <div className="p-5 space-y-3">
-          {PLANS.map((plan) => {
+          <div className="rounded-xl border border-[#00FFFF]/35 bg-[#00FFFF]/5 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Music2 className="w-4 h-4 text-[#00FFFF]" />
+              <span className="font-bold text-white">Free</span>
+              <span className="text-[10px] uppercase tracking-wide text-white/50 font-semibold ml-auto">
+                Current plan
+              </span>
+            </div>
+            <p className="text-xs text-white/55 mb-2">
+              Up to {FREE_TIER_TRACK_LIMIT} tracks
+              {currentCount != null ? ` · ${currentCount} / ${FREE_TIER_TRACK_LIMIT} used` : ''}
+            </p>
+            <ul className="text-xs text-white/40 space-y-1">
+              <li>• {FREE_TIER_TRACK_LIMIT}-track media library</li>
+              <li>• Unlimited players per game</li>
+              <li>• Standard themes</li>
+            </ul>
+          </div>
+
+          {UPGRADE_PLANS.map((plan) => {
             const Icon = plan.icon
             return (
               <div
@@ -120,7 +140,7 @@ export function TrackQuotaUpgradeModal({
             onClick={onClose}
             className="w-full text-sm text-white/40 hover:text-white/60 py-2 transition-colors"
           >
-            Not now
+            Stay on Free for now
           </button>
         </div>
       </div>
