@@ -8,6 +8,7 @@ import { isFeatureEnabled } from '@/lib/feature-flags'
 import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
 import { findLyricLobbyGame, insertGameOrReuseLobby } from '@/lib/game-room-code'
 import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media/media-library-access-server'
+import { startGameSession } from '@/lib/game-start'
 
 export type GameCreateOptions = {
   gridSize?: 4 | 5
@@ -448,12 +449,17 @@ export async function playNextSong(gameId: string, playlistSongId: string) {
   return { ok: true }
 }
 
-/** Host: start game (set status to playing without a current song yet) */
+/** Host: start game — validate playlist, call first random unplayed track, set playing. */
 export async function startGame(gameId: string) {
-  const supabase = createClient()
-  const { error } = await supabase.from('games').update({ status: 'playing' }).eq('id', gameId)
-  if (error) return { error: error.message }
-  return { ok: true }
+  try {
+    const supabase = createClient()
+    const result = await startGameSession(supabase, gameId)
+    if (!result.ok) return { error: result.error }
+    return { ok: true as const, playlistSongId: result.playlistSongId }
+  } catch (e) {
+    console.error('[startGame]', e)
+    return { error: e instanceof Error ? e.message : 'Could not start game.' }
+  }
 }
 
 export type WinPattern = 'line' | 'x' | 'blackout' | 'corners'

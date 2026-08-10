@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { startGameSession } from '@/lib/game-start'
 
-/** Host: set game status to playing. Called by host dashboard "Start game" button. */
+/** Host: start game — set playing, call first random unplayed track. */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -11,13 +12,13 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createClient()
-    const { error } = await supabase.from('games').update({ status: 'playing' }).eq('id', gameId)
-    if (error) {
-      const msg = [error.message, error.details, error.hint].filter(Boolean).join(' ')
-      return NextResponse.json({ ok: false, error: msg || error.message }, { status: 200 })
+    const result = await startGameSession(supabase, gameId)
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error }, { status: 200 })
     }
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, playlistSongId: result.playlistSongId })
   } catch (e) {
+    console.error('[start-game]', e)
     const message = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }

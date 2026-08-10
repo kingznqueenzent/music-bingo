@@ -46,6 +46,7 @@ import { WinnersCircle } from '@/components/host/WinnersCircle'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
+import { START_GAME_EMPTY_PLAYLIST_ERROR } from '@/lib/game-start'
 
 type HostDashboardProps = {
   gameId: string
@@ -100,6 +101,8 @@ export function HostDashboard({
     cardId: string
   }>(2)
   const [resetPlayedLoading, setResetPlayedLoading] = useState(false)
+  const [startGameLoading, setStartGameLoading] = useState(false)
+  const [startGameWarning, setStartGameWarning] = useState('')
   const [playbackPaused, setPlaybackPaused] = useState(false)
   const [playerBoards, setPlayerBoards] = useState<PlayerBoardStatus[]>([])
   const [winnersCircle, setWinnersCircle] = useState<{
@@ -405,28 +408,83 @@ export function HostDashboard({
 
   async function handleStart() {
     setActionError('')
-    setGame((prev) => (prev ? { ...prev, status: 'playing' as const } : null))
+    setStartGameWarning('')
+
+    const playedIdsLocal = new Set(played.map((p) => p.playlist_song_id))
+    const upNextLocal = songs.filter((s) => !playedIdsLocal.has(s.id))
+    if (songs.length === 0 || upNextLocal.length === 0) {
+      setStartGameWarning(
+        songs.length === 0
+          ? START_GAME_EMPTY_PLAYLIST_ERROR
+          : 'All tracks have been played. Reset the played list to start again.'
+      )
+      return
+    }
+
+    setStartGameLoading(true)
     let success = false
+    let playlistSongId: string | undefined
+
     try {
       const res = await fetch('/api/start-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId }),
       })
-      const data = (await res.json()) as { ok?: boolean; error?: string }
-      if (res.ok && data?.ok) success = true
-      else setActionError((data?.error ?? `Error ${res.status}`) + ' Trying fallback…')
+      const data = (await res.json()) as { ok?: boolean; error?: string; playlistSongId?: string }
+      if (res.ok && data?.ok) {
+        success = true
+        playlistSongId = data.playlistSongId
+      } else {
+        console.error('[handleStart] start-game API', data?.error ?? res.status)
+        setActionError((data?.error ?? `Error ${res.status}`) + ' Trying fallback…')
+      }
     } catch (e) {
+      console.error('[handleStart] start-game fetch', e)
       setActionError((e instanceof Error ? e.message : 'Could not start game') + ' Trying fallback…')
     }
+
     if (!success) {
-      const fallback = await startGame(gameId)
-      if (fallback.ok) {
-        success = true
-        setActionError('')
-      } else setActionError(fallback.error ?? 'Could not start game.')
+      try {
+        const fallback = await startGame(gameId)
+        if (fallback.ok) {
+          success = true
+          playlistSongId = fallback.playlistSongId
+          setActionError('')
+        } else {
+          console.error('[handleStart] startGame fallback', fallback.error)
+          setActionError(fallback.error ?? 'Could not start game.')
+        }
+      } catch (e) {
+        console.error('[handleStart] startGame fallback', e)
+        setActionError('Could not start game.')
+      }
     }
-    if (!success) setGame((prev) => (prev ? { ...prev, status: 'lobby' as const } : null))
+
+    if (success) {
+      const song = playlistSongId ? songs.find((s) => s.id === playlistSongId) ?? null : null
+      setGame((prev) =>
+        prev
+          ? { ...prev, status: 'playing', current_song_id: playlistSongId ?? null }
+          : null
+      )
+      if (song) {
+        setCurrentSong(song)
+        setTimeout(() => nowPlayingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+      }
+      try {
+        const { data: playedData } = await supabase
+          .from('played_songs')
+          .select('*')
+          .eq('game_id', gameId)
+          .order('played_at')
+        setPlayed(playedData ?? [])
+      } catch (e) {
+        console.error('[handleStart] refresh played_songs', e)
+      }
+    }
+
+    setStartGameLoading(false)
   }
 
   async function handleNextSong(song: PlaylistSong) {
@@ -935,11 +993,26 @@ export function HostDashboard({
           <button
             type="button"
             onClick={handleStart}
-            disabled={game.status !== 'lobby'}
-            className="w-full sm:w-auto rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-lg sm:text-xl font-semibold py-3.5 sm:py-4 px-6 sm:px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100 cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-12"
+            disabled={game.status !== 'lobby' || startGameLoading}
+            className="w-full sm:w-auto rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-lg sm:text-xl font-semibold py-3.5 sm:py-4 px-6 sm:px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100 cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-12 inline-flex items-center justify-center gap-2"
           >
-            ▶️ Start game
+            {startGameLoading ? (
+              <>
+                <span
+                  className="inline-block h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin"
+                  aria-hidden
+                />
+                Starting…
+              </>
+            ) : (
+              '▶️ Start game'
+            )}
           </button>
+          {startGameWarning ? (
+            <p className="w-full text-amber-300 text-sm font-medium" role="alert">
+              {startGameWarning}
+            </p>
+          ) : null}
           {stageUrl && (
             <a
               href={stageUrl}
