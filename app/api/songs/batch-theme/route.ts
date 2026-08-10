@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
+import {
+  checkMediaLibraryAccess,
+  mediaLibraryBlockedResponse,
+} from '@/lib/media/media-library-access-server'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -23,6 +27,11 @@ export async function PATCH(request: NextRequest) {
 
   if (!Array.isArray(ids) || ids.length === 0) {
     return NextResponse.json({ error: 'No song ids provided.' }, { status: 400 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const supabase = createClient()

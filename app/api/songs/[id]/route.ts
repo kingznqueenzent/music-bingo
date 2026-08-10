@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
+import {
+  checkMediaLibraryAccess,
+  mediaLibraryBlockedResponse,
+} from '@/lib/media/media-library-access-server'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -14,6 +18,11 @@ type RouteContext = { params: Promise<{ id: string }> }
 export async function PATCH(request: NextRequest, context: RouteContext) {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const { id } = await context.params
@@ -53,6 +62,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const { id } = await context.params

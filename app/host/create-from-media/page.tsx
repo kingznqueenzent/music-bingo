@@ -1,10 +1,13 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { CreateFromMediaForm } from './CreateFromMediaForm'
+import { requireAdminSession } from '@/lib/admin-guard-server'
 
 export const dynamic = 'force-dynamic'
 
-export default function CreateFromMediaPage() {
+export default async function CreateFromMediaPage() {
+  await requireAdminSession('/host/create-from-media')
+
   return (
     <main className="min-h-dvh w-full overflow-x-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white">
       <div className="max-w-4xl mx-auto px-3 sm:px-6 pt-6">

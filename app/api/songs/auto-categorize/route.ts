@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import { autoCategorizeSong } from '@/lib/songAutoCategorizer'
+import {
+  checkMediaLibraryAccess,
+  mediaLibraryBlockedResponse,
+} from '@/lib/media/media-library-access-server'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -20,6 +24,11 @@ export async function POST(request: NextRequest) {
 
   if (titles.length === 0) {
     return NextResponse.json({ error: 'No titles provided.' }, { status: 400 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const results = []

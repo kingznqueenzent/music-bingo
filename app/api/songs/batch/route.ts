@@ -4,6 +4,10 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import {
+  checkMediaLibraryAccess,
+  mediaLibraryBlockedResponse,
+} from '@/lib/media/media-library-access-server'
+import {
   assertTrackQuotaForInsert,
   trackQuotaErrorResponse,
 } from '@/lib/media/track-quota-server'
@@ -36,6 +40,11 @@ export async function POST(request: NextRequest) {
 
   if (!Array.isArray(rows) || rows.length === 0) {
     return NextResponse.json({ error: 'No songs provided.' }, { status: 400 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const payload = rows.map((row) => ({

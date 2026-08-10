@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import { allDecadeThemeNames } from '@/lib/decade-theme-catalog'
 import { isDecadeThemeName, titleHasYoutubeArtifact } from '@/lib/media/decade-theme-assignment'
+import {
+  checkMediaLibraryAccess,
+  mediaLibraryBlockedResponse,
+} from '@/lib/media/media-library-access-server'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -21,6 +25,11 @@ type SongRow = {
 export async function DELETE() {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const supabase = createClient()

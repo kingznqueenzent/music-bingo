@@ -4,6 +4,10 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import {
+  checkMediaLibraryAccess,
+  mediaLibraryBlockedResponse,
+} from '@/lib/media/media-library-access-server'
+import {
   assertTrackQuotaForInsert,
   trackQuotaErrorResponse,
 } from '@/lib/media/track-quota-server'
@@ -17,6 +21,11 @@ async function requireHostCookie(): Promise<boolean> {
 export async function GET() {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const supabase = createClient()
@@ -46,6 +55,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
   }
 
   const body = (await request.json()) as Record<string, unknown>

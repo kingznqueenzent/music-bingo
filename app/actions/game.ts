@@ -7,6 +7,7 @@ import type { GameTier } from '@/lib/tiers'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
 import { findLyricLobbyGame, insertGameOrReuseLobby } from '@/lib/game-room-code'
+import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media/media-library-access-server'
 
 export type GameCreateOptions = {
   gridSize?: 4 | 5
@@ -135,6 +136,11 @@ export async function createGameFromMediaLibrary(
   songIds: string[],
   options: GameCreateOptions = {}
 ) {
+  const access = checkMediaLibraryAccess()
+  if (!access.allowed) {
+    return { error: mediaLibraryBlockedMessage() }
+  }
+
   const supabase = createClient()
   const gridSize = options.gridSize ?? 5
   const tier = options.tier ?? 'pro'

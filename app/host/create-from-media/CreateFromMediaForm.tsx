@@ -19,6 +19,9 @@ import type { CatalogSong } from '@/app/media-manager/types'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
+import { useHostTier } from '@/app/media-manager/hooks/useHostTier'
+import { MediaLibraryUpgradeModal } from '@/components/media/MediaLibraryUpgradeModal'
+import { Loader2 } from 'lucide-react'
 
 const MIN_5X5 = 45
 const MIN_4X4 = 32
@@ -26,6 +29,27 @@ const MIN_4X4 = 32
 const TIER_LABELS = TIER_FEATURE_LABELS
 
 export function CreateFromMediaForm() {
+  const hostTier = useHostTier(0)
+
+  if (hostTier.loading) {
+    return (
+      <div className="flex items-center justify-center py-16 text-slate-400 text-sm gap-2">
+        <Loader2 className="h-5 w-5 animate-spin" />
+        Checking plan…
+      </div>
+    )
+  }
+
+  if (!hostTier.hasMediaLibraryAccess) {
+    return (
+      <MediaLibraryUpgradeModal open onClose={() => {}} tier={hostTier.tier} modal={false} />
+    )
+  }
+
+  return <CreateFromMediaFormInner />
+}
+
+function CreateFromMediaFormInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const themeFromUrl = searchParams.get('theme')?.trim() ?? ''

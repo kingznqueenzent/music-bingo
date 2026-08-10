@@ -65,8 +65,8 @@ export function useHostTier(catalogCount: number): HostTierState {
   const snapshot = buildTrackQuotaSnapshot(tier, catalogCount)
   // Avoid false Free-tier gating before the server responds (HOST_TIER is server-only).
   const tierResolved = !loading || hasEnvTier
-  const libraryAccess = tierResolved ? hasMediaLibraryAccess(tier) : true
-  const brandingAccess = tierResolved ? hasBrandingAccess(tier) : true
+  const libraryAccess = tierResolved ? hasMediaLibraryAccess(tier) : false
+  const brandingAccess = tierResolved ? hasBrandingAccess(tier) : false
 
   return {
     tier,
