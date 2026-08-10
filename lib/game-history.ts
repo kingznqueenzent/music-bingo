@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { roomCodeFromGame } from '@/types/database-extras'
 
 export type GameHistoryRow = {
   id: string
@@ -26,7 +27,7 @@ export async function recordGameHistoryWin(
 
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .select('id, code, host_id, created_at, status')
+    .select('id, code, room_code, host_id, created_at, status')
     .eq('id', gameId)
     .maybeSingle()
 
@@ -59,7 +60,7 @@ export async function recordGameHistoryWin(
 
   const payload = {
     game_id: gameId,
-    game_code: String(game.code ?? ''),
+    game_code: roomCodeFromGame(game),
     host_id: game.host_id ?? null,
     total_players: totalPlayers,
     winner_names: [...winners],

@@ -1,4 +1,4 @@
-/** Default room code for the shared LyricGrid lobby (`games.code` / Choice A `room_code`). */
+/** Default room code for the shared LyricGrid lobby (`games.room_code`; legacy `games.code`). */
 export const DEFAULT_ROOM_CODE = 'LYRIC'
 
 const LIVE_ROOM_CODE_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'

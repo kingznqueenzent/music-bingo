@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isFeatureEnabled } from '@/lib/feature-flags'
+import { roomCodeLookupFilter } from '@/lib/game-room-code'
+import { roomCodeFromGame } from '@/types/database-extras'
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -13,9 +15,9 @@ export async function GET(req: Request) {
   const { data: game, error } = await supabase
     .from('games')
     .select(
-      'id, code, status, venue_display_name, logo_url, brand_primary_hex, brand_accent_hex, brand_hide_lyricgrid, entry_fee_cents'
+      'id, code, room_code, status, venue_display_name, logo_url, brand_primary_hex, brand_accent_hex, brand_hide_lyricgrid, entry_fee_cents'
     )
-    .eq('code', code)
+    .or(roomCodeLookupFilter(code))
     .maybeSingle()
 
   if (error) {
@@ -34,7 +36,7 @@ export async function GET(req: Request) {
     ok: true,
     game: {
       id: game.id,
-      code: game.code,
+      code: roomCodeFromGame(game),
       status: game.status,
       venueDisplayName: whiteLabel ? game.venue_display_name : null,
       logoUrl: whiteLabel ? game.logo_url : null,

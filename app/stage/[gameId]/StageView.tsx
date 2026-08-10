@@ -18,6 +18,7 @@ import {
 } from '@/lib/supabase-realtime'
 import { debounce } from '@/lib/debounce'
 import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
+import { roomCodeFromGame } from '@/types/database-extras'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { getLevelFromXp } from '@/lib/xp-levels'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
@@ -154,7 +155,7 @@ export function StageView({ gameId }: { gameId: string }) {
   const hideLyricgridStage = whiteLabelOn && !!game?.brand_hide_lyricgrid
   const primaryHex = whiteLabelOn ? game?.brand_primary_hex?.trim() || '#00FFFF' : '#00FFFF'
   const prizePool = paidEntryOn ? game?.prize_pool_cents ?? 0 : 0
-  const gameCode = game?.code ?? '——'
+  const gameCode = game ? roomCodeFromGame(game) : '——'
   const patternLabel = winPatternLabel(game?.mode)
 
   useEffect(() => {

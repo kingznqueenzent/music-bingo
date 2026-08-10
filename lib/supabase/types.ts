@@ -39,6 +39,7 @@ export interface Game {
   mode?: string
   round?: number
   code: string
+  room_code?: string | null
   status: GameStatus
   current_song_id: string | null
   clip_seconds?: number

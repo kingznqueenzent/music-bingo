@@ -419,6 +419,7 @@ export type Database = {
         Row: {
           id: string
           code: string
+          room_code: string | null
           host_name: string | null
           status: string | null
           current_track_index: number | null
@@ -448,6 +449,7 @@ export type Database = {
         Insert: {
           id?: string
           code: string
+          room_code?: string | null
           host_name?: string | null
           status?: string | null
           current_track_index?: number | null
@@ -477,6 +479,7 @@ export type Database = {
         Update: {
           id?: string | null
           code?: string | null
+          room_code?: string | null
           host_name?: string | null
           status?: string | null
           current_track_index?: number | null

@@ -11,8 +11,10 @@ async function main() {
   })
   await client.connect()
   const game = await client.query(
-    `SELECT g.id, g.code, g.status, g.playlist_id, g.theme_id
-     FROM public.games g WHERE g.code = 'LYRIC' LIMIT 1`
+    `SELECT g.id, g.code, g.room_code, g.status, g.playlist_id, g.theme_id
+     FROM public.games g
+     WHERE g.room_code = 'LYRIC' OR g.code = 'LYRIC'
+     LIMIT 1`
   )
   if (!game.rows.length) {
     console.log('No LYRIC game found.')

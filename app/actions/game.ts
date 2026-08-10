@@ -5,9 +5,10 @@ import { createGameFromThemeDirect } from '@/lib/db'
 import { generateCardLayout, minSongsForGrid } from '@/lib/bingo/cards'
 import type { GameTier } from '@/lib/tiers'
 import { isFeatureEnabled } from '@/lib/feature-flags'
-import { insertGameOrReuseLobby } from '@/lib/game-room-code'
+import { insertGameOrReuseLobby, roomCodeLookupFilter } from '@/lib/game-room-code'
 import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media/media-library-access-server'
 import { startGameSession } from '@/lib/game-start'
+import { roomCodeFromGame } from '@/types/database-extras'
 
 export type GameCreateOptions = {
   gridSize?: 4 | 5
@@ -325,7 +326,7 @@ export async function joinGame(gameCode: string, playerName: string, playerIdent
   const { data: game, error: gameError } = await supabase
     .from('games')
     .select('id, playlist_id, status, grid_size, tier, entry_fee_cents')
-    .eq('code', code)
+    .or(roomCodeLookupFilter(code))
     .single()
 
   if (gameError || !game) {
@@ -586,17 +587,19 @@ export async function getCardsForPdf(
   const supabase = createClient()
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .select('code, grid_size, logo_url')
+    .select('code, room_code, grid_size, logo_url')
     .eq('id', gameId)
     .single()
   if (gameError || !game) return { error: 'Game not found' }
+
+  const resolvedCode = roomCodeFromGame(game)
 
   const { data: cards, error: cardsError } = await supabase
     .from('cards')
     .select('id, player_name')
     .eq('game_id', gameId)
     .order('player_name')
-  if (cardsError || !cards?.length) return { gameCode: game.code, logoUrl: game.logo_url ?? null, cards: [] }
+  if (cardsError || !cards?.length) return { gameCode: resolvedCode, logoUrl: game.logo_url ?? null, cards: [] }
 
   const gridSize = game.grid_size === 4 ? 4 : 5
   const result: CardForPdf[] = []
@@ -625,7 +628,7 @@ export async function getCardsForPdf(
       })),
     })
   }
-  return { gameCode: game.code, logoUrl: game.logo_url ?? null, cards: result }
+  return { gameCode: resolvedCode, logoUrl: game.logo_url ?? null, cards: result }
 }
 
 function extractYoutubeId(url: string): string | null {

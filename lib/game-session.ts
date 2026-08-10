@@ -4,12 +4,15 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Json } from '@/types/database.types'
+import { roomCodeLookupFilter } from '@/lib/game-room-code'
 import { createPlayerBingoCard } from '@/lib/bingo/create-player-card'
 import { applyWinClaimProgress } from '@/lib/player-progress'
+import { roomCodeFromGame } from '@/types/database-extras'
 
 export type GameByCode = {
   id: string
   code: string
+  room_code?: string | null
   status: string | null
   playlist_id: string | null
   grid_size: number | null
@@ -34,13 +37,19 @@ export async function getGameByCode(
   const { data, error } = await supabase
     .from('games')
     .select(
-      'id, code, status, playlist_id, grid_size, mode, current_song_id, theme_id, tier, venue_display_name, logo_url'
+      'id, code, room_code, status, playlist_id, grid_size, mode, current_song_id, theme_id, tier, venue_display_name, logo_url'
     )
-    .eq('code', normalized)
+    .or(roomCodeLookupFilter(normalized))
     .maybeSingle()
 
   if (error) return { game: null, error: error.message }
-  return { game: (data as GameByCode | null) ?? null }
+  if (!data) return { game: null }
+  return {
+    game: {
+      ...(data as GameByCode),
+      code: roomCodeFromGame(data as { code?: string | null; room_code?: string | null }),
+    },
+  }
 }
 
 /** Base44 joinGame — register player + deal card (Choice A + legacy card_cells). */

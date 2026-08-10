@@ -158,8 +158,8 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
         const code = generateRoomCode()
         try {
           const gameRes = await client.query<{ id: string }>(
-            `INSERT INTO public.games (playlist_id, code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
-             VALUES ($1, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
+            `INSERT INTO public.games (playlist_id, code, room_code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
+             VALUES ($1, $2, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
             [playlistId, code, themeId]
           )
           const game = gameRes.rows[0]
@@ -175,7 +175,7 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
     }
 
     const lyricExisting = await client.query<{ id: string }>(
-      `SELECT id FROM public.games WHERE code = $1 LIMIT 1`,
+      `SELECT id FROM public.games WHERE room_code = $1 OR code = $1 LIMIT 1`,
       [DEFAULT_ROOM_CODE]
     )
     const existingId = lyricExisting.rows[0]?.id
@@ -185,16 +185,17 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
       await client.query(
         `UPDATE public.games
          SET playlist_id = $1, status = 'lobby', theme_id = $2, grid_size = 5,
-             clip_seconds = 20, crossfade_seconds = 0, tier = 'free', current_song_id = NULL
+             clip_seconds = 20, crossfade_seconds = 0, tier = 'free', current_song_id = NULL,
+             code = $4, room_code = $4
          WHERE id = $3`,
-        [playlistId, themeId, existingId]
+        [playlistId, themeId, existingId, DEFAULT_ROOM_CODE]
       )
       return { game: { id: existingId }, code: DEFAULT_ROOM_CODE }
     }
 
     const gameRes = await client.query<{ id: string }>(
-      `INSERT INTO public.games (playlist_id, code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
-       VALUES ($1, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
+      `INSERT INTO public.games (playlist_id, code, room_code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
+       VALUES ($1, $2, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
       [playlistId, DEFAULT_ROOM_CODE, themeId]
     )
     const game = gameRes.rows[0]

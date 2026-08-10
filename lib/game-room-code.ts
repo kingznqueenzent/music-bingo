@@ -1,7 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { DEFAULT_ROOM_CODE, generateRoomCode, isLyricGridLive } from '@/lib/default-room-code'
+import { roomCodeFromGame } from '@/types/database-extras'
 
-type GameRow = { id: string; code: string; [key: string]: unknown }
+type GameRow = { id: string; code?: string | null; room_code?: string | null; [key: string]: unknown }
 
 export type InsertGameOrReuseResult =
   | { game: GameRow; code: string; reused: boolean; error?: undefined }
@@ -10,12 +11,22 @@ export type InsertGameOrReuseResult =
 const UNIQUE_VIOLATION = '23505'
 const MAX_CODE_ATTEMPTS = 8
 
+/** Dual-write payload: canonical room_code + legacy code (same value). */
+export function withDualRoomCode(code: string): { code: string; room_code: string } {
+  return { code, room_code: code }
+}
+
+/** PostgREST `.or()` filter matching room_code or legacy code column. */
+export function roomCodeLookupFilter(normalized: string): string {
+  return `room_code.eq.${normalized},code.eq.${normalized}`
+}
+
 /** Returns the active LYRIC lobby game, if one exists. */
 export async function findLyricLobbyGame(supabase: SupabaseClient): Promise<GameRow | null> {
   const { data, error } = await supabase
     .from('games')
     .select('*')
-    .eq('code', DEFAULT_ROOM_CODE)
+    .or(roomCodeLookupFilter(DEFAULT_ROOM_CODE))
     .maybeSingle()
 
   if (error || !data) return null
@@ -36,7 +47,7 @@ async function refreshLyricLobbyGame(
       ...payload,
       status: 'lobby',
       current_song_id: null,
-      code: DEFAULT_ROOM_CODE,
+      ...withDualRoomCode(DEFAULT_ROOM_CODE),
     })
     .eq('id', gameId)
     .select()
@@ -55,7 +66,7 @@ async function insertGameWithGeneratedCode(
     const code = generateRoomCode()
     const { data: game, error } = await supabase
       .from('games')
-      .insert({ ...payload, code })
+      .insert({ ...payload, ...withDualRoomCode(code) })
       .select()
       .single()
 
@@ -87,7 +98,7 @@ export async function insertGameOrReuseLobby(
 
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .insert({ ...payload, code: DEFAULT_ROOM_CODE })
+    .insert({ ...payload, ...withDualRoomCode(DEFAULT_ROOM_CODE) })
     .select()
     .single()
 
@@ -102,3 +113,6 @@ export async function insertGameOrReuseLobby(
   if (!game) return { error: 'Failed to create game' }
   return { game: game as GameRow, code: DEFAULT_ROOM_CODE, reused: false }
 }
+
+/** Resolve display/join code from a loaded game row. */
+export { roomCodeFromGame }

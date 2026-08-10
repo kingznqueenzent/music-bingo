@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ensures a LYRIC lobby exists in public.games (room code = games.code).
+ * Ensures a LYRIC lobby exists in public.games (room_code + legacy code).
  * Creates a playlist from the first theme with 45+ songs when needed.
  * Requires DATABASE_URL in .env.local.
  */
@@ -24,7 +24,10 @@ async function main() {
 
   try {
     const existing = await client.query(
-      `SELECT id, code, status, created_at FROM public.games WHERE code = $1 LIMIT 1`,
+      `SELECT id, code, room_code, status, created_at
+       FROM public.games
+       WHERE room_code = $1 OR code = $1
+       LIMIT 1`,
       [DEFAULT_ROOM_CODE]
     )
 
@@ -32,7 +35,7 @@ async function main() {
       const row = existing.rows[0]
       console.log('LYRIC lobby already active.')
       console.log(`  id: ${row.id}`)
-      console.log(`  code (room_code): ${row.code}`)
+      console.log(`  room_code: ${row.room_code ?? row.code}`)
       console.log(`  status: ${row.status}`)
       console.log(`  created_at: ${row.created_at}`)
       return
@@ -89,16 +92,16 @@ async function main() {
     }
 
     const gameRes = await client.query(
-      `INSERT INTO public.games (playlist_id, code, status, grid_size, clip_seconds, crossfade_seconds, tier)
-       VALUES ($1, $2, 'lobby', 5, 20, 0, 'free')
-       RETURNING id, code, status, created_at`,
+      `INSERT INTO public.games (playlist_id, code, room_code, status, grid_size, clip_seconds, crossfade_seconds, tier)
+       VALUES ($1, $2, $2, 'lobby', 5, 20, 0, 'free')
+       RETURNING id, code, room_code, status, created_at`,
       [playlistId, DEFAULT_ROOM_CODE]
     )
 
     const game = gameRes.rows[0]
     console.log('LYRIC lobby seeded successfully.')
     console.log(`  id: ${game.id}`)
-    console.log(`  code (room_code): ${game.code}`)
+    console.log(`  room_code: ${game.room_code ?? game.code}`)
     console.log(`  status: ${game.status}`)
     console.log(`  created_at: ${game.created_at}`)
     await client.query(`NOTIFY pgrst, 'reload schema'`)

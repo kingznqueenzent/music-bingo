@@ -186,11 +186,12 @@ async function runGameflow(supabase: SupabaseClient): Promise<{ steps: StepResul
         playlist_id: playlistId,
         theme_id: activeTheme.id,
         code: joinCode,
+        room_code: joinCode,
         status: 'lobby',
         mode: 'line',
         grid_size: 5,
       })
-      .select('id, code')
+      .select('id, code, room_code')
       .single()
 
     if (gameError || !game) {

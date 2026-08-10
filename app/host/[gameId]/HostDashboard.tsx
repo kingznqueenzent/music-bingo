@@ -47,6 +47,7 @@ import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
 import { START_GAME_EMPTY_PLAYLIST_ERROR } from '@/lib/game-start'
+import { roomCodeFromGame } from '@/types/database-extras'
 
 type HostDashboardProps = {
   gameId: string
@@ -66,7 +67,8 @@ export function HostDashboard({
   serverError: initialServerError,
 }: HostDashboardProps) {
   const searchParams = useSearchParams()
-  const code = searchParams.get('code') ?? ''
+  const codeParam = searchParams.get('code') ?? ''
+  const displayCode = codeParam || (game ? roomCodeFromGame(game) : '')
   const supabase = useMemo(() => createClient(), [])
   const [game, setGame] = useState<Game | null>(initialGame ?? null)
   const [songs, setSongs] = useState<PlaylistSong[]>(initialSongs)
@@ -982,7 +984,7 @@ export function HostDashboard({
         </div>
 
         {hostTab === 'venue' ? (
-          <VenueAssetsPanel gameCode={code || game.code} variant="full" />
+          <VenueAssetsPanel gameCode={displayCode} variant="full" />
         ) : null}
         {hostTab === 'history' ? (
           <PastGamesPanel hostId={game.host_id ?? null} />
@@ -993,15 +995,15 @@ export function HostDashboard({
         <div className="flex flex-col sm:flex-row sm:flex-wrap items-center sm:items-start justify-between gap-4 sm:gap-6 mb-4">
           <div className="min-w-0 w-full sm:flex-1 text-center sm:text-left">
             <h2 className="text-2xl sm:text-3xl font-bold mb-2 text-slate-50 break-words">
-              Game: <span className="text-emerald-400">{code || game.code}</span>
+              Game: <span className="text-emerald-400">{displayCode}</span>
             </h2>
             <p className="text-sm sm:text-lg text-slate-300">
               Share this code with players, or open Venue Assets for a high-res QR linking to{' '}
-              <span className="text-[#00FFFF]/80">lyricgrid.ca/room/{code || game.code}</span>.
+              <span className="text-[#00FFFF]/80">lyricgrid.ca/room/{displayCode}</span>.
             </p>
           </div>
           <VenueAssetsPanel
-            gameCode={code || game.code}
+            gameCode={displayCode}
             variant="compact"
             className="mx-auto sm:mx-0 shrink-0"
           />

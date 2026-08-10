@@ -3,6 +3,7 @@ import type { GridData } from '@/types/database-extras'
 import { CHOICE_A_TRACKS_TABLE } from '@/types/database-extras'
 import { generateGridFromTrackPool, minSongsForGrid } from '@/lib/bingo/cards'
 import { getMaxPlayersForTier, type GameTier } from '@/lib/tiers'
+import { roomCodeLookupFilter } from '@/lib/game-room-code'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 
 export type GameTrackRow = {
@@ -145,7 +146,7 @@ export async function createPlayerBingoCard(
   const { data: game, error: gameError } = await supabase
     .from('games')
     .select('id, playlist_id, status, grid_size, tier, entry_fee_cents')
-    .eq('code', code)
+    .or(roomCodeLookupFilter(code))
     .single()
 
   if (gameError || !game) {

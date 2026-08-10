@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { GameStatus } from '@/lib/supabase/types'
+import { roomCodeFromGame } from '@/types/database-extras'
 
 export type HostGameListRow = {
   id: string
@@ -13,6 +14,7 @@ export type HostGameListRow = {
 type GameQueryRow = {
   id: string
   code: string
+  room_code?: string | null
   status: string | null
   created_at: string | null
   playlists: { name: string } | { name: string }[] | null
@@ -27,7 +29,7 @@ export async function fetchHostGamesList(
 
   let q = supabase
     .from('games')
-    .select('id, code, status, created_at, playlists(name)')
+    .select('id, code, room_code, status, created_at, playlists(name)')
     .order('created_at', { ascending: false })
     .limit(limit)
 
@@ -65,11 +67,12 @@ export async function fetchHostGamesList(
   const rows: HostGameListRow[] = games.map((g) => {
     const playlist = Array.isArray(g.playlists) ? g.playlists[0] : g.playlists
     const status = (g.status ?? 'lobby') as GameStatus
+    const code = roomCodeFromGame(g)
     return {
       id: g.id,
-      code: String(g.code ?? ''),
+      code,
       status,
-      title: playlist?.name?.trim() || `Room ${g.code}`,
+      title: playlist?.name?.trim() || `Room ${code}`,
       callCount: callCounts.get(g.id) ?? 0,
       createdAt: g.created_at ?? new Date().toISOString(),
     }
