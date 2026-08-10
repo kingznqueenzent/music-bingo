@@ -9,6 +9,7 @@ import { insertGameOrReuseLobby, roomCodeLookupFilter } from '@/lib/game-room-co
 import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media/media-library-access-server'
 import { startGameSession } from '@/lib/game-start'
 import { roomCodeFromGame } from '@/types/database-extras'
+import { fillYoutubeTitles } from '@/lib/youtube-titles'
 
 export type GameCreateOptions = {
   gridSize?: 4 | 5
@@ -299,6 +300,18 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
   if (playlistSongsError) {
     await supabase.from('playlists').delete().eq('id', playlist.id)
     return { error: playlistSongsError.message }
+  }
+
+  const { data: insertedPs } = await supabase
+    .from('playlist_songs')
+    .select('id, youtube_id')
+    .eq('playlist_id', playlist.id)
+    .is('title', null)
+  if (insertedPs?.length) {
+    await fillYoutubeTitles(
+      supabase,
+      insertedPs.filter((r) => r.youtube_id) as { id: string; youtube_id: string }[]
+    )
   }
 
   const roomResult = await insertGameOrReuseLobby(supabase, {
@@ -641,32 +654,4 @@ function extractYoutubeId(url: string): string | null {
     if (m) return m[1]
   }
   return null
-}
-
-/** Fetch YouTube video titles via noembed (no API key) and update playlist_songs */
-async function fillYoutubeTitles(
-  supabase: ReturnType<typeof createClient>,
-  rows: { id: string; youtube_id: string }[]
-) {
-  const BATCH = 8
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const batch = rows.slice(i, i + BATCH)
-    const results = await Promise.all(
-      batch.map(async (row) => {
-        try {
-          const res = await fetch(
-            `https://noembed.com/embed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${row.youtube_id}`)}`,
-            { signal: AbortSignal.timeout(5000) }
-          )
-          const data = (await res.json()) as { title?: string }
-          return { id: row.id, title: data?.title ?? null }
-        } catch {
-          return { id: row.id, title: null }
-        }
-      })
-    )
-    for (const { id, title } of results) {
-      if (title) await supabase.from('playlist_songs').update({ title }).eq('id', id)
-    }
-  }
 }

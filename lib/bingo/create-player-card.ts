@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { GridData } from '@/types/database-extras'
 import { CHOICE_A_TRACKS_TABLE } from '@/types/database-extras'
 import { generateGridFromTrackPool, minSongsForGrid } from '@/lib/bingo/cards'
+import { resolvePlaylistSongTitleForStorage } from '@/lib/media-display'
 import { getMaxPlayersForTier, type GameTier } from '@/lib/tiers'
 import { roomCodeLookupFilter } from '@/lib/game-room-code'
 import { isFeatureEnabled } from '@/lib/feature-flags'
@@ -48,7 +49,7 @@ export async function ensureBingoGameTracks(
   if ((count ?? 0) > 0) {
     const { data: songs, error: songsError } = await supabase
       .from('playlist_songs')
-      .select('id, title')
+      .select('id, title, youtube_id, file_url, audio_url')
       .eq('playlist_id', playlistId)
       .order('position')
 
@@ -80,7 +81,7 @@ export async function ensureBingoGameTracks(
 
   const { data: songs, error: songsError } = await supabase
     .from('playlist_songs')
-    .select('id, title')
+    .select('id, title, youtube_id, file_url, audio_url')
     .eq('playlist_id', playlistId)
     .order('position')
 
@@ -99,7 +100,7 @@ export async function ensureBingoGameTracks(
       .from(CHOICE_A_TRACKS_TABLE)
       .insert({
         game_id: gameId,
-        title: song.title?.trim() || 'Unknown track',
+        title: resolvePlaylistSongTitleForStorage(song),
         artist: null,
         played: false,
       })

@@ -1,3 +1,32 @@
+const PLACEHOLDER_TITLES = new Set(['unknown track', 'unknown', 'track', 'untitled'])
+const YOUTUBE_ID_RE = /^[a-zA-Z0-9_-]{11}$/
+
+/** True when a stored title is missing or a generic / YouTube-id placeholder. */
+export function isPlaceholderSongTitle(title: string | null | undefined): boolean {
+  const trimmed = title?.trim()
+  if (!trimmed) return true
+  if (PLACEHOLDER_TITLES.has(trimmed.toLowerCase())) return true
+  if (YOUTUBE_ID_RE.test(trimmed)) return true
+  return false
+}
+
+type PlaylistSongTitleSource = {
+  title?: string | null
+  youtube_id?: string | null
+  file_url?: string | null
+  audio_url?: string | null
+}
+
+/** Best available title for persistence (bingo_game_tracks, grid_data). */
+export function resolvePlaylistSongTitleForStorage(song: PlaylistSongTitleSource): string {
+  if (!isPlaceholderSongTitle(song.title)) return song.title!.trim()
+  const fileRef = song.file_url?.trim() || song.audio_url?.trim()
+  if (fileRef) return mediaDisplayName({ name: fileRef })
+  const yt = song.youtube_id?.trim()
+  if (yt) return yt
+  return 'Track'
+}
+
 /**
  * Friendly display name for a media library item (song/track).
  * Strips extension, cleans URL/path to show the actual file/track name.
@@ -24,11 +53,13 @@ export function playlistSongLabel(song: {
   title?: string | null
   youtube_id?: string | null
   file_url?: string | null
+  audio_url?: string | null
 }): string {
   const raw =
-    song.title?.trim() ||
+    (!isPlaceholderSongTitle(song.title) ? song.title?.trim() : null) ||
     song.youtube_id?.trim() ||
     song.file_url?.trim() ||
+    song.audio_url?.trim() ||
     ''
   if (!raw) return 'Track'
   // If it already looks like a short title (no URL, no long path), use it

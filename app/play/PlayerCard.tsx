@@ -291,25 +291,52 @@ export function PlayView({
       // grid_data from Choice A (players + bingo_game_tracks jsonb path)
       const gridJson = card.grid_data
       if (Array.isArray(gridJson) && gridJson.length > 0) {
-        setLoadHint('Loading your grid…')
+        setLoadHint('Loading song titles…')
         const sorted = [...gridJson].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        const songIds = [
+          ...new Set(sorted.map((cell) => cell.playlist_song_id).filter(Boolean) as string[]),
+        ]
+        let songMap = new Map<string, PlaylistSong>()
+
+        if (songIds.length > 0) {
+          const { data: songs, error: songsError } = await supabase
+            .from('playlist_songs')
+            .select('*')
+            .in('id', songIds)
+
+          if (cancelled) return
+
+          if (songsError) {
+            setSongsFetchError(
+              `Song details could not be loaded (${songsError.message}). Squares still work; titles may show as placeholders.`
+            )
+          } else {
+            setSongsFetchError('')
+          }
+          songMap = new Map((songs ?? []).map((s) => [s.id, s]))
+        }
+
         setCells(
-          sorted.map((cell) => ({
-            id: `grid-${cell.position}`,
-            card_id: cardId,
-            playlist_song_id: cell.playlist_song_id ?? cell.track_id,
-            position: cell.position,
-            created_at: '',
-            song: {
-              id: cell.playlist_song_id ?? cell.track_id,
-              playlist_id: '',
-              youtube_id: null,
-              file_url: null,
-              title: cell.title ?? null,
+          sorted.map((cell) => {
+            const playlistSongId = cell.playlist_song_id ?? cell.track_id
+            const fetched = playlistSongId ? songMap.get(playlistSongId) : undefined
+            return {
+              id: `grid-${cell.position}`,
+              card_id: cardId,
+              playlist_song_id: playlistSongId,
               position: cell.position,
               created_at: '',
-            },
-          }))
+              song: fetched ?? {
+                id: playlistSongId,
+                playlist_id: '',
+                youtube_id: null,
+                file_url: null,
+                title: cell.title ?? null,
+                position: cell.position,
+                created_at: '',
+              },
+            }
+          })
         )
         setMarkedSongIds(getStoredMarks(gameId, cardId))
         setLoading(false)
