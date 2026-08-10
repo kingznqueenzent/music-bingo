@@ -4,7 +4,7 @@
  */
 import type { Theme, Genre, Era } from '@/lib/supabase/types'
 import { sortThemesChronologicalThenGenre } from '@/lib/sort-themes'
-import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
+import { DEFAULT_ROOM_CODE, generateRoomCode, isLyricGridLive } from '@/lib/default-room-code'
 
 export async function getGenresDirect(): Promise<{ genres: Genre[]; error?: string }> {
   const url = process.env.DATABASE_URL?.trim()
@@ -151,6 +151,27 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
           s.start_time ?? 0,
         ]
       )
+    }
+
+    if (isLyricGridLive()) {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const code = generateRoomCode()
+        try {
+          const gameRes = await client.query<{ id: string }>(
+            `INSERT INTO public.games (playlist_id, code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
+             VALUES ($1, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
+            [playlistId, code, themeId]
+          )
+          const game = gameRes.rows[0]
+          if (!game) return { error: 'Failed to create game' }
+          return { game: { id: game.id }, code }
+        } catch (insertErr) {
+          const msg = insertErr instanceof Error ? insertErr.message : String(insertErr)
+          if (msg.includes('duplicate key') || msg.includes('unique constraint')) continue
+          throw insertErr
+        }
+      }
+      return { error: 'Failed to generate unique room code' }
     }
 
     const lyricExisting = await client.query<{ id: string }>(

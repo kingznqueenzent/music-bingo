@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { JoinForm } from './JoinForm'
-import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
+import { getDefaultJoinRoomCode } from '@/lib/default-room-code'
 import { StaffAccessFooterLink } from '@/components/layout/StaffAccessFooterLink'
 
 export default async function JoinPage({
@@ -9,7 +9,7 @@ export default async function JoinPage({
   searchParams: Promise<{ code?: string }>
 }) {
   const params = await searchParams
-  const initialCode = params?.code?.trim().toUpperCase() || DEFAULT_ROOM_CODE
+  const initialCode = params?.code?.trim().toUpperCase() || getDefaultJoinRoomCode()
 
   return (
     <main className="min-h-dvh bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-8 text-white">

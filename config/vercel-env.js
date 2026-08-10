@@ -38,6 +38,11 @@ const requiredForProduction = [
     description: 'Browser-visible mirror of HOST_TIER for quota UI bootstrap (must match HOST_TIER)',
     public: true,
   },
+  {
+    name: 'NEXT_PUBLIC_IS_LIVE',
+    description: 'Pre-launch false/unset = shared LYRIC room code; true = random 6-char codes at game create',
+    public: true,
+  },
 ]
 
 /** @type {EnvVarDef[]} */
@@ -95,6 +100,10 @@ const recommended = [
   {
     name: 'SPOTIFY_CLIENT_SECRET',
     description: 'Spotify app client secret',
+  },
+  {
+    name: 'IS_LIVE',
+    description: 'Server-only launch flag when NEXT_PUBLIC_IS_LIVE is unset (same semantics as public flag)',
   },
 ]
 

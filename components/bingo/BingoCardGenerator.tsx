@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GridData } from '@/types/database-extras'
-import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
+import { getDefaultJoinRoomCode } from '@/lib/default-room-code'
 
 type GenerateCardResponse = {
   ok?: boolean
@@ -52,7 +52,7 @@ function PreviewGrid({ gridData }: { gridData: GridData }) {
 }
 
 export function BingoCardGenerator({
-  initialGameCode = DEFAULT_ROOM_CODE,
+  initialGameCode = getDefaultJoinRoomCode(),
   initialUsername = '',
   playerIdentifier,
   showPreview = false,

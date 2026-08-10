@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useFeatureFlags } from '@/components/FeatureFlagsProvider'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
-import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
+import { getDefaultJoinRoomCode } from '@/lib/default-room-code'
 
 type JoinPreview = {
   venueDisplayName: string | null
@@ -15,7 +15,7 @@ type JoinPreview = {
   entryFeeCents: number
 }
 
-export function JoinForm({ initialGameCode = DEFAULT_ROOM_CODE }: { initialGameCode?: string }) {
+export function JoinForm({ initialGameCode = getDefaultJoinRoomCode() }: { initialGameCode?: string }) {
   const router = useRouter()
   const { isEnabled, loading: flagsLoading } = useFeatureFlags()
   const whiteLabelOn = !flagsLoading && isEnabled('b2b_white_label')
