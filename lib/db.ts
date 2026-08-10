@@ -106,14 +106,6 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
   try {
     await client.connect()
 
-    const lyricExisting = await client.query<{ id: string }>(
-      `SELECT id FROM public.games WHERE code = $1 LIMIT 1`,
-      [DEFAULT_ROOM_CODE]
-    )
-    if (lyricExisting.rows[0]) {
-      return { game: { id: lyricExisting.rows[0].id }, code: DEFAULT_ROOM_CODE }
-    }
-
     const themeRes = await client.query<{ id: string; name: string }>(
       `SELECT id, name FROM public.themes WHERE id = $1`,
       [themeId]
@@ -159,6 +151,24 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
           s.start_time ?? 0,
         ]
       )
+    }
+
+    const lyricExisting = await client.query<{ id: string }>(
+      `SELECT id FROM public.games WHERE code = $1 LIMIT 1`,
+      [DEFAULT_ROOM_CODE]
+    )
+    const existingId = lyricExisting.rows[0]?.id
+
+    if (existingId) {
+      await client.query(`DELETE FROM public.played_songs WHERE game_id = $1`, [existingId])
+      await client.query(
+        `UPDATE public.games
+         SET playlist_id = $1, status = 'lobby', theme_id = $2, grid_size = 5,
+             clip_seconds = 20, crossfade_seconds = 0, tier = 'free', current_song_id = NULL
+         WHERE id = $3`,
+        [playlistId, themeId, existingId]
+      )
+      return { game: { id: existingId }, code: DEFAULT_ROOM_CODE }
     }
 
     const gameRes = await client.query<{ id: string }>(

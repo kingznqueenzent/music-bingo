@@ -28,7 +28,7 @@ import { GameSponsorsPanel } from '@/components/GameSponsorsPanel'
 import { HostChatModeration } from '@/components/HostChatModeration'
 import Link from 'next/link'
 import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display'
-import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
+import type { Game, GameStatus, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
 import { useAutoDismissStack } from '@/hooks/useAutoDismissStack'
 import {
   subscribeHostGameChannel,
@@ -73,6 +73,8 @@ export function HostDashboard({
   const [played, setPlayed] = useState<PlayedSong[]>(initialPlayed)
   const [playerCount, setPlayerCount] = useState(initialPlayerCount)
   const [loading, setLoading] = useState(!initialGame && !initialServerError)
+  const [songsLoading, setSongsLoading] = useState(!!initialGame?.playlist_id && initialSongs.length === 0)
+  const [songsLoadError, setSongsLoadError] = useState('')
   const [loadError, setLoadError] = useState(initialServerError ?? '')
   const [retryTrigger, setRetryTrigger] = useState(0)
   const [actionError, setActionError] = useState('')
@@ -141,10 +143,15 @@ export function HostDashboard({
   useEffect(() => {
     if (initialGame && retryTrigger === 0) {
       setLoading(false)
-      return
+      if (!initialGame.playlist_id || initialSongs.length > 0) {
+        setSongsLoading(false)
+        return
+      }
     }
     let cancelled = false
     setLoadError('')
+    setSongsLoadError('')
+    setSongsLoading(!!initialGame?.playlist_id && initialSongs.length === 0)
     const timeoutMs = 15000
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Request timed out. Check your connection or try again.')), timeoutMs)
@@ -165,12 +172,24 @@ export function HostDashboard({
       setHideLyricgrid(!!gg.brand_hide_lyricgrid)
       setEntryFeeDollars(gg.entry_fee_cents != null ? String((gg.entry_fee_cents / 100).toFixed(2)) : '0')
       if (g.playlist_id) {
-        const { data: s } = await supabase
+        if (!cancelled) setSongsLoading(true)
+        const { data: s, error: songsError } = await supabase
           .from('playlist_songs')
           .select('*')
           .eq('playlist_id', g.playlist_id)
           .order('position')
-        if (!cancelled) setSongs(s ?? [])
+        if (!cancelled) {
+          if (songsError) {
+            setSongsLoadError(songsError.message)
+            setSongs([])
+          } else {
+            setSongs(s ?? [])
+          }
+          setSongsLoading(false)
+        }
+      } else if (!cancelled) {
+        setSongs([])
+        setSongsLoading(false)
       }
       const { count } = await supabase.from('cards').select('*', { count: 'exact', head: true }).eq('game_id', gameId)
       if (!cancelled) setPlayerCount(count ?? 0)
@@ -797,6 +816,10 @@ export function HostDashboard({
   }
   const filteredUpNext = upNext.filter(songMatchesSearch)
   const filteredPlayedSongs = playedSongs.filter(songMatchesSearch)
+  const gameStatus = (game.status ?? 'lobby') as GameStatus
+  const gameAlreadyLive = gameStatus === 'playing' && played.length > 0
+  const canStartGame = gameStatus !== 'ended' && !gameAlreadyLive
+  const showEmptyPlaylistHint = !songsLoading && songs.length === 0 && !songsLoadError
 
   upNextRef.current = upNext
   playbackPausedRef.current = playbackPaused
@@ -993,21 +1016,56 @@ export function HostDashboard({
           <button
             type="button"
             onClick={handleStart}
-            disabled={game.status !== 'lobby' || startGameLoading}
+            disabled={!canStartGame || startGameLoading || songsLoading}
             className="w-full sm:w-auto rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-lg sm:text-xl font-semibold py-3.5 sm:py-4 px-6 sm:px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100 cursor-pointer touch-manipulation select-none active:scale-[0.98] min-h-12 inline-flex items-center justify-center gap-2"
           >
-            {startGameLoading ? (
+            {startGameLoading || songsLoading ? (
               <>
                 <span
                   className="inline-block h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin"
                   aria-hidden
                 />
-                Starting…
+                {songsLoading ? 'Loading playlist…' : 'Starting…'}
               </>
             ) : (
               '▶️ Start game'
             )}
           </button>
+          {gameAlreadyLive ? (
+            <p className="w-full text-[#00FFFF]/90 text-sm font-medium" role="status">
+              Game is live — use Song Controls or Up Next below to call tracks.
+            </p>
+          ) : null}
+          {gameStatus === 'ended' ? (
+            <p className="w-full text-slate-400 text-sm font-medium" role="status">
+              This game has ended. Create a new game from the host panel to start again.
+            </p>
+          ) : null}
+          {songsLoadError ? (
+            <p className="w-full text-amber-300 text-sm font-medium" role="alert">
+              Could not load playlist: {songsLoadError}{' '}
+              <button
+                type="button"
+                onClick={() => { setSongsLoadError(''); setRetryTrigger((n) => n + 1) }}
+                className="underline text-emerald-300 hover:text-emerald-200 font-semibold"
+              >
+                Retry
+              </button>
+            </p>
+          ) : null}
+          {showEmptyPlaylistHint ? (
+            <p className="w-full text-amber-300 text-sm font-medium" role="alert">
+              {START_GAME_EMPTY_PLAYLIST_ERROR}.{' '}
+              <Link href="/host" className="underline text-emerald-300 hover:text-emerald-200">
+                Add songs on the host panel
+              </Link>
+              {' or '}
+              <Link href="/themes" className="underline text-emerald-300 hover:text-emerald-200">
+                browse themes
+              </Link>
+              .
+            </p>
+          ) : null}
           {startGameWarning ? (
             <p className="w-full text-amber-300 text-sm font-medium" role="alert">
               {startGameWarning}

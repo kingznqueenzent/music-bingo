@@ -6,7 +6,7 @@ import { generateCardLayout, minSongsForGrid } from '@/lib/bingo/cards'
 import type { GameTier } from '@/lib/tiers'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 import { DEFAULT_ROOM_CODE } from '@/lib/default-room-code'
-import { findLyricLobbyGame, insertGameOrReuseLobby } from '@/lib/game-room-code'
+import { insertGameOrReuseLobby } from '@/lib/game-room-code'
 import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media/media-library-access-server'
 import { startGameSession } from '@/lib/game-start'
 
@@ -31,11 +31,6 @@ export async function createGame(
   const gridSize = options.gridSize ?? 5
   const tier = options.tier ?? 'free'
   const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
-
-  const existingLobby = await findLyricLobbyGame(supabase)
-  if (existingLobby) {
-    return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
-  }
 
   const { data: playlist, error: playlistError } = await supabase
     .from('playlists')
@@ -147,11 +142,6 @@ export async function createGameFromMediaLibrary(
   const tier = options.tier ?? 'pro'
   const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
 
-  const existingLobby = await findLyricLobbyGame(supabase)
-  if (existingLobby) {
-    return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
-  }
-
   const uniqueIds = [...new Set(songIds)]
   if (uniqueIds.length < minSongs) {
     return {
@@ -255,11 +245,6 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
   }
 
   const supabase = createClient()
-
-  const existingLobby = await findLyricLobbyGame(supabase)
-  if (existingLobby) {
-    return { game: existingLobby, code: DEFAULT_ROOM_CODE, reused: true }
-  }
 
   const { data: theme, error: themeError } = await supabase
     .from('themes')

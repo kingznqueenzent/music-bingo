@@ -19,6 +19,31 @@ export async function findLyricLobbyGame(supabase: SupabaseClient): Promise<Game
   return data as GameRow
 }
 
+/** Reset a reused LYRIC room with a fresh playlist and lobby status. */
+async function refreshLyricLobbyGame(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: Record<string, unknown>
+): Promise<InsertGameOrReuseResult> {
+  await supabase.from('played_songs').delete().eq('game_id', gameId)
+
+  const { data: game, error } = await supabase
+    .from('games')
+    .update({
+      ...payload,
+      status: 'lobby',
+      current_song_id: null,
+      code: DEFAULT_ROOM_CODE,
+    })
+    .eq('id', gameId)
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+  if (!game) return { error: 'Failed to refresh game' }
+  return { game: game as GameRow, code: DEFAULT_ROOM_CODE, reused: true }
+}
+
 /** Use code LYRIC; reuse existing lobby row instead of creating a duplicate. */
 export async function insertGameOrReuseLobby(
   supabase: SupabaseClient,
@@ -26,7 +51,7 @@ export async function insertGameOrReuseLobby(
 ): Promise<InsertGameOrReuseResult> {
   const existing = await findLyricLobbyGame(supabase)
   if (existing) {
-    return { game: existing, code: DEFAULT_ROOM_CODE, reused: true }
+    return refreshLyricLobbyGame(supabase, String(existing.id), payload)
   }
 
   const { data: game, error: gameError } = await supabase
@@ -38,7 +63,7 @@ export async function insertGameOrReuseLobby(
   if (gameError) {
     if (gameError.code === '23505') {
       const raced = await findLyricLobbyGame(supabase)
-      if (raced) return { game: raced, code: DEFAULT_ROOM_CODE, reused: true }
+      if (raced) return refreshLyricLobbyGame(supabase, String(raced.id), payload)
     }
     return { error: gameError.message }
   }
