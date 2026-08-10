@@ -16,6 +16,7 @@ import { ThemeSelect } from './ThemeSelect'
 import {
   MAX_UPLOAD_FILES,
   useMediaUploadQueue,
+  type TrackQuotaGate,
   type UploadQueueItem,
 } from './hooks/useMediaUploadQueue'
 import type { CatalogTheme } from './types'
@@ -33,6 +34,9 @@ export type MediaUploadDropzoneProps = {
   onUploaded: () => void
   onError: (message: string) => void
   themeCounts?: Record<string, number>
+  trackQuota?: TrackQuotaGate
+  quotaLabel?: string
+  atQuotaCap?: boolean
 }
 
 function statusLabel(item: UploadQueueItem): string {
@@ -62,6 +66,9 @@ export function MediaUploadDropzone({
   onUploaded,
   onError,
   themeCounts,
+  trackQuota,
+  quotaLabel,
+  atQuotaCap,
 }: MediaUploadDropzoneProps) {
   const supabase = useMemo(() => createClient(), [])
   const inputRef = useRef<HTMLInputElement>(null)
@@ -83,6 +90,7 @@ export function MediaUploadDropzone({
     uploadThemeId,
     onBatchComplete: onUploaded,
     onError,
+    trackQuota,
   })
 
   const progressPct =
@@ -92,6 +100,15 @@ export function MediaUploadDropzone({
 
   return (
     <section className="space-y-3 min-w-0">
+      {quotaLabel ? (
+        <p
+          className={`text-xs px-1 tabular-nums ${
+            atQuotaCap ? 'text-amber-300 font-medium' : 'text-white/45'
+          }`}
+        >
+          {quotaLabel}
+        </p>
+      ) : null}
       <div>
         <label
           htmlFor="upload-theme"
@@ -124,22 +141,26 @@ export function MediaUploadDropzone({
         onDrop={(e) => {
           e.preventDefault()
           setIsDragging(false)
-          if (!running && e.dataTransfer.files.length) {
+          if (!running && !atQuotaCap && e.dataTransfer.files.length) {
             void enqueueFiles(Array.from(e.dataTransfer.files))
           }
         }}
-        onClick={() => !running && inputRef.current?.click()}
+        onClick={() => !running && !atQuotaCap && inputRef.current?.click()}
         onKeyDown={(e) => {
-          if ((e.key === 'Enter' || e.key === ' ') && !running) {
+          if ((e.key === 'Enter' || e.key === ' ') && !running && !atQuotaCap) {
             e.preventDefault()
             inputRef.current?.click()
           }
         }}
-        className={`relative rounded-xl border border-dashed p-8 text-center cursor-pointer transition-colors touch-manipulation overflow-hidden min-w-0 ${
+        className={`relative rounded-xl border border-dashed p-8 text-center transition-colors touch-manipulation overflow-hidden min-w-0 ${
+          atQuotaCap
+            ? 'border-amber-500/30 opacity-70 cursor-not-allowed'
+            : 'cursor-pointer'
+        } ${
           isDragging
             ? 'lg-upload-drag'
             : 'border-white/10 hover:border-white/20'
-        } ${running ? 'pointer-events-none opacity-80' : ''}`}
+        } ${running || atQuotaCap ? 'pointer-events-none opacity-80' : ''}`}
         style={!isDragging && !running ? { backgroundColor: SURFACE } : undefined}
       >
         <input
@@ -148,10 +169,10 @@ export function MediaUploadDropzone({
           accept={BATCH_FILE_ACCEPT}
           multiple
           className="hidden"
-          disabled={running}
+          disabled={running || !!atQuotaCap}
           onChange={(e) => {
             const picked = e.target.files
-            if (!picked?.length) return
+            if (!picked?.length || atQuotaCap) return
             void enqueueFiles(Array.from(picked))
             e.target.value = ''
           }}
@@ -173,6 +194,14 @@ export function MediaUploadDropzone({
               Direct upload → {bucket} → songs catalog
             </p>
           </div>
+        ) : atQuotaCap ? (
+          <>
+            <div className="mx-auto w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-300 mb-3">
+              <Upload className="w-5 h-5" />
+            </div>
+            <p className="text-sm font-medium text-white mb-1">Library limit reached</p>
+            <p className="text-xs text-white/40">Upgrade to Pro or Enterprise to upload more tracks.</p>
+          </>
         ) : (
           <>
             <div className="mx-auto w-12 h-12 rounded-xl bg-[var(--lg-neon)]/10 flex items-center justify-center text-[var(--lg-neon)] mb-3">

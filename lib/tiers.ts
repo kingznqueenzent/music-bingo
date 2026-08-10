@@ -1,5 +1,6 @@
 /**
  * Game tier labels (feature/branding). Player caps removed for unlimited live-stream lobbies.
+ * Media library track quota: see `lib/media/track-quota.ts` (Free = 50 tracks).
  */
 
 export type GameTier = 'free' | 'pro' | 'enterprise'

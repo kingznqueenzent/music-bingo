@@ -32,8 +32,10 @@ import { MediaManagerFilterBar, type BatchThemeFilter } from './MediaManagerFilt
 import { MediaManagerFilterTabs, MediaManagerFiltersPanel } from './MediaManagerFilterTabs'
 import { MediaSongRow } from './MediaSongRow'
 import { useMediaCatalog } from './hooks/useMediaCatalog'
+import { useHostTier } from './hooks/useHostTier'
 import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
+import { TrackQuotaUpgradeModal } from '@/components/media/TrackQuotaUpgradeModal'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = 'var(--lg-canvas)'
@@ -93,6 +95,31 @@ function MediaManagerDashboardInner() {
     bulkAssignTheme,
     removeDuplicates,
   } = useMediaCatalog()
+
+  const hostTier = useHostTier(songs.length)
+  const [quotaModalOpen, setQuotaModalOpen] = useState(false)
+  const [quotaModalMessage, setQuotaModalMessage] = useState<string | undefined>()
+
+  const atQuotaCap =
+    !hostTier.isUnlimited && hostTier.limit != null && songs.length >= hostTier.limit
+
+  const handleQuotaBlocked = useCallback((message: string) => {
+    setQuotaModalMessage(message)
+    setQuotaModalOpen(true)
+    setError(message)
+  }, [setError])
+
+  const trackQuotaGate = useMemo(
+    () =>
+      hostTier.isUnlimited
+        ? undefined
+        : {
+            tier: hostTier.tier,
+            catalogCount: songs.length,
+            onQuotaBlocked: handleQuotaBlocked,
+          },
+    [hostTier.isUnlimited, hostTier.tier, songs.length, handleQuotaBlocked]
+  )
 
   const { playingSongId, togglePlayback, stop } = useAudioPreview()
 
@@ -460,6 +487,17 @@ function MediaManagerDashboardInner() {
               <span className="text-xs px-2 py-0.5 rounded-full bg-[#00FFFF]/10 text-[#00FFFF] tabular-nums shrink-0">
                 {loading ? '…' : songs.length}
               </span>
+              {!hostTier.loading && (
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full border tabular-nums shrink-0 ${
+                    atQuotaCap
+                      ? 'border-amber-500/40 text-amber-300 bg-amber-500/10'
+                      : 'border-white/10 text-white/45 bg-white/5'
+                  }`}
+                >
+                  {hostTier.isUnlimited ? 'Unlimited' : hostTier.label}
+                </span>
+              )}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -585,6 +623,9 @@ function MediaManagerDashboardInner() {
             onUploaded={() => void refetch()}
             onError={setError}
             themeCounts={themeCounts.counts}
+            trackQuota={trackQuotaGate}
+            quotaLabel={hostTier.isUnlimited ? 'Unlimited tracks' : hostTier.label}
+            atQuotaCap={atQuotaCap}
           />
 
           <section className="space-y-3" aria-label="Library catalog">
@@ -746,6 +787,14 @@ function MediaManagerDashboardInner() {
           themeCounts={themeCounts.counts}
         />
       ) : null}
+
+      <TrackQuotaUpgradeModal
+        open={quotaModalOpen}
+        onClose={() => setQuotaModalOpen(false)}
+        tier={hostTier.tier}
+        currentCount={songs.length}
+        message={quotaModalMessage}
+      />
     </main>
   )
 }

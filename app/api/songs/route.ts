@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
+import {
+  assertTrackQuotaForInsert,
+  trackQuotaErrorResponse,
+} from '@/lib/media/track-quota-server'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -46,6 +50,11 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as Record<string, unknown>
   const supabase = createClient()
+
+  const quota = await assertTrackQuotaForInsert(supabase, 1)
+  if (!quota.allowed) {
+    return NextResponse.json(trackQuotaErrorResponse(quota), { status: 403 })
+  }
 
   const { data, error } = await supabase
     .from('songs')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   MEDIA_BUCKET,
@@ -14,9 +14,17 @@ import {
   mapAutoCategoryToFormFields,
 } from '@/lib/media/apply-auto-category-to-track'
 import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
+import type { GameTier } from '@/lib/tiers'
+import { checkTrackQuota } from '@/lib/media/track-quota'
 import type { CatalogTheme, SongInsertPayload } from '../types'
 
 export const MAX_UPLOAD_FILES = 20
+
+export type TrackQuotaGate = {
+  tier: GameTier
+  catalogCount: number
+  onQuotaBlocked: (message: string) => void
+}
 
 export type UploadItemStatus = 'pending' | 'uploading' | 'completed' | 'error'
 
@@ -40,16 +48,21 @@ async function insertSongRow(
   supabase: SupabaseClient,
   payload: SongInsertPayload
 ): Promise<void> {
-  const { error: insertError } = await supabase.from('songs').insert([payload])
-  if (!insertError) return
-
   const res = await fetch('/api/songs', {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  const body = (await res.json()) as { error?: string }
+  const body = (await res.json()) as { error?: string; code?: string }
+  if (res.ok) return
+  if (res.status === 403 && body.code === 'TRACK_QUOTA_EXCEEDED') {
+    throw new Error(body.error ?? 'Track library limit reached.')
+  }
+
+  const { error: insertError } = await supabase.from('songs').insert([payload])
+  if (!insertError) return
+
   if (!res.ok) throw new Error(body.error ?? insertError.message)
 }
 
@@ -133,12 +146,14 @@ export function useMediaUploadQueue({
   uploadThemeId,
   onBatchComplete,
   onError,
+  trackQuota,
 }: {
   supabase: SupabaseClient
   themes: ThemeLike[]
   uploadThemeId: string
   onBatchComplete: () => void
   onError: (message: string) => void
+  trackQuota?: TrackQuotaGate
 }) {
   const [items, setItems] = useState<UploadQueueItem[]>([])
   const [running, setRunning] = useState(false)
@@ -150,6 +165,12 @@ export function useMediaUploadQueue({
   themeIdRef.current = uploadThemeId
   const themesRef = useRef(themes)
   themesRef.current = themes
+  const trackQuotaRef = useRef(trackQuota)
+  trackQuotaRef.current = trackQuota
+  const effectiveCatalogCountRef = useRef(trackQuota?.catalogCount ?? 0)
+  useEffect(() => {
+    if (trackQuota) effectiveCatalogCountRef.current = trackQuota.catalogCount
+  }, [trackQuota?.catalogCount])
 
   const patchItem = useCallback((id: string, patch: Partial<UploadQueueItem>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)))
@@ -161,6 +182,16 @@ export function useMediaUploadQueue({
       if ('error' in validated) {
         patchItem(item.id, { status: 'error', error: validated.error })
         return false
+      }
+
+      const quota = trackQuotaRef.current
+      if (quota) {
+        const gate = checkTrackQuota(quota.tier, effectiveCatalogCountRef.current, 1)
+        if (!gate.allowed) {
+          quota.onQuotaBlocked(gate.reason)
+          patchItem(item.id, { status: 'error', error: gate.reason })
+          return false
+        }
       }
 
       patchItem(item.id, { status: 'uploading', error: null })
@@ -206,6 +237,7 @@ export function useMediaUploadQueue({
           storagePath: uploaded.path,
           title: payload.title,
         })
+        effectiveCatalogCountRef.current += 1
         return true
       } catch (e) {
         if (uploadedPath) {
@@ -263,6 +295,16 @@ export function useMediaUploadQueue({
       }
 
       if (next.length === 0) return
+
+      const quota = trackQuotaRef.current
+      if (quota) {
+        const gate = checkTrackQuota(quota.tier, effectiveCatalogCountRef.current, next.length)
+        if (!gate.allowed) {
+          quota.onQuotaBlocked(gate.reason)
+          onError(gate.reason)
+          return
+        }
+      }
 
       const batchIds = next.map((it) => it.id)
       setActiveBatchIds(batchIds)
