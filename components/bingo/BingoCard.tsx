@@ -54,7 +54,7 @@ function resolveCellDisplayParts(
         }
       : splitSongDisplayParts(cell.label)
 
-  if (obfuscate && !options.isPlayed) {
+  if (options.obfuscate && !options.isPlayed) {
     return { title: '?', artist: '?', full: '? — ?' }
   }
 
