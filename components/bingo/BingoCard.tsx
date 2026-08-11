@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getFreeCenterPosition } from '@/lib/bingo-win-pattern'
-import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
+import { splitSongDisplayParts } from '@/lib/media-display'
 import { triggerHaptic } from '@/lib/haptic-feedback'
 
 export type BingoCardCell = {
@@ -23,14 +23,42 @@ export type BingoCardProps = {
   playedSongIds: Set<string>
   /** Currently called song — glows on matching tile */
   activeSongId?: string | null
-  /** Blind Bingo — obfuscate titles */
+  /** Blind Bingo — obfuscate titles (legacy alias; pairs with evilMode behavior). */
   hideSongTitles?: boolean
+  /** Evil mode — hide uncalled titles/artists as ? until the host plays the song. */
+  evilMode?: boolean
   onMarkChange: (playlistSongId: string, marked: boolean) => void
   className?: string
 }
 
-function cellFeedbackKey(position: number, kind: 'gold' | 'shake'): string {
+type FeedbackKind = 'mark' | 'wrong'
+
+function cellFeedbackKey(position: number, kind: FeedbackKind): string {
   return `${kind}-${position}`
+}
+
+function resolveCellDisplayParts(
+  cell: BingoCardCell,
+  options: {
+    position: number
+    isPlayed: boolean
+    obfuscate: boolean
+  }
+): { title: string; artist: string | null; full: string } {
+  const base =
+    cell.title || cell.artist
+      ? {
+          title: (cell.title || cell.label || 'Track').trim() || 'Track',
+          artist: cell.artist?.trim() || null,
+          full: cell.label || cell.title || 'Track',
+        }
+      : splitSongDisplayParts(cell.label)
+
+  if (obfuscate && !options.isPlayed) {
+    return { title: '?', artist: '?', full: '? — ?' }
+  }
+
+  return base
 }
 
 export function BingoCard({
@@ -40,11 +68,14 @@ export function BingoCard({
   playedSongIds,
   activeSongId = null,
   hideSongTitles = false,
+  evilMode = false,
   onMarkChange,
   className = '',
 }: BingoCardProps) {
-  const freePosition = getFreeCenterPosition(size)
+  const boardSize = size
+  const freePosition = getFreeCenterPosition(boardSize)
   const cellMap = new Map(cells.map((c) => [c.position, c]))
+  const obfuscateUncalled = evilMode || hideSongTitles
   const [feedback, setFeedback] = useState<string | null>(null)
   const feedbackTimerRef = useRef<number | null>(null)
   const skipClickRef = useRef(false)
@@ -67,11 +98,10 @@ export function BingoCard({
 
   const handleCellTap = useCallback(
     (cell: BingoCardCell | null, row: number, col: number) => {
-      const position = row * size + col
+      const position = row * boardSize + col
       const isFree = freePosition !== null && position === freePosition
 
       if (isFree) return
-
       if (!cell) return
 
       const isPlayed = playedSongIds.has(cell.playlistSongId)
@@ -79,7 +109,7 @@ export function BingoCard({
 
       if (!isPlayed && !isMarked) {
         triggerHaptic('error')
-        triggerFeedback(cellFeedbackKey(position, 'shake'))
+        triggerFeedback(cellFeedbackKey(position, 'wrong'))
         return
       }
 
@@ -87,30 +117,33 @@ export function BingoCard({
       onMarkChange(cell.playlistSongId, nextMarked)
       if (nextMarked && isPlayed) {
         triggerHaptic('success')
-        triggerFeedback(cellFeedbackKey(position, 'gold'))
+        triggerFeedback(cellFeedbackKey(position, 'mark'))
       } else {
         triggerHaptic('tap')
       }
     },
-    [freePosition, markedSongIds, onMarkChange, playedSongIds, size, triggerFeedback]
+    [boardSize, freePosition, markedSongIds, onMarkChange, playedSongIds, triggerFeedback]
   )
 
   return (
     <div
-      className={`bingo-card-shell bg-[#1E1E1E] rounded-2xl p-2 sm:p-4 md:p-5 border border-[#00FF66]/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu contain-paint ${className}`}
+      className={`bingo-card-shell mx-auto w-full max-w-md bg-brand-surface rounded-2xl p-2 sm:p-4 border border-brand-neon/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu contain-paint ${className}`}
     >
       <div
-        className="bingo-grid grid gap-1 sm:gap-2 md:gap-2.5"
-        style={{ gridTemplateColumns: `repeat(${size}, minmax(0, 1fr))` }}
+        className="bingo-grid grid gap-1"
+        style={{ gridTemplateColumns: `repeat(${boardSize}, minmax(0, 1fr))` }}
       >
-        {Array.from({ length: size }, (_, row) =>
-          Array.from({ length: size }, (_, col) => {
-            const position = row * size + col
+        {Array.from({ length: boardSize }, (_, row) =>
+          Array.from({ length: boardSize }, (_, col) => {
+            const position = row * boardSize + col
             const isFree = freePosition !== null && position === freePosition
             const cell = cellMap.get(position) ?? null
+            const isPlayed = cell != null && playedSongIds.has(cell.playlistSongId)
             const isMarked = isFree || (cell != null && markedSongIds.has(cell.playlistSongId))
-            const goldAnim = feedback === cellFeedbackKey(position, 'gold')
-            const shakeAnim = feedback === cellFeedbackKey(position, 'shake')
+            const isEarlyMark = isMarked && !isFree && !isPlayed
+            const isCalledMarked = isMarked && (isFree || isPlayed)
+            const markAnim = feedback === cellFeedbackKey(position, 'mark')
+            const wrongAnim = feedback === cellFeedbackKey(position, 'wrong')
             const isActive =
               !!cell && !!activeSongId && cell.playlistSongId === activeSongId && !isFree
 
@@ -118,14 +151,14 @@ export function BingoCard({
               return (
                 <div
                   key={`free-${position}`}
-                  className="bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center p-1 sm:p-2 text-center border-2 border-[#FFD700]/70 bg-gradient-to-br from-[#FFD700]/20 to-[#1E1E1E] text-[#FFD700] min-h-11 sm:min-h-[4.5rem] shadow-[inset_0_0_20px_rgba(255,215,0,0.12)]"
+                  className="bingo-cell relative aspect-square rounded-xl flex flex-col items-center justify-center p-1 sm:p-2 text-center border bg-brand-neon/10 border-brand-neon/40 min-h-11 sm:min-h-[4.5rem] shadow-[inset_0_0_20px_rgba(0,255,102,0.12)] animate-pulse-glow"
                   aria-label="Free space"
                 >
-                  <span className="text-lg sm:text-2xl leading-none" aria-hidden>
-                    ★
-                  </span>
-                  <span className="bingo-cell-artist mt-0.5 font-black uppercase tracking-wider text-[#FFD700]">
-                    Free
+                  <span
+                    className="text-lg sm:text-2xl leading-none text-brand-neon drop-shadow-[0_0_8px_rgba(0,255,102,0.75)]"
+                    aria-hidden
+                  >
+                    ⭐
                   </span>
                 </div>
               )
@@ -134,21 +167,26 @@ export function BingoCard({
             if (!cell) {
               return (
                 <div
-                  key={`missing-${position}`}
-                  className="bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center p-1 border-2 border-dashed border-amber-600/40 text-amber-200/70 min-h-11 sm:min-h-[4.5rem] uppercase"
+                  key={`empty-${position}`}
+                  className="bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center p-1 border border-white/5 bg-white/[0.02] text-white/20 min-h-11 sm:min-h-[4.5rem]"
+                  aria-hidden
                 >
-                  <span className="bingo-cell-title">Missing</span>
+                  <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider">—</span>
                 </div>
               )
             }
 
-            const parts = resolveBlindSongParts({
-              hideTitles: hideSongTitles,
-              trackNumber: position + 1,
-              label: cell.label,
-              title: cell.title,
-              artist: cell.artist,
+            const parts = resolveCellDisplayParts(cell, {
+              position,
+              isPlayed,
+              obfuscate: obfuscateUncalled,
             })
+
+            const stateClasses = isEarlyMark
+              ? 'bg-white/5 border-white/20 text-white/70'
+              : isCalledMarked
+                ? 'bg-brand-neon/15 border-brand-neon/60 text-brand-neon animate-pulse-glow'
+                : 'bg-[#1E1E1E] border-white/5 text-white hover:border-brand-neon/30 hover:bg-white/5'
 
             return (
               <button
@@ -156,7 +194,7 @@ export function BingoCard({
                 type="button"
                 aria-pressed={isMarked}
                 aria-label={parts.full}
-                title={hideSongTitles ? parts.full : parts.full}
+                title={parts.full}
                 onPointerDown={(e) => {
                   if (e.pointerType !== 'touch') return
                   e.preventDefault()
@@ -174,32 +212,50 @@ export function BingoCard({
                   handleCellTap(cell, row, col)
                 }}
                 className={`
-                  bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center
-                  p-1 sm:p-1.5 md:p-2 text-center border-2 transition-colors duration-200
+                  bingo-cell relative aspect-square rounded-xl flex flex-col items-center justify-center
+                  p-1 sm:p-1.5 text-center border transition-colors duration-200
                   overflow-hidden cursor-pointer touch-manipulation min-h-11 sm:min-h-[4.5rem]
                   select-none active:scale-[0.98] transform-gpu
-                  ${goldAnim ? 'animate-bingo-gold-flash' : ''}
-                  ${shakeAnim ? 'animate-bingo-red-shake' : ''}
+                  ${markAnim ? 'animate-bingo-mark animate-bingo-gold' : ''}
+                  ${wrongAnim ? 'animate-bingo-wrong' : ''}
                   ${isActive ? 'bingo-cell-called-glow' : ''}
-                  ${
-                    isMarked
-                      ? 'bg-[#00FF66]/10 border-[#00FF66]/60 text-green-100 shadow-[inset_0_0_16px_rgba(0,255,102,0.12)]'
-                      : 'bg-[#1E1E1E] border-white/20 text-slate-300 hover:border-[#00FF66]/40 hover:text-white'
-                  }
+                  ${stateClasses}
                 `}
                 style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
               >
-                {cell.albumArtUrl && !hideSongTitles ? (
+                {isCalledMarked && !isFree ? (
+                  <span
+                    className="absolute top-0.5 right-0.5 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-brand-neon text-brand-dark text-[9px] sm:text-[10px] font-black leading-none shadow-[0_0_8px_rgba(0,255,102,0.65)] pointer-events-none"
+                    aria-hidden
+                  >
+                    ✓
+                  </span>
+                ) : null}
+                {cell.albumArtUrl && !obfuscateUncalled ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={cell.albumArtUrl}
                     alt=""
-                    className="hidden sm:block w-5 h-5 md:w-6 md:h-6 rounded object-cover shrink-0 mb-0.5 pointer-events-none"
+                    className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 mb-0.5 pointer-events-none opacity-90"
                   />
                 ) : null}
-                <span className="bingo-cell-title pointer-events-none w-full px-0.5">{parts.title}</span>
+                {cell.albumArtUrl && obfuscateUncalled && isPlayed ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={cell.albumArtUrl}
+                    alt=""
+                    className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 mb-0.5 pointer-events-none opacity-90"
+                  />
+                ) : null}
+                <span
+                  className={`pointer-events-none w-full px-0.5 text-[10px] sm:text-xs font-semibold line-clamp-3 ${
+                    isCalledMarked && !isFree ? 'text-brand-neon' : ''
+                  }`}
+                >
+                  {parts.title}
+                </span>
                 {parts.artist ? (
-                  <span className="bingo-cell-artist pointer-events-none w-full px-0.5 mt-0.5 opacity-80">
+                  <span className="pointer-events-none w-full px-0.5 mt-0.5 text-[8px] sm:text-[10px] text-white/40 line-clamp-1">
                     {parts.artist}
                   </span>
                 ) : null}

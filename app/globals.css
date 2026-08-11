@@ -380,7 +380,8 @@ input[type="button"],
     border-color: rgba(255, 215, 0, 0.55);
   }
 }
-.animate-bingo-gold-flash {
+.animate-bingo-gold-flash,
+.animate-bingo-gold {
   animation: bingo-gold-flash 0.45s ease-out;
 }
 
@@ -392,7 +393,8 @@ input[type="button"],
   60% { transform: translateX(-3px); }
   80% { transform: translateX(3px); }
 }
-.animate-bingo-red-shake {
+.animate-bingo-red-shake,
+.animate-bingo-wrong {
   animation: bingo-red-shake 0.38s ease-in-out;
   box-shadow: 0 0 16px rgba(239, 68, 68, 0.55);
   border-color: rgba(248, 113, 113, 0.85) !important;

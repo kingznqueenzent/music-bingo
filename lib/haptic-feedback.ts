@@ -1,9 +1,9 @@
 export type HapticKind = 'tap' | 'success' | 'error' | 'warning'
 
 const VIBRATE_PATTERNS: Record<HapticKind, number | number[]> = {
-  tap: 12,
-  success: [40, 35, 40],
-  error: [25, 55, 25],
+  tap: 20,
+  success: [30, 20, 60],
+  error: [40, 30, 40],
   warning: [18, 30, 18],
 }
 
