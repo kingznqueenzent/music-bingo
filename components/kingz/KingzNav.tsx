@@ -72,7 +72,7 @@ export function KingzNav() {
           className="flex items-center group min-h-12"
           aria-label="Kingz and Queenz Entertainment — Home"
         >
-          <KingzLogo size="nav" variant="full" priority />
+          <KingzLogo size="nav" variant="full" lazy={false} />
         </button>
 
         <div className="hidden lg:flex items-center gap-6">

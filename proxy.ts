@@ -17,9 +17,15 @@ const ADMIN_PREFIXES = ['/host/', '/media/']
 
 const LYRICGRID_HOSTS = new Set(['lyricgrid.ca', 'www.lyricgrid.ca'])
 
+const KINGZ_HOSTS = new Set([
+  'kingznqueenzent.ca',
+  'www.kingznqueenzent.ca',
+  'kingznqueenzent.vercel.app',
+])
+
 /**
- * Official LyricGrid / Base44-style PascalCase URLs → App Router paths.
- * @see https://lyricgrid.ca
+ * Official PascalCase URL aliases → App Router paths.
+ * On LyricGrid hosts, /Home → /lyricgrid; on Kingz hosts, /Home → /.
  */
 const OFFICIAL_PATH_ALIASES: Record<string, string> = {
   '/Home': '/lyricgrid',
@@ -68,7 +74,12 @@ export function proxy(request: NextRequest) {
   const aliasTarget = OFFICIAL_PATH_ALIASES[pathname]
   if (aliasTarget) {
     const url = request.nextUrl.clone()
-    url.pathname = aliasTarget
+    // Kingz production hosts: /Home is the brand site, not bingo
+    if (pathname === '/Home' && host && KINGZ_HOSTS.has(host)) {
+      url.pathname = '/'
+    } else {
+      url.pathname = aliasTarget
+    }
     return NextResponse.redirect(url)
   }
 

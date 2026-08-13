@@ -1,8 +1,22 @@
 'use client'
 
-import Image from 'next/image'
-import { TEAM } from '@/lib/kingz/data'
+import { KingzDjPlaceholder } from './KingzDjPlaceholder'
 import { useKingzReveal } from './useKingzGsap'
+
+const TEAM = [
+  {
+    name: 'DJ Liz' as const,
+    title: 'Co-Founder & Lead DJ',
+    bio: 'DJ Liz brings impeccable taste and flawless timing to every set — weddings, corporate, and celebrations.',
+    tags: ['Weddings', 'Corporate', 'R&B / Pop'],
+  },
+  {
+    name: 'DJ Merci' as const,
+    title: 'Co-Founder & Livestream Director',
+    bio: 'DJ Merci specializes in high-energy party sets and livestream production for next-level entertainment.',
+    tags: ['Parties', 'Livestreaming', 'Hip-Hop / EDM'],
+  },
+]
 
 export function KingzTeam() {
   const ref = useKingzReveal<HTMLElement>()
@@ -21,19 +35,11 @@ export function KingzTeam() {
           <article
             key={member.name}
             data-kingz-reveal
-            className="kingz-card p-8 text-center"
-            style={{ transform: i === 1 ? 'translateY(20px)' : undefined }}
+            className={`kingz-card p-6 sm:p-8 text-center ${i === 1 ? 'md:translate-y-5' : ''}`}
           >
             <div className="relative w-36 h-36 mx-auto mb-6">
-              <div className="absolute inset-0 rounded-full border-2 border-[#D4AF37]/60" aria-hidden />
-              {/* Replace with Professional Photo of {member.name} — /assets/images/dj-*/}
-              <Image
-                src={member.image}
-                alt={member.name}
-                width={144}
-                height={144}
-                className="rounded-full object-cover w-full h-full p-1"
-              />
+              {/* Replace with real professional {member.name} photograph */}
+              <KingzDjPlaceholder name={member.name} shape="circle" className="absolute inset-0" />
             </div>
             <h3 className="kingz-heading text-2xl text-[#D4AF37] mb-1">{member.name}</h3>
             <p className="text-[#f5f5f5] text-sm mb-4">{member.title}</p>

@@ -1,18 +1,19 @@
-# Raw photo storage
+# Raw photography masters
 
-Store **original high-resolution** masters here (camera RAW exports, full-res PNG/JPG).
-
-## Rules
-
-1. **Never** reference `/assets/raw/...` from website code.
-2. Export web-optimized copies into `/assets/images/...` before use.
-3. Keep folder structure mirrored when possible:
+Store original high-resolution files here:
 
 ```
 raw/dj-merci/
 raw/dj-liz/
-raw/events/
-raw/backgrounds/
 ```
 
-Suggested workflow: drop originals here → run compression / crop → save to `images/`.
+**Never** reference `/assets/raw/` from website code, img tags, or CSS.
+
+Publish optimized web versions under:
+
+```
+images/dj-merci/profile.jpg
+images/dj-liz/profile.jpg
+images/events/
+images/gallery/
+```

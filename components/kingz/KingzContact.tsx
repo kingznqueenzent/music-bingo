@@ -67,7 +67,7 @@ export function KingzContact() {
       setForm(initial)
     } catch (err) {
       setStatus('error')
-      setStatusMsg(err instanceof Error ? err.message : 'Something went wrong. Please call us directly.')
+      setStatusMsg(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     }
   }
 
@@ -176,37 +176,50 @@ export function KingzContact() {
             <div className="kingz-card p-8">
               <h3 className="kingz-heading text-xl text-[#D4AF37] mb-6">Contact Info</h3>
               <ul className="space-y-4 text-[#d4d4d4]">
-                <li>
-                  <span className="text-[#b0b0b0] text-sm block">Phone</span>
-                  <a href={KINGZ_CONTACT.phoneHref} className="text-[#f5d276] hover:text-[#D4AF37] transition-colors">
-                    {KINGZ_CONTACT.phone}
-                  </a>
-                </li>
-                <li>
-                  <span className="text-[#b0b0b0] text-sm block">Email</span>
-                  <a
-                    href={`mailto:${KINGZ_CONTACT.email}`}
-                    className="text-[#f5d276] hover:text-[#D4AF37] transition-colors break-all"
-                  >
-                    {KINGZ_CONTACT.email}
-                  </a>
-                </li>
-                <li>
-                  <span className="text-[#b0b0b0] text-sm block">Location</span>
-                  <span>{KINGZ_CONTACT.location}</span>
-                </li>
+                {KINGZ_CONTACT.phone && KINGZ_CONTACT.phoneHref ? (
+                  <li>
+                    <span className="text-[#b0b0b0] text-sm block">Phone</span>
+                    <a href={KINGZ_CONTACT.phoneHref} className="text-[#f5d276] hover:text-[#D4AF37] transition-colors">
+                      {KINGZ_CONTACT.phone}
+                    </a>
+                  </li>
+                ) : null}
+                {KINGZ_CONTACT.email ? (
+                  <li>
+                    <span className="text-[#b0b0b0] text-sm block">Email</span>
+                    <a
+                      href={`mailto:${KINGZ_CONTACT.email}`}
+                      className="text-[#f5d276] hover:text-[#D4AF37] transition-colors break-all"
+                    >
+                      {KINGZ_CONTACT.email}
+                    </a>
+                  </li>
+                ) : null}
+                {KINGZ_CONTACT.location ? (
+                  <li>
+                    <span className="text-[#b0b0b0] text-sm block">Location</span>
+                    <span>{KINGZ_CONTACT.location}</span>
+                  </li>
+                ) : null}
+                {!KINGZ_CONTACT.phone && !KINGZ_CONTACT.email ? (
+                  <li className="text-[#b0b0b0] text-sm">
+                    Use the inquiry form — contact details will be published here when available.
+                  </li>
+                ) : null}
               </ul>
             </div>
 
-            <div className="kingz-card overflow-hidden aspect-video">
-              <iframe
-                title="Kingz and Queenz Entertainment location — Brantford, ON"
-                src={KINGZ_CONTACT.googleMapsEmbed}
-                className="w-full h-full border-0"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-            </div>
+            {KINGZ_CONTACT.googleMapsEmbed ? (
+              <div className="kingz-card overflow-hidden aspect-video">
+                <iframe
+                  title="Kingz and Queenz Entertainment location"
+                  src={KINGZ_CONTACT.googleMapsEmbed}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

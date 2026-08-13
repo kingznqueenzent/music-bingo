@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 
 type ErrorPageProps = {
@@ -9,10 +10,54 @@ type ErrorPageProps = {
   reset: () => void
 }
 
+function isKingzPublicPath(pathname: string | null): boolean {
+  if (!pathname) return true
+  if (pathname === '/' || pathname === '/kingz') return true
+  // Kingz marketing single-page anchors are still `/`
+  return false
+}
+
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
+  const pathname = usePathname()
+  const kingz = isKingzPublicPath(pathname)
+
   useEffect(() => {
-    console.error('[LyricGrid] Route error:', error.message, error.digest ?? '', error)
+    console.error('[App] Route error:', error.message, error.digest ?? '', error)
   }, [error])
+
+  if (kingz) {
+    return (
+      <main className="min-h-dvh bg-[#050505] text-[#f5f5f5] flex items-center justify-center p-6">
+        <div className="w-full max-w-lg text-center kingz-card p-8 border border-[rgba(212,175,55,0.25)] rounded-2xl">
+          <p className="text-xs uppercase tracking-[0.25em] text-[#D4AF37] mb-2">Something went wrong</p>
+          <h1 className="kingz-heading text-2xl text-[#D4AF37] mb-4">Temporary error</h1>
+          <p className="text-[#b0b0b0] text-sm mb-6">
+            Please try again. If the problem continues, use the contact form on the home page.
+          </p>
+          {error.message ? (
+            <p
+              className="rounded-lg border border-red-500/30 bg-red-950/30 px-3 py-2 text-red-300/90 text-xs font-mono mb-6 break-words"
+              role="alert"
+            >
+              {error.message}
+            </p>
+          ) : null}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              type="button"
+              onClick={() => reset()}
+              className="kingz-btn-gold px-6 py-3"
+            >
+              Try again
+            </button>
+            <Link href="/" className="kingz-btn-outline px-6 py-3 inline-flex items-center justify-center">
+              Go home
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-[calc(100dvh-3rem)] bg-[#121212] text-white flex items-center justify-center p-6">

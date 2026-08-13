@@ -5,12 +5,12 @@ import { requireAdminSession } from '@/lib/admin-guard-server'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'KingzControl — LyricGrid',
-  description: 'Master system management for LyricGrid hosts',
+  title: 'KingzControl — Admin',
+  description: 'Master system management for hosts and venue admins',
 }
 
 const links = [
-  { href: '/lyricgrid', label: 'LyricGrid home' },
+  { href: '/lyricgrid', label: 'Bingo product home' },
   { href: '/host', label: 'Host dashboard' },
   { href: '/media-manager', label: 'Media Manager' },
   { href: '/playlists', label: 'Playlists & themes' },

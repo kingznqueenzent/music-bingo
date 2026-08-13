@@ -76,7 +76,7 @@ export function KingzBooking() {
                   setViewYear((y) => y - 1)
                 } else setViewMonth((m) => m - 1)
               }}
-              className="text-[#D4AF37] px-3 py-2 min-h-[44px] hover:bg-[#D4AF37]/10 rounded transition-colors"
+              className="text-[#D4AF37] px-3 py-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center hover:bg-[#D4AF37]/10 rounded transition-colors touch-manipulation"
               aria-label="Previous month"
             >
               ‹
@@ -90,7 +90,7 @@ export function KingzBooking() {
                   setViewYear((y) => y + 1)
                 } else setViewMonth((m) => m + 1)
               }}
-              className="text-[#D4AF37] px-3 py-2 min-h-[44px] hover:bg-[#D4AF37]/10 rounded transition-colors"
+              className="text-[#D4AF37] px-3 py-2 min-h-[44px] min-w-[44px] inline-flex items-center justify-center hover:bg-[#D4AF37]/10 rounded transition-colors touch-manipulation"
               aria-label="Next month"
             >
               ›
@@ -137,7 +137,7 @@ export function KingzBooking() {
         <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-[#050505]/80 backdrop-blur-sm p-4"
           role="dialog"
-          aria-modal
+          aria-modal="true"
           aria-labelledby="booking-modal-title"
         >
           <div className="kingz-card p-8 max-w-md w-full text-center animate-[kingz-fade-in_0.4s_ease-out]">

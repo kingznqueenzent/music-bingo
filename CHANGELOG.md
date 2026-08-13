@@ -4,6 +4,21 @@ All notable project updates are documented here.
 
 ---
 
+## Version 1.5 — Launch update
+
+**Real brand configuration (no redesign)**
+
+- Canonical domain / SEO: `https://kingznqueenzent.ca` (`siteUrl`, robots, sitemap, OG, Organization JSON-LD)
+- Official logo path locked: `/assets/logo/logo-main.png` (+ placeholder variant paths)
+- Buy Me a Coffee live from config: `support.buyMeACoffee` → `https://buymeacoffee.com/kingznqueenzent`
+- Merch live on Etsy: The Royal Collection → `merch.etsyStore` (StrictlyShopping); no customer-facing Shopify/Printify/Printful/Stripe merch
+- Patreon remains configurable (`support.patreon` empty = Coming Soon)
+- Removed stock/AI-style portrait stand-ins for DJ Merci & DJ Liz; branded photo placeholders only
+- Removed fake testimonials / store-integration panels from the public page
+- Asset folders: `raw/dj-*` masters, `images/dj-*` for optimized future photos only
+
+---
+
 ## Version 1.0
 
 **Initial Website Launch**

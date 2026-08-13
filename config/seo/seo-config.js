@@ -1,8 +1,10 @@
 /**
- * SEO config — re-exports from site-config + local placeholders.
- * Open Graph / Twitter images: public/assets/images/social/
+ * SEO config — re-exports from site-config (single source of truth).
+ * Organization schema only — no invented ratings, awards, or street addresses.
  */
 const siteConfig = require('../site-config')
+
+const siteUrl = String(siteConfig.siteUrl || 'https://kingznqueenzent.ca').replace(/\/$/, '')
 
 const seoConfig = {
   metaDescription: siteConfig.seo.metaDescription,
@@ -10,21 +12,17 @@ const seoConfig = {
   keywords: siteConfig.seo.keywords,
   openGraphImage: siteConfig.seo.openGraphImage,
   twitterCardImage: siteConfig.seo.twitterCardImage,
-  canonicalUrl: siteConfig.seo.canonicalUrl,
+  canonicalUrl: siteUrl,
   jsonLd: {
     '@context': 'https://schema.org',
-    '@type': 'LocalBusiness',
+    '@type': 'Organization',
     name: siteConfig.brand.name,
+    alternateName: 'Kingz and Queenz Entertainment',
     description: siteConfig.seo.metaDescription,
-    url: siteConfig.seo.canonicalUrl,
-    telephone: siteConfig.contact.phone,
-    email: siteConfig.contact.email,
-    address: {
-      '@type': 'PostalAddress',
-      addressLocality: 'Brantford',
-      addressRegion: 'ON',
-      addressCountry: 'CA',
-    },
+    url: siteUrl,
+    logo: `${siteUrl}${siteConfig.assets.logo.main}`,
+    ...(siteConfig.contact.phone ? { telephone: siteConfig.contact.phone } : {}),
+    ...(siteConfig.contact.email ? { email: siteConfig.contact.email } : {}),
   },
 }
 

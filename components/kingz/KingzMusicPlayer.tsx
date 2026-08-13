@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Play, Pause, SkipBack, SkipForward, Volume2, Music } from 'lucide-react'
 import { MUSIC_PLAYLIST } from '@/lib/kingz/data'
 
+/** Floating player — only renders when real tracks exist in MUSIC_PLAYLIST */
 export function KingzMusicPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null)
   const [trackIndex, setTrackIndex] = useState(0)
@@ -11,26 +12,28 @@ export function KingzMusicPlayer() {
   const [progress, setProgress] = useState(0)
   const [minimized, setMinimized] = useState(false)
 
-  const track = MUSIC_PLAYLIST[trackIndex]
+  const playlist = MUSIC_PLAYLIST
+  const track = playlist[trackIndex]
 
   useEffect(() => {
     const audio = audioRef.current
-    if (!audio) return
+    if (!audio || !track) return
     if (playing) {
       void audio.play().catch(() => setPlaying(false))
     } else {
       audio.pause()
     }
-  }, [playing, trackIndex])
+  }, [playing, trackIndex, track])
 
   useEffect(() => {
+    if (!playlist.length) return
     const audio = audioRef.current
     if (!audio) return
     const onTime = () => {
       if (audio.duration) setProgress((audio.currentTime / audio.duration) * 100)
     }
     const onEnd = () => {
-      setTrackIndex((i) => (i + 1) % MUSIC_PLAYLIST.length)
+      setTrackIndex((i) => (i + 1) % playlist.length)
     }
     audio.addEventListener('timeupdate', onTime)
     audio.addEventListener('ended', onEnd)
@@ -38,7 +41,9 @@ export function KingzMusicPlayer() {
       audio.removeEventListener('timeupdate', onTime)
       audio.removeEventListener('ended', onEnd)
     }
-  }, [])
+  }, [playlist.length])
+
+  if (!track) return null
 
   const seek = (pct: number) => {
     const audio = audioRef.current
@@ -107,7 +112,7 @@ export function KingzMusicPlayer() {
       <div className="flex items-center justify-center gap-4">
         <button
           type="button"
-          onClick={() => setTrackIndex((i) => (i - 1 + MUSIC_PLAYLIST.length) % MUSIC_PLAYLIST.length)}
+          onClick={() => setTrackIndex((i) => (i - 1 + playlist.length) % playlist.length)}
           className="text-[#D4AF37] p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Previous track"
         >
@@ -123,7 +128,7 @@ export function KingzMusicPlayer() {
         </button>
         <button
           type="button"
-          onClick={() => setTrackIndex((i) => (i + 1) % MUSIC_PLAYLIST.length)}
+          onClick={() => setTrackIndex((i) => (i + 1) % playlist.length)}
           className="text-[#D4AF37] p-2 min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Next track"
         >

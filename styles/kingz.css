@@ -15,7 +15,7 @@
   --kz-purple-light: #8b5cb8;
   --kz-text: #f5f5f5;
   --kz-text-secondary: #d4d4d4;
-  --kz-text-muted: #b0b0b0;
+  --kz-text-muted: #c8c8c8;
   --kz-border: rgba(212, 175, 55, 0.25);
   --kz-success: #4ade80;
   --kz-error: #ef4444;
@@ -34,6 +34,7 @@
   color: var(--kz-text);
   font-family: var(--font-lato);
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 .kingz-site *:focus-visible {
@@ -208,6 +209,24 @@
   background: linear-gradient(180deg, var(--kz-black) 0%, #12081c 40%, #1a0a14 70%, var(--kz-black) 100%);
 }
 
+/* Royal Collection showcase panel */
+.kingz-royal-merch-panel {
+  background:
+    radial-gradient(ellipse at 15% 20%, rgba(212, 175, 55, 0.12) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 80%, rgba(90, 45, 145, 0.28) 0%, transparent 50%),
+    linear-gradient(145deg, #0a0610 0%, #12081c 50%, #0c0508 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(212, 175, 55, 0.2),
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    0 0 40px rgba(90, 45, 145, 0.15);
+}
+
+.kingz-royal-merch-panel__glow {
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(212, 175, 55, 0.08) 50%, transparent 100%);
+  pointer-events: none;
+}
+
 .kingz-cta-banner::before {
   content: '';
   position: absolute;
@@ -221,19 +240,23 @@
   50% { box-shadow: 0 0 40px rgba(212, 175, 55, 0.25); }
 }
 
-/* Official logo — responsive, aspect-ratio locked, luxury glow */
+/* Official crest — responsive, 1:1 aspect locked, no crop/stretch */
 .kingz-logo {
   display: inline-block;
   line-height: 0;
   position: relative;
+  flex-shrink: 0;
 }
 
 .kingz-logo__img {
   display: block;
   width: 100%;
   height: auto;
+  aspect-ratio: 1 / 1;
   object-fit: contain;
   object-position: center;
+  /* Black-backed master blends on #050505 / #000 site chrome */
+  background-color: transparent;
   filter:
     drop-shadow(0 0 12px rgba(212, 175, 55, 0.45))
     drop-shadow(0 0 28px rgba(90, 45, 145, 0.25))
@@ -248,24 +271,82 @@
     drop-shadow(0 6px 20px rgba(0, 0, 0, 0.55));
 }
 
+/* DJ portrait placeholders — no stock faces */
+.kingz-dj-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  height: 100%;
+  min-height: 10rem;
+  padding: 1.25rem;
+  text-align: center;
+  background:
+    radial-gradient(ellipse at 50% 28%, rgba(212, 175, 55, 0.22) 0%, transparent 52%),
+    radial-gradient(ellipse at 50% 70%, rgba(90, 45, 145, 0.4) 0%, transparent 58%),
+    linear-gradient(160deg, #0c0810 0%, #050505 48%, #1a0a14 100%);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  box-shadow: inset 0 0 40px rgba(90, 45, 145, 0.22), 0 0 20px rgba(212, 175, 55, 0.12);
+}
+
+.kingz-dj-placeholder__mark {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.28em;
+  color: rgba(212, 175, 55, 0.55);
+  text-transform: uppercase;
+  margin-bottom: 0.15rem;
+}
+
+.kingz-dj-placeholder__name {
+  font-family: var(--font-playfair);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #D4AF37;
+  text-transform: uppercase;
+}
+
+.kingz-dj-placeholder__soon {
+  font-family: var(--font-lato);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: #a88bc8;
+  text-transform: uppercase;
+  max-width: 12rem;
+  line-height: 1.35;
+}
+
+/* Header — one compact crest (desktop + mobile share this class) */
 .kingz-logo--nav {
-  width: clamp(72px, 12vw, 110px);
+  width: clamp(52px, 13vw, 64px);
 }
 
+/* Footer — one subtle crest */
 .kingz-logo--footer {
-  width: clamp(64px, 10vw, 96px);
+  width: clamp(72px, 12vw, 88px);
 }
 
+/* Hero — one primary crest; fluid size (no second mobile instance) */
 .kingz-logo--hero {
-  width: clamp(180px, 38vw, 420px);
+  width: clamp(140px, 42vw, 220px);
 }
 
-.kingz-logo--mobile-hero {
-  width: clamp(160px, 55vw, 260px);
+@media (min-width: 768px) {
+  .kingz-logo--hero {
+    width: clamp(200px, 32vw, 340px);
+  }
 }
 
-.kingz-logo--hero::before,
-.kingz-logo--mobile-hero::before {
+@media (min-width: 1024px) {
+  .kingz-logo--hero {
+    width: clamp(240px, 28vw, 360px);
+  }
+}
+
+.kingz-logo--hero::before {
   content: '';
   position: absolute;
   inset: 10% 5%;
@@ -281,8 +362,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .kingz-logo--hero::before,
-  .kingz-logo--mobile-hero::before {
+  .kingz-logo--hero::before {
     animation: none;
   }
 }
@@ -379,6 +459,55 @@
   }
 }
 
+.kingz-btn-gold,
+.kingz-btn-outline,
+.kingz-btn-purple,
+.kingz-btn-glass {
+  touch-action: manipulation;
+}
+
+@media (max-width: 639px) {
+  .kingz-btn-gold,
+  .kingz-btn-outline,
+  .kingz-btn-purple,
+  .kingz-btn-glass {
+    min-height: 48px;
+    width: 100%;
+  }
+
+  .kingz-hero-cta-primary {
+    width: 100%;
+  }
+}
+
+.kingz-footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding-block: 0.35rem;
+  touch-action: manipulation;
+}
+
+.kingz-gallery-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.kingz-gallery-dot__pip {
+  display: block;
+  height: 0.625rem;
+  border-radius: 9999px;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
 .kingz-container {
   max-width: 1280px;
   margin: 0 auto;
@@ -412,8 +541,15 @@
   .kingz-btn-outline,
   .kingz-btn-purple,
   .kingz-btn-glass,
-  .kingz-cta-banner {
+  .kingz-cta-banner,
+  .kingz-logo__img,
+  .kingz-logo--hero::before {
     animation: none !important;
     transition: none !important;
+  }
+  .group:hover .group-hover\:scale-105,
+  .motion-safe\:group-hover\:scale-105,
+  .motion-safe\:group-hover\:scale-110 {
+    transform: none !important;
   }
 }

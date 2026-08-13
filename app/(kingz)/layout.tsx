@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Playfair_Display, Lato } from 'next/font/google'
+import siteConfig from '@/config/site-config'
 import { KINGZ_CONTACT } from '@/lib/kingz/data'
 import '@/styles/kingz.css'
 
@@ -8,71 +9,117 @@ const playfair = Playfair_Display({
   weight: ['400', '600', '700'],
   variable: '--font-kingz-playfair',
   display: 'swap',
+  preload: true,
 })
 
 const lato = Lato({
   subsets: ['latin'],
-  weight: ['300', '400', '700'],
+  weight: ['400', '700'],
   variable: '--font-kingz-lato',
   display: 'swap',
+  preload: true,
 })
 
-const siteUrl = process.env.NEXT_PUBLIC_KINGZ_SITE_URL ?? 'https://kingzqueenz-g5vpu6na.manus.space'
+const siteUrl = (siteConfig.siteUrl as string).replace(/\/$/, '') || 'https://kingznqueenzent.ca'
+const seo = siteConfig.seo
+const ogWidth = Number(seo.openGraphImageWidth) || 1200
+const ogHeight = Number(seo.openGraphImageHeight) || 1200
 
 export const metadata: Metadata = {
-  title: 'Kingz & Queenz Entertainment | Premium DJ Service — Brantford, ON',
-  description:
-    'Premium DJ entertainment for weddings, corporate events, and parties in Brantford, ON. Official merch, Patreon, digital mixtapes, and event packages from DJ Liz & DJ Merci.',
-  keywords: [
-    'DJ Brantford',
-    'wedding DJ Ontario',
-    'corporate event DJ',
-    'Kingz Queenz Entertainment',
-    'premium DJ service',
-    'party DJ Brantford',
-    'DJ merch',
-    'Patreon DJ',
-    'event DJ packages',
-  ],
-  authors: [{ name: 'Kingz & Queenz Entertainment' }],
+  metadataBase: new URL(siteUrl),
+  // absolute: avoids parent layout template doubling the brand name in <title>
+  title: {
+    absolute: seo.title,
+  },
+  description: seo.metaDescription,
+  keywords: [...seo.keywords],
+  authors: [{ name: siteConfig.brand.name }],
+  creator: siteConfig.brand.name,
+  publisher: siteConfig.brand.name,
   openGraph: {
-    title: 'Kingz & Queenz Entertainment — Premium DJ Experience',
-    description: 'Luxury DJ services for weddings, corporate events, and celebrations in Brantford, ON.',
+    title: siteConfig.brand.name,
+    description: seo.metaDescription,
     url: siteUrl,
-    siteName: 'Kingz & Queenz Entertainment',
+    siteName: siteConfig.brand.name,
     locale: 'en_CA',
     type: 'website',
+    images: [
+      {
+        url: seo.openGraphImage,
+        width: ogWidth,
+        height: ogHeight,
+        alt: siteConfig.brand.name,
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Kingz & Queenz Entertainment',
-    description: 'Premium DJ Experience in Brantford, ON',
+    title: siteConfig.brand.name,
+    description: seo.metaDescription,
+    images: [seo.twitterCardImage],
   },
-  robots: { index: true, follow: true },
-  alternates: { canonical: siteUrl },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  alternates: {
+    canonical: siteUrl,
+  },
+  icons: {
+    icon: siteConfig.assets.logo.favicon,
+    apple: siteConfig.assets.logo.appleTouchIcon,
+  },
 }
 
+/**
+ * Organization + WebSite only — verified fields.
+ * No LocalBusiness street address, phone, ratings, awards, or invented geo.
+ */
 const jsonLd = {
   '@context': 'https://schema.org',
-  '@type': 'LocalBusiness',
-  name: 'Kingz & Queenz Entertainment',
-  description: 'Premium DJ service for weddings, corporate events, and parties',
-  url: siteUrl,
-  telephone: KINGZ_CONTACT.phone,
-  email: KINGZ_CONTACT.email,
-  address: {
-    '@type': 'PostalAddress',
-    addressLocality: 'Brantford',
-    addressRegion: 'ON',
-    addressCountry: 'CA',
-  },
-  aggregateRating: {
-    '@type': 'AggregateRating',
-    ratingValue: '4.9',
-    reviewCount: '500',
-  },
-  priceRange: '$$$',
-  sameAs: [KINGZ_CONTACT.twitch, KINGZ_CONTACT.kick],
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${siteUrl}/#organization`,
+      name: siteConfig.brand.name,
+      alternateName: 'Kingz and Queenz Entertainment',
+      url: siteUrl,
+      description: seo.metaDescription,
+      logo: {
+        '@type': 'ImageObject',
+        url: `${siteUrl}${siteConfig.assets.logo.main}`,
+        width: ogWidth,
+        height: ogHeight,
+      },
+      image: `${siteUrl}${siteConfig.assets.logo.main}`,
+      ...(KINGZ_CONTACT.email ? { email: KINGZ_CONTACT.email } : {}),
+      ...(KINGZ_CONTACT.phone ? { telephone: KINGZ_CONTACT.phone } : {}),
+      sameAs: [
+        KINGZ_CONTACT.twitch,
+        KINGZ_CONTACT.kick,
+        siteConfig.merch.etsyStore,
+        siteConfig.support.buyMeACoffee,
+        siteConfig.support.patreon,
+      ].filter(Boolean),
+      member: [
+        { '@type': 'Person', name: 'DJ Merci' },
+        { '@type': 'Person', name: 'DJ Liz' },
+      ],
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${siteUrl}/#website`,
+      url: siteUrl,
+      name: siteConfig.brand.name,
+      description: seo.metaDescription,
+      publisher: { '@id': `${siteUrl}/#organization` },
+      inLanguage: 'en-CA',
+    },
+  ],
 }
 
 export default function KingzLayout({ children }: { children: React.ReactNode }) {

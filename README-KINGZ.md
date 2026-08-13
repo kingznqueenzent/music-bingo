@@ -2,6 +2,8 @@
 
 Official online presence for **Kingz & Queenz Entertainment** (Brantford, ON) — premium DJ services by DJ Liz & DJ Merci.
 
+**Production domain:** [https://kingznqueenzent.ca](https://kingznqueenzent.ca)
+
 This is a production-level, agency-organized codebase designed to grow for years without restructuring.
 
 ---
@@ -19,163 +21,103 @@ This is a production-level, agency-organized codebase designed to grow for years
 
 ---
 
+## Central configuration
+
+Edit **only** `config/site-config.js` for:
+
+- `siteUrl` — canonical domain (`https://kingznqueenzent.ca`)
+- `merch.etsyStore` — Royal Collection on Etsy
+- `support.buyMeACoffee` — Buy Me a Coffee
+- `support.patreon` — Become Royalty memberships
+- Social, contact, logo/image paths, SEO defaults
+
+Components read these via `lib/kingz/integrations.ts` and related modules — do not hardcode URLs in UI.
+
+---
+
 ## Folder Structure
 
 ```
 public/assets/
-  logo/                 Official logo + variants
+  logo/                 Official logo + variants (placeholders OK)
   images/
-    dj-merci/           DJ Merci photos (descriptive filenames)
-    dj-liz/             DJ Liz photos
-    events/             weddings | birthdays | corporate | clubs
+    dj-merci/           Profile photo when ready → profile.jpg
+    dj-liz/             Profile photo when ready → profile.jpg
+    events/             Event atmosphere photography
     gallery/            Curated site gallery
     backgrounds/        Hero & textures
     social/             OG / Twitter share images
-  raw/                  High-res masters — NEVER used on the live site
+  raw/                  High-res masters — NEVER served on the live site
+    dj-merci/  dj-liz/
   videos/               Promo & highlight reels
-  merch/                Future product photography
-  icons/ fonts/
+  merch/                Future real product photography
 
 config/
-  site-config.js        ALL business links & asset paths (edit here only)
-  seo/                  SEO placeholders
+  site-config.js        ALL business links & asset paths
+  seo/
 
-components/kingz/       Reusable DJ site sections
+components/kingz/       Brand site sections
 styles/kingz.css        Design system
-lib/kingz/              Data, logo, integrations wrappers
-scripts/                Asset prep utilities
-CHANGELOG.md            Version history
+lib/kingz/              Data, logo, merch, integrations
 ```
 
 In Next.js, `public/assets/...` is served as `/assets/...`.
 
 ---
 
-## Replacing the Logo
+## Logo
 
-1. Export official files into `public/assets/logo/`
-2. **Primary:** `logo-main.png` (do not crop or distort)
-3. Also add when available:
-   - `logo-transparent.png`
-   - `logo-white.png` · `logo-gold.png` · `logo-black.png`
-   - `logo-horizontal.png` · `logo-compact.png`
-   - `logo-monogram.png` · `logo-crown.png`
-   - `favicon.ico` · `apple-touch-icon.png`
-4. Paths live in `config/site-config.js` → `assets.logo`
-5. Component: `components/kingz/KingzLogo.tsx` (responsive, aspect-ratio locked)
+1. Primary file: `public/assets/logo/logo-main.png` (do not crop or distort)
+2. Placeholders already path-mapped for:
+   - `logo-transparent.png` · `logo-horizontal.png` · `logo-compact.png`
+   - `logo-monogram.png` · `favicon.png` · other variants
+3. Paths: `config/site-config.js` → `assets.logo`
+4. Component: `components/kingz/KingzLogo.tsx` (aspect-ratio locked)
 
 ---
 
-## Replacing DJ Photos
+## DJ Photos
 
-**DJ Merci** → `public/assets/images/dj-merci/`
+Until real professional photographs are provided, UI uses branded **KingzDjPlaceholder** (black / gold / purple — never stock or AI faces).
 
-- `dj-merci-profile.jpg`
-- `dj-merci-hero.jpg`
-- `dj-merci-live-stage.jpg`
-- `dj-merci-event.jpg`
+**When ready:**
 
-**DJ Liz** → `public/assets/images/dj-liz/`
+| Person | Optimized web path | Raw originals |
+|--------|--------------------|---------------|
+| DJ Merci | `/assets/images/dj-merci/profile.jpg` | `raw/dj-merci/` |
+| DJ Liz | `/assets/images/dj-liz/profile.jpg` | `raw/dj-liz/` |
 
-- `dj-liz-profile.jpg`
-- `dj-liz-hero.jpg`
-- `dj-liz-live-stage.jpg`
-- `dj-liz-event.jpg`
-
-Keep camera originals in `public/assets/raw/`. Only optimized web JPGs go in `images/`.
-
-Code comments mark each image: `{/* Replace with Professional Photo of DJ Merci */}`.
+Never serve `/assets/raw/` on production.
 
 ---
 
-## Replacing Videos
+## Merch (The Royal Collection)
 
-Drop files into `public/assets/videos/`:
-
-| File | Purpose |
-|------|---------|
-| `promo-reel.mp4` | Brand promo |
-| `wedding-highlights.mp4` | Wedding reel |
-| `corporate-events.mp4` | Corporate reel |
-| `club-performances.mp4` | Club / nightlife |
-| `behind-the-scenes.mp4` | BTS content |
-
-Paths: `config/site-config.js` → `assets.videos`.
+- Live store: Etsy URL in `site-config` → `merch.etsyStore`
+- Site section: `#merch` ("Wear the Sound. Represent the Kingdom.")
+- CTAs open Etsy in a new tab (`target="_blank"` `rel="noopener noreferrer"`)
+- No Printify, Printful, Shopify, or Stripe merch checkout on the customer-facing site
+- Category cards only until real product images/links are supplied
 
 ---
 
-## Updating Social Links
+## Support
 
-Edit **only** `config/site-config.js` → `social`:
-
-Instagram · Facebook · TikTok · YouTube · Mixcloud · SoundCloud · Twitch · Kick
-
----
-
-## Updating Patreon
-
-`config/site-config.js` → `support.patreon`  
-
-Status: **Coming Soon** until a real URL is pasted (buttons stay disabled).
+| Channel | Config key | Status |
+|---------|------------|--------|
+| Buy Me a Coffee | `support.buyMeACoffee` | Live |
+| Patreon (Become Royalty) | `support.patreon` | Live |
 
 ---
 
-## Updating Buy Me a Coffee
+## SEO
 
-`config/site-config.js` → `support.buyMeACoffee`  
-
-Same Coming Soon behavior until activated.
-
----
-
-## Launching Merchandise
-
-1. Add product photos to `public/assets/merch/`
-2. Paste storefront URL in `config/site-config.js` → `merch.storeUrl`
-3. When ready (not yet): Printify / Printful / Shopify / Stripe under `merch.*`
-4. UI: `components/kingz/KingzMerchHub.tsx` — marked **Coming Soon** until URLs are live
-
-Do **not** hardcode temporary checkout systems.
+- Canonical / OG / sitemap host: `siteUrl` → `https://kingznqueenzent.ca`
+- `app/robots.ts` · `public/sitemap.xml` (SEO XML; admin UI stays at `/sitemap`)
+- Organization JSON-LD only (no invented ratings or awards)
 
 ---
 
-## Deploying to Vercel
+## Navigation
 
-```bash
-npm run build
-```
-
-1. Connect the repo to Vercel
-2. Set env vars: `NEXT_PUBLIC_KINGZ_SITE_URL`, `RESEND_API_KEY` (contact form)
-3. Deploy — homepage is the DJ site (`/`)
-
-See also: `docs/VERCEL-PRE-PRODUCTION.md` if using staging.
-
----
-
-## Future Features (Coming Soon)
-
-Configured in `config/site-config.js` → `futureIntegrations` — **not activated**:
-
-- Patreon · Buy Me a Coffee
-- Printify · Printful · Royal Collection Merch
-- Google Reviews · Google Calendar Booking · Stripe Deposits
-- YouTube Channel · Instagram Feed · TikTok Feed
-- Newsletter Signup · Blog · Podcast
-- Google Analytics · Meta Pixel
-
----
-
-## Local Development
-
-```bash
-npm run dev
-```
-
-Open http://localhost:3000
-
----
-
-## Changelog
-
-See [CHANGELOG.md](./CHANGELOG.md) for version history (1.0 → 1.4+).
+Home · About · DJs · Services · Videos · Royal Collection · Support · Book Us · Contact

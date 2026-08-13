@@ -13,7 +13,7 @@ type KingzCtaStripProps = {
 
 export function KingzCtaStrip({
   headline = 'Wear the Crown. Support the Sound.',
-  subline = 'Merch drops, memberships, and one-click support — all in one royal ecosystem.',
+  subline = 'Merch on Etsy · Buy Me a Coffee · Become Royalty',
   className = '',
   ctas,
 }: KingzCtaStripProps) {

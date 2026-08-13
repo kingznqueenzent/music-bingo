@@ -24,8 +24,7 @@ export function KingzServices() {
           <article
             key={service.title}
             data-kingz-reveal
-            className="kingz-card p-8 text-left group"
-            style={{ transform: i % 2 === 1 ? 'translateY(12px)' : undefined }}
+            className={`kingz-card p-6 sm:p-8 text-left group ${i % 2 === 1 ? 'md:translate-y-3' : ''}`}
           >
             <span className="text-4xl block mb-4 group-hover:scale-110 transition-transform duration-300" aria-hidden>
               {service.icon}

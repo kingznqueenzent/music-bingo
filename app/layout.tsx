@@ -26,7 +26,9 @@ export const metadata: Metadata = {
     default: 'Kingz & Queenz Entertainment',
     template: '%s | Kingz & Queenz Entertainment',
   },
-  description: 'Premium DJ entertainment — weddings, corporate events, and parties in Brantford, ON.',
+  description:
+    'Kingz & Queenz Entertainment — DJ Merci and DJ Liz. Premium DJ services for weddings, private events, parties, and corporate entertainment.',
+  metadataBase: new URL('https://kingznqueenzent.ca'),
 };
 
 /** Device-width viewport + manipulation touch model reduces legacy tap delay on mobile. */

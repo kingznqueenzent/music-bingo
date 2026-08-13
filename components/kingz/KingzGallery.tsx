@@ -20,6 +20,9 @@ export function KingzGallery() {
   }, [])
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
     const timer = setInterval(() => goTo(index + 1), 6000)
     return () => clearInterval(timer)
   }, [index, goTo])
@@ -55,6 +58,8 @@ export function KingzGallery() {
               fill
               sizes="(max-width: 1024px) 100vw, 1024px"
               className="object-cover"
+              loading="lazy"
+              quality={70}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#050505]/80 via-transparent to-transparent" />
             <p className="absolute bottom-6 left-6 kingz-heading text-xl text-[#f5d276]">{current.caption}</p>
@@ -77,7 +82,7 @@ export function KingzGallery() {
             <ChevronRight className="h-5 w-5" />
           </button>
 
-          <div className="flex justify-center gap-2 mt-6" role="tablist" aria-label="Gallery slides">
+          <div className="flex justify-center gap-1 mt-6" role="tablist" aria-label="Gallery slides">
             {GALLERY_IMAGES.map((img, i) => (
               <button
                 key={img.caption}
@@ -86,10 +91,14 @@ export function KingzGallery() {
                 aria-selected={i === index}
                 aria-label={`Slide ${i + 1}: ${img.caption}`}
                 onClick={() => goTo(i)}
-                className={`h-2.5 rounded-full transition-all duration-300 ${
-                  i === index ? 'w-8 bg-[#D4AF37]' : 'w-2.5 bg-[#D4AF37]/30 hover:bg-[#D4AF37]/60'
-                }`}
-              />
+                className="kingz-gallery-dot"
+              >
+                <span
+                  className={`kingz-gallery-dot__pip ${
+                    i === index ? 'w-8 bg-[#D4AF37]' : 'w-2.5 bg-[#D4AF37]/30'
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </div>

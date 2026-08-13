@@ -4,12 +4,13 @@ import Image from 'next/image'
 import { KINGZ_LOGO } from '@/lib/kingz/logo'
 
 type KingzLogoProps = {
-  /** Visual size preset */
-  size?: 'nav' | 'footer' | 'hero' | 'mobile-hero'
+  /** Visual size preset — one DOM instance per placement */
+  size?: 'nav' | 'footer' | 'hero'
   /**
    * Logo file variant.
-   * ACTIVE: full | main | transparent
-   * PLACEHOLDERS (add files later): white | gold | black | horizontal | compact | monogram | crown
+   * ACTIVE: full | main → official crest `logo-main.png`
+   * `transparent` maps to logo-transparent.png (same crest; still black-backed until a true alpha master exists)
+   * Other keys are reserved for future official exports — do not invent artwork.
    */
   variant?: 'full' | 'main' | 'transparent' | 'white' | 'gold' | 'black' | 'horizontal' | 'compact' | 'monogram' | 'crown'
   className?: string
@@ -21,16 +22,11 @@ const SIZE_CLASS: Record<NonNullable<KingzLogoProps['size']>, string> = {
   nav: 'kingz-logo--nav',
   footer: 'kingz-logo--footer',
   hero: 'kingz-logo--hero',
-  'mobile-hero': 'kingz-logo--mobile-hero',
 }
 
 /**
- * Official Kingz & Queenz logo.
+ * Official Kingz & Queenz Entertainment crest.
  * Always preserves aspect ratio (object-contain). Never crops or stretches.
- *
- * ACTIVE: logo-main.png / logo-transparent.png via KINGZ_LOGO.main
- * FUTURE variants (white, gold, black, horizontal, compact, monogram, crown):
- *   Drop files in public/assets/logo/ and switch `variant` prop when ready.
  */
 export function KingzLogo({
   size = 'nav',
@@ -70,15 +66,15 @@ export function KingzLogo({
         priority={priority}
         loading={priority ? undefined : useLazy ? 'lazy' : undefined}
         sizes={
-          size === 'hero' || size === 'mobile-hero'
-            ? '(max-width: 640px) 220px, (max-width: 1024px) 320px, 420px'
+          size === 'hero'
+            ? '(max-width: 640px) 200px, (max-width: 1024px) 280px, 360px'
             : size === 'footer'
-              ? '120px'
-              : '140px'
+              ? '88px'
+              : '64px'
         }
         className="kingz-logo__img"
-        // Preserve exact aspect ratio — never crop
-        style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+        style={{ objectFit: 'contain' }}
+        quality={size === 'hero' ? 80 : 70}
       />
     </span>
   )

@@ -105,13 +105,15 @@ export function KingzCtaAction({ label, href, scrollTo, variant = 'gold', classN
   if (scrollTo) {
     return <KingzScrollCta label={label} scrollTo={scrollTo} variant={variant} className={className} />
   }
-  if (href) {
+  // Allow empty href → KingzIntegrationLink shows Coming Soon (e.g. Patreon)
+  if (href !== undefined && href !== null) {
     return (
       <KingzIntegrationLink
         href={href}
         label={label}
         variant={variant}
         className={className}
+        placeholderHint="Coming Soon — official link pending"
       />
     )
   }

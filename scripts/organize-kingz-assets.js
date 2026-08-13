@@ -1,8 +1,14 @@
 /**
- * Populate public/assets/images with web-optimized copies of current site imagery
- * so reorganization does not change the visual design.
- * Run: node scripts/organize-kingz-assets.js
+ * LEGACY — do not run for production.
+ * Previously downloaded Unsplash/stock imagery (including people).
+ * Real DJ photos must be supplied as originals under public/assets/raw/
+ * and optimized copies under public/assets/images/ — never stock faces as DJ stand-ins.
  */
+console.error(
+  '[organize-kingz-assets] Disabled. Add real photography under public/assets/raw/ instead of stock downloads.'
+)
+process.exit(1)
+
 const fs = require('fs')
 const path = require('path')
 const sharp = require('sharp')
