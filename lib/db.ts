@@ -94,7 +94,10 @@ export type CreateGameFromThemeResult =
   | { error: string }
 
 /** Create a game from a theme using direct Postgres (avoids Supabase API schema issues). */
-export async function createGameFromThemeDirect(themeId: string): Promise<CreateGameFromThemeResult> {
+export async function createGameFromThemeDirect(
+  themeId: string,
+  options: { randomShuffle?: boolean } = {}
+): Promise<CreateGameFromThemeResult> {
   const url = process.env.DATABASE_URL?.trim()
   if (!url) return { error: 'DATABASE_URL is not set' }
 
@@ -122,11 +125,14 @@ export async function createGameFromThemeDirect(themeId: string): Promise<Create
       `SELECT youtube_id, title, audio_url, start_time FROM public.theme_songs WHERE theme_id = $1 ORDER BY position`,
       [themeId]
     )
-    const themeSongs = songsRes.rows ?? []
+    const themeSongsRaw = songsRes.rows ?? []
     const MIN_5X5 = 45
-    if (themeSongs.length < MIN_5X5) {
+    if (themeSongsRaw.length < MIN_5X5) {
       return { error: `Theme does not have at least ${MIN_5X5} songs for a 5×5 grid.` }
     }
+
+    const { shuffleArray } = await import('@/lib/bingo/cards')
+    const themeSongs = options.randomShuffle ? shuffleArray(themeSongsRaw) : themeSongsRaw
 
     const playlistRes = await client.query<{ id: string }>(
       `INSERT INTO public.playlists (name) VALUES ($1) RETURNING id`,

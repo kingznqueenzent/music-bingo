@@ -2,7 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createGameFromThemeDirect } from '@/lib/db'
-import { generateCardLayout, minSongsForGrid } from '@/lib/bingo/cards'
+import { generateCardLayout, minSongsForGrid, shuffleArray } from '@/lib/bingo/cards'
 import type { GameTier } from '@/lib/tiers'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 import { insertGameOrReuseLobby, roomCodeLookupFilter } from '@/lib/game-room-code'
@@ -17,6 +17,8 @@ export type GameCreateOptions = {
   crossfadeSeconds?: number
   tier?: GameTier
   logoUrl?: string | null
+  /** When true, randomize playlist_songs position order before dealing cards. */
+  randomShuffle?: boolean
 }
 
 const MIN_SONGS_5X5 = 45
@@ -58,7 +60,8 @@ export async function createGame(
     })
     .filter(Boolean) as { playlist_id: string; source: 'youtube'; youtube_id: string; file_url: null; title: string | null }[]
 
-  const songs = raw.map((s, i) => ({ ...s, position: i }))
+  const orderedRaw = options.randomShuffle ? shuffleArray(raw) : raw
+  const songs = orderedRaw.map((s, i) => ({ ...s, position: i }))
 
   if (songs.length < minSongs) {
     await supabase.from('playlists').delete().eq('id', playlist.id)
@@ -175,6 +178,8 @@ export async function createGameFromMediaLibrary(
     }
   }
 
+  const queue = options.randomShuffle ? shuffleArray(playable) : playable
+
   const { data: playlist, error: playlistError } = await supabase
     .from('playlists')
     .insert({ name: playlistName })
@@ -185,7 +190,7 @@ export async function createGameFromMediaLibrary(
     return { error: playlistError?.message ?? 'Failed to create playlist' }
   }
 
-  const songs = playable.map((s, index) => {
+  const songs = queue.map((s, index) => {
     const youtubeId = s.youtube_url ? extractYoutubeId(s.youtube_url) : null
     const mediaUrl = s.media_url?.trim() || null
     const title = s.artist ? `${s.title} — ${s.artist}` : s.title
@@ -240,7 +245,7 @@ export async function createGameFromMediaLibrary(
 export async function createGameFromTheme(themeId: string, options: GameCreateOptions = {}) {
   // When DATABASE_URL is set, use direct Postgres so "Host this theme" works even if Supabase REST has schema cache issues.
   if (process.env.DATABASE_URL) {
-    const result = await createGameFromThemeDirect(themeId)
+    const result = await createGameFromThemeDirect(themeId, { randomShuffle: options.randomShuffle })
     if ('error' in result) return { error: result.error }
     return { game: result.game, code: result.code }
   }
@@ -271,6 +276,9 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
     return { error: `Theme does not have at least ${MIN_SONGS_5X5} songs for a 5×5 grid.` }
   }
 
+  const themeSongRows = themeSongs ?? []
+  const queue = options.randomShuffle ? shuffleArray(themeSongRows) : themeSongRows
+
   // Reuse createGame logic by creating a playlist + playlist_songs from theme_songs
   const { data: playlist, error: playlistError } = await supabase
     .from('playlists')
@@ -282,7 +290,7 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
     return { error: playlistError?.message ?? 'Failed to create playlist from theme' }
   }
 
-  const insertSongs = (themeSongs ?? []).map((s, index) => {
+  const insertSongs = queue.map((s, index) => {
     const hasMp3 = !!s.audio_url?.trim()
     return {
       playlist_id: playlist.id,

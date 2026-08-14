@@ -12,13 +12,18 @@ export function minSongsForGrid(gridSize: 4 | 5): number {
   return gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
 }
 
-function shuffle<T>(array: T[]): T[] {
+/** Fisher–Yates shuffle (non-mutating). Used for playlist queue order and card layout. */
+export function shuffleArray<T>(array: T[]): T[] {
   const out = [...array]
   for (let i = out.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [out[i], out[j]] = [out[j], out[i]]
   }
   return out
+}
+
+function shuffle<T>(array: T[]): T[] {
+  return shuffleArray(array)
 }
 
 function pickGridIds(ids: string[], gridSize: 4 | 5): string[] {

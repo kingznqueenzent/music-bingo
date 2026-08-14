@@ -213,9 +213,9 @@ export function BingoCard({
                 }}
                 className={`
                   bingo-cell relative aspect-square rounded-xl flex flex-col items-center justify-center
-                  p-1 sm:p-1.5 text-center border transition-colors duration-200
+                  p-1.5 sm:p-2 text-center border transition-colors duration-200
                   overflow-hidden cursor-pointer touch-manipulation min-h-11 sm:min-h-[4.5rem]
-                  select-none active:scale-[0.98] transform-gpu
+                  select-none active:scale-[0.98] transform-gpu gap-0.5
                   ${markAnim ? 'animate-bingo-mark animate-bingo-gold' : ''}
                   ${wrongAnim ? 'animate-bingo-wrong' : ''}
                   ${isActive ? 'bingo-cell-called-glow' : ''}
@@ -248,14 +248,14 @@ export function BingoCard({
                   />
                 ) : null}
                 <span
-                  className={`pointer-events-none w-full px-0.5 text-[10px] sm:text-xs font-semibold line-clamp-3 ${
+                  className={`pointer-events-none w-full min-w-0 px-0.5 text-[9px] sm:text-[11px] font-semibold leading-tight sm:leading-snug line-clamp-2 sm:line-clamp-3 ${
                     isCalledMarked && !isFree ? 'text-brand-neon' : ''
                   }`}
                 >
                   {parts.title}
                 </span>
                 {parts.artist ? (
-                  <span className="pointer-events-none w-full px-0.5 mt-0.5 text-[8px] sm:text-[10px] text-white/40 line-clamp-1">
+                  <span className="pointer-events-none w-full min-w-0 px-0.5 text-[8px] sm:text-[10px] text-white/40 leading-tight line-clamp-1">
                     {parts.artist}
                   </span>
                 ) : null}

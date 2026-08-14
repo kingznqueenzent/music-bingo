@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createGame } from '@/app/actions/game'
 import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
+import { RandomShuffleToggle } from '@/components/host/RandomShuffleToggle'
 
 const MIN_5X5 = 45
 const MIN_4X4 = 32
@@ -26,6 +27,7 @@ export function HostCreateForm() {
   const [urlsText, setUrlsText] = useState('')
   const [gridSize, setGridSize] = useState<4 | 5>(5)
   const [tier, setTier] = useState<GameTier>('free')
+  const [randomShuffle, setRandomShuffle] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -51,7 +53,7 @@ export function HostCreateForm() {
       return
     }
     setLoading(true)
-    const result = await createGame(name || 'Music Bingo', urls, { gridSize, tier })
+    const result = await createGame(name || 'Music Bingo', urls, { gridSize, tier, randomShuffle })
     setLoading(false)
     if (result.error) {
       setError(withSupabaseKeyHint(result.error))
@@ -113,6 +115,7 @@ export function HostCreateForm() {
           </label>
         </div>
       </div>
+      <RandomShuffleToggle checked={randomShuffle} onChange={setRandomShuffle} />
       <div>
         <label className={labelClass}>
           YouTube links (one per line, min {minSongs})

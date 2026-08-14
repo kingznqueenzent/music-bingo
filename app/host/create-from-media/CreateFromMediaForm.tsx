@@ -21,6 +21,7 @@ import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
 import { useHostTier } from '@/app/media-manager/hooks/useHostTier'
 import { MediaLibraryUpgradeModal } from '@/components/media/MediaLibraryUpgradeModal'
+import { RandomShuffleToggle } from '@/components/host/RandomShuffleToggle'
 import { Loader2 } from 'lucide-react'
 
 const MIN_5X5 = 45
@@ -62,6 +63,7 @@ function CreateFromMediaFormInner() {
   const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
   const [gridSize, setGridSize] = useState<4 | 5>(5)
   const [tier, setTier] = useState<GameTier>('pro')
+  const [randomShuffle, setRandomShuffle] = useState(false)
   const [loading, setLoading] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -173,6 +175,7 @@ function CreateFromMediaFormInner() {
     const result = await createGameFromMediaLibrary(name.trim() || 'Media Bingo', playableIds, {
       gridSize,
       tier,
+      randomShuffle,
     })
     setLoading(false)
     if (result.error) {
@@ -250,6 +253,8 @@ function CreateFromMediaFormInner() {
           </div>
         </div>
       </div>
+
+      <RandomShuffleToggle checked={randomShuffle} onChange={setRandomShuffle} />
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 sm:p-6 min-w-0 overflow-hidden">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">

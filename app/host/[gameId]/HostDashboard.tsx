@@ -45,7 +45,9 @@ import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
+import { HostPlayerBoardPanel, hostBoardGameCode } from '@/components/host/HostPlayerBoardPanel'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
+import { LayoutGrid } from 'lucide-react'
 import { START_GAME_EMPTY_PLAYLIST_ERROR } from '@/lib/game-start'
 import { roomCodeFromGame } from '@/types/database-extras'
 
@@ -127,6 +129,7 @@ export function HostDashboard({
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
   const [trackSearch, setTrackSearch] = useState('')
   const [hostTab, setHostTab] = useState<'live' | 'venue' | 'history'>('live')
+  const [hostBoardOpen, setHostBoardOpen] = useState(false)
   const [audioReadyLabel, setAudioReadyLabel] = useState('')
   const nowPlayingRef = useRef<HTMLDivElement>(null)
   const previousCurrentSongRef = useRef<PlaylistSong | null>(null)
@@ -1091,6 +1094,14 @@ export function HostDashboard({
           >
             🏆 View Leaderboard
           </a>
+          <button
+            type="button"
+            onClick={() => setHostBoardOpen(true)}
+            className="hidden lg:inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-full border border-[#00FF66]/50 bg-[#00FF66]/10 px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FF66] hover:bg-[#00FF66]/15 transition-colors min-h-12 touch-manipulation"
+          >
+            <LayoutGrid className="h-5 w-5 shrink-0" aria-hidden />
+            View Card
+          </button>
         </div>
         <div className="flex flex-col gap-3 mt-4">
           <div className="flex flex-wrap items-center gap-4">
@@ -1679,6 +1690,28 @@ export function HostDashboard({
         )}
       </div>
       </>
+      ) : null}
+
+      {hostTab === 'live' && game ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setHostBoardOpen(true)}
+            className="lg:hidden fixed bottom-20 right-4 z-40 flex items-center gap-2 rounded-full border-2 border-[#00FF66]/60 bg-[#121212]/95 px-4 py-3 text-sm font-bold text-[#00FF66] shadow-[0_0_24px_rgba(0,255,102,0.2)] touch-manipulation min-h-12"
+            aria-label="Open my player board"
+          >
+            <LayoutGrid className="h-5 w-5 shrink-0" aria-hidden />
+            My Player Board
+          </button>
+          <HostPlayerBoardPanel
+            gameId={gameId}
+            gameCode={hostBoardGameCode(game)}
+            gridSize={gridSize}
+            hideSongTitles={!!game.hide_song_titles}
+            open={hostBoardOpen}
+            onClose={() => setHostBoardOpen(false)}
+          />
+        </>
       ) : null}
     </div>
   )
