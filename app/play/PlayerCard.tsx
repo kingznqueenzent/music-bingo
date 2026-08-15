@@ -19,6 +19,7 @@ import { normalizeWinPattern, hasWinningPatternFromMarks, type WinPattern } from
 import { getMarkedPositions, getWinProgress } from '@/lib/bingo/player-progress'
 import { triggerHaptic } from '@/lib/haptic-feedback'
 import { broadcastBingoClaim, broadcastBoardProgress } from '@/lib/supabase-realtime'
+import { CrownedWinnerOverlay } from '@/components/stage/CrownedWinnerOverlay'
 import { debounce } from '@/lib/debounce'
 import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { roomCodeFromGame } from '@/types/database-extras'
@@ -86,6 +87,8 @@ export function PlayView({
   const [error, setError] = useState('')
   const [songsFetchError, setSongsFetchError] = useState('')
   const [showWinModal, setShowWinModal] = useState(false)
+  const [celebrationOpen, setCelebrationOpen] = useState(false)
+  const [celebrationName, setCelebrationName] = useState('')
   const [claimName, setClaimName] = useState('')
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimError, setClaimError] = useState('')
@@ -568,8 +571,27 @@ export function PlayView({
         }
       )
       .subscribe()
+
+    const gameChannel = supabase
+      .channel(`game-${gameId}`)
+      .on(
+        'broadcast',
+        { event: 'winner_crowned' },
+        (payload: { payload?: { cardId?: string; playerName?: string; pattern?: string } }) => {
+          const p = payload?.payload
+          if (p?.cardId === cardId && p.playerName) {
+            setCelebrationName(p.playerName)
+            setCelebrationOpen(true)
+            triggerHaptic('success')
+            window.setTimeout(() => setCelebrationOpen(false), 14000)
+          }
+        }
+      )
+      .subscribe()
+
     return () => {
       supabase.removeChannel(channel)
+      supabase.removeChannel(gameChannel)
     }
   }, [gameId, cardId, supabase])
 
@@ -622,6 +644,9 @@ export function PlayView({
       const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
       if (data.valid) {
         triggerHaptic('success')
+        setCelebrationName(data.playerName ?? playerName)
+        setCelebrationOpen(true)
+        window.setTimeout(() => setCelebrationOpen(false), 14000)
         const ch = supabase.channel(`game-${gameId}`)
         ch.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -877,6 +902,16 @@ export function PlayView({
           <p className="text-red-400 text-sm font-medium">Invalid Bingo – only mark songs the host has already played.</p>
         )}
       </div>
+
+      {celebrationOpen && (
+        <CrownedWinnerOverlay
+          open={celebrationOpen}
+          playerName={celebrationName || playerName}
+          pattern={toEvaluatorPattern(gameMode)}
+          headline="BINGO WINNER!"
+          onDismiss={() => setCelebrationOpen(false)}
+        />
+      )}
 
       {showWinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 md:bg-black/70 md:backdrop-blur-sm transform-gpu">

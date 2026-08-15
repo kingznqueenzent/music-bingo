@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyBingo, verifyBingoWithMarks } from '@/app/actions/verify'
-import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { notifyHostWin } from '@/lib/game-session'
 import { recordGameHistoryWin } from '@/lib/game-history'
+import { triggerWinnerCelebration } from '@/lib/trigger-winner-celebration'
+import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,6 +52,16 @@ export async function POST(request: NextRequest) {
         .select('mode')
         .eq('id', gameId)
         .single()
+
+      const { data: existingWin } = await supabase
+        .from('wins')
+        .select('id')
+        .eq('game_id', gameId)
+        .eq('card_id', targetCardId)
+        .eq('round', 1)
+        .maybeSingle()
+      const isNewWin = !existingWin
+
       await supabase.from('wins').upsert(
         {
           game_id: gameId,
@@ -72,6 +83,14 @@ export async function POST(request: NextRequest) {
       })
       // Archive winners / participation for host Past Games tab (best-effort).
       void recordGameHistoryWin(supabase, { gameId, winnerName: playerName })
+
+      if (isNewWin) {
+        await triggerWinnerCelebration(supabase, gameId, {
+          cardId: targetCardId,
+          playerName,
+          pattern: normalizeWinPattern(game?.mode),
+        })
+      }
     }
 
     const r = result as { valid: boolean; error?: string; playerName?: string }

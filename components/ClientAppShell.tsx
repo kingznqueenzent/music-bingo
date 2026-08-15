@@ -9,8 +9,9 @@ import { SupabaseRealtimeAuth } from '@/components/SupabaseRealtimeAuth'
 export function ClientAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const isKingzSite = pathname === '/' || pathname === '/kingz'
+  const isOverlayRoute = pathname === '/overlay' || pathname.startsWith('/overlay/')
 
-  if (isKingzSite) {
+  if (isKingzSite || isOverlayRoute) {
     return <>{children}</>
   }
 

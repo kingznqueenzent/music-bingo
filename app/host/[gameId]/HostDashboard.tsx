@@ -36,6 +36,7 @@ import {
   broadcastWinnerCrowned,
   broadcastSpinWheelStart,
   type BingoClaimPayload,
+  type WinnerCrownedPayload,
 } from '@/lib/supabase-realtime'
 import { resolveWheelSegments, pickWheelSegmentIndex } from '@/lib/stage-prize-wheel'
 import { getLevelFromXp } from '@/lib/xp-levels'
@@ -44,6 +45,7 @@ import { getWinProgress } from '@/lib/bingo/player-progress'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
+import { HostSoundboard } from '@/components/host/HostSoundboard'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
 import { HostPlayerBoardPanel, hostBoardGameCode } from '@/components/host/HostPlayerBoardPanel'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
@@ -127,6 +129,8 @@ export function HostDashboard({
     markedPlaylistSongIds: [],
   })
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
+  const [celebrationRefireLoading, setCelebrationRefireLoading] = useState(false)
+  const [lastCelebration, setLastCelebration] = useState<WinnerCrownedPayload | null>(null)
   const [trackSearch, setTrackSearch] = useState('')
   const [hostTab, setHostTab] = useState<'live' | 'venue' | 'history'>('live')
   const [hostBoardOpen, setHostBoardOpen] = useState(false)
@@ -337,6 +341,13 @@ export function HostDashboard({
         verified: result.valid,
         markedPlaylistSongIds: [...(payload.markedPlaylistSongIds ?? [])],
       })
+      if (result.valid) {
+        setLastCelebration({
+          playerName: payload.playerName ?? 'Player',
+          cardId: payload.cardId,
+          pattern,
+        })
+      }
       pushWinnerAlert({
         playerName: payload.playerName ?? 'Player',
         cardId: payload.cardId,
@@ -647,12 +658,12 @@ export function HostDashboard({
         })
         const playerName =
           (data as { playerName?: string }).playerName ?? verificationResult.card.player_name
-        await broadcastWinnerCrowned(supabase, gameId, {
+        setLastCelebration({
           playerName,
           cardId,
           pattern: normalizeWinPattern(game?.mode),
         })
-        setVerifyBingoSuccess('Bingo verified! Winner notified — they can claim on the leaderboard.')
+        setVerifyBingoSuccess('Bingo verified! Celebration fired on Stage & overlay.')
       } else {
         setVerificationError(data.error ?? 'Verification failed')
       }
@@ -806,6 +817,7 @@ export function HostDashboard({
   const gamePaceSeconds = game.game_pace_seconds ?? DEFAULT_GAME_PACE_SECONDS
   const gridSize = game.grid_size === 4 ? 4 : 5
   const stageUrl = typeof window !== 'undefined' ? `${window.location.origin}/stage/${gameId}` : ''
+  const overlayUrl = typeof window !== 'undefined' ? `${window.location.origin}/overlay/${gameId}` : ''
   const winPattern = normalizeWinPattern(game.mode)
   const upNext = songs.filter((s) => !playedIds.has(s.id))
   const playedSongs = songs.filter((s) => playedIds.has(s.id))
@@ -867,7 +879,7 @@ export function HostDashboard({
           level = lvl.level
           levelTitle = lvl.title
         }
-        await broadcastWinnerCrowned(supabase, gameId, {
+        setLastCelebration({
           playerName,
           cardId,
           pattern: winnersCircle.pattern,
@@ -883,6 +895,33 @@ export function HostDashboard({
       setActionError(String(e))
     } finally {
       setWinConfirmLoading(false)
+    }
+  }
+
+  async function handleManualCelebration() {
+    const payload =
+      lastCelebration ??
+      (winnersCircle.cardId
+        ? {
+            playerName: winnersCircle.playerName,
+            cardId: winnersCircle.cardId,
+            pattern: winnersCircle.pattern,
+          }
+        : null)
+    if (!payload?.playerName) {
+      setActionError('No winner to celebrate yet.')
+      return
+    }
+    setCelebrationRefireLoading(true)
+    setActionError('')
+    try {
+      await broadcastWinnerCrowned(supabase, gameId, payload)
+      setLastCelebration(payload)
+      setVerifyBingoSuccess(`Celebration re-fired for ${payload.playerName}`)
+    } catch (e) {
+      setActionError(String(e))
+    } finally {
+      setCelebrationRefireLoading(false)
     }
   }
 
@@ -1084,6 +1123,16 @@ export function HostDashboard({
               className="w-full sm:w-auto text-center rounded-full border border-slate-500 px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-slate-200 hover:border-emerald-500 hover:text-emerald-400 transition-colors min-h-12 inline-flex items-center justify-center touch-manipulation"
             >
               🖥️ Open Stage View
+            </a>
+          )}
+          {overlayUrl && (
+            <a
+              href={overlayUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full sm:w-auto text-center rounded-full border border-[#00FF66]/50 px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 transition-colors min-h-12 inline-flex items-center justify-center touch-manipulation"
+            >
+              📺 Meld Overlay
             </a>
           )}
           <a
@@ -1409,8 +1458,28 @@ export function HostDashboard({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PlayerListPanel players={playerBoards} />
-        <ShoutoutConsole gameId={gameId} supabase={supabase} />
+        <div className="space-y-4">
+          <ShoutoutConsole gameId={gameId} supabase={supabase} />
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+            <h3 className="text-sm font-bold text-slate-300 mb-2">Stage celebration</h3>
+            <p className="text-slate-500 text-xs mb-3">
+              Auto-fires when BINGO is server-verified. Re-play if OBS missed it.
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleManualCelebration()}
+              disabled={celebrationRefireLoading || (!lastCelebration && !winnersCircle.cardId)}
+              className="w-full rounded-full border border-[#FFD700]/60 bg-[#FFD700]/10 hover:bg-[#FFD700]/20 disabled:opacity-40 text-[#FFD700] font-bold py-2.5 text-sm"
+            >
+              {celebrationRefireLoading
+                ? 'Firing…'
+                : `Manual Trigger${lastCelebration?.playerName ? `: ${lastCelebration.playerName}` : ''}`}
+            </button>
+          </div>
+        </div>
       </div>
+
+      <HostSoundboard gameId={gameId} supabase={supabase} />
 
       {currentSong && gameClipSourceLabel(currentSong) !== 'unknown' ? (
         <div ref={nowPlayingRef} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">

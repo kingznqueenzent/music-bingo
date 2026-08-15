@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import confetti from 'canvas-confetti'
+import { playVictorySound } from '@/lib/victory-sound'
 
 const PATTERN_LABELS: Record<string, string> = {
   LINE: 'Single Line',
@@ -22,6 +23,9 @@ export type CrownedWinnerOverlayProps = {
   level?: number
   levelTitle?: string
   onDismiss?: () => void
+  /** stage = opaque full-screen; overlay = transparent OBS/Meld browser source */
+  variant?: 'stage' | 'overlay'
+  headline?: string
 }
 
 function fireWinnerConfetti() {
@@ -79,11 +83,17 @@ export function CrownedWinnerOverlay({
   level,
   levelTitle,
   onDismiss,
+  variant = 'stage',
+  headline,
 }: CrownedWinnerOverlayProps) {
+  const isOverlay = variant === 'overlay'
+  const titleLine = headline ?? (isOverlay ? 'BINGO WINNER!' : 'Winner Crowned')
+
   useEffect(() => {
     if (!open) return
-    fireWinnerConfetti()
-  }, [open, playerName])
+    playVictorySound()
+    if (!isOverlay) fireWinnerConfetti()
+  }, [open, playerName, isOverlay])
 
   if (!open) return null
 
@@ -91,17 +101,25 @@ export function CrownedWinnerOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 md:backdrop-blur-md animate-stage-celebrate victory-overlay-flash"
+      className={`fixed inset-0 z-[110] flex items-center justify-center animate-stage-celebrate victory-overlay-flash ${
+        isOverlay ? 'bg-transparent pointer-events-none' : 'bg-black/85 md:backdrop-blur-md'
+      }`}
       role="dialog"
       aria-labelledby="crowned-winner-title"
     >
-      <div className="relative flex flex-col items-center text-center px-8 max-w-4xl animate-crown-breathe">
+      <div
+        className={`relative flex flex-col items-center text-center px-8 max-w-4xl animate-crown-breathe ${
+          isOverlay
+            ? 'rounded-3xl border-2 border-[#FFD700]/50 bg-black/55 backdrop-blur-xl py-10 px-10 shadow-[0_0_48px_rgba(0,255,102,0.35)]'
+            : ''
+        }`}
+      >
         <div className="absolute inset-0 -z-10 rounded-full blur-3xl bg-[#00FF66]/20 animate-crown-glow" />
         <div className="animate-crown-pop text-7xl md:text-9xl mb-4 drop-shadow-[0_0_32px_rgba(255,215,0,0.8)]">
           👑
         </div>
         <p className="text-sm md:text-base uppercase tracking-[0.35em] text-[#FFD700]/90 font-bold mb-2">
-          Winner Crowned
+          {titleLine}
         </p>
         {avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
