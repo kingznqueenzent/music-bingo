@@ -23,12 +23,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Kingz & Queenz Entertainment',
-    template: '%s | Kingz & Queenz Entertainment',
+    default: 'LyricGrid – Music Bingo',
+    template: '%s | LyricGrid',
   },
   description:
-    'Kingz & Queenz Entertainment — DJ Merci and DJ Liz. Premium DJ services for weddings, private events, parties, and corporate entertainment.',
-  metadataBase: new URL('https://kingznqueenzent.ca'),
+    'Interactive music bingo for livestreams and parties. Join with a game code, play with friends, and compete on the global leaderboard.',
+  metadataBase: new URL('https://lyricgrid.ca'),
 };
 
 /** Device-width viewport + manipulation touch model reduces legacy tap delay on mobile. */

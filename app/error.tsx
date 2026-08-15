@@ -1,25 +1,25 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
+import { isKingzPublicPath } from '@/lib/site-host'
 
 type ErrorPageProps = {
   error: Error & { digest?: string }
   reset: () => void
 }
 
-function isKingzPublicPath(pathname: string | null): boolean {
-  if (!pathname) return true
-  if (pathname === '/' || pathname === '/kingz') return true
-  // Kingz marketing single-page anchors are still `/`
-  return false
-}
-
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   const pathname = usePathname()
-  const kingz = isKingzPublicPath(pathname)
+  const [host, setHost] = useState<string | null>(null)
+
+  useEffect(() => {
+    setHost(window.location.hostname)
+  }, [])
+
+  const kingz = isKingzPublicPath(pathname, host)
 
   useEffect(() => {
     console.error('[App] Route error:', error.message, error.digest ?? '', error)
