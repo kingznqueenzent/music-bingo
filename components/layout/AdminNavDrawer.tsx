@@ -62,7 +62,7 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
       forceSheet
       sheetSide="right"
       footer={
-        <p className="text-[11px] text-white/30 text-center">Kingz &amp; Queenz Ent.</p>
+        <p className="text-[11px] text-white/30 text-center">LyricGrid</p>
       }
     >
       <nav className="space-y-1.5 flex-1 py-1" aria-label="Admin destinations">
