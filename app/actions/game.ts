@@ -82,7 +82,8 @@ export async function createGame(
     return { error: songsError?.message ?? 'Failed to insert songs' }
   }
 
-  await fillYoutubeTitles(supabase, insertedSongs)
+  // Resolve YouTube titles in the background — do not block room creation on noembed latency.
+  void fillYoutubeTitles(supabase, insertedSongs).catch(() => {})
 
   const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
   const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
@@ -324,10 +325,10 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
     .eq('playlist_id', playlist.id)
     .is('title', null)
   if (insertedPs?.length) {
-    await fillYoutubeTitles(
+    void fillYoutubeTitles(
       supabase,
       insertedPs.filter((r) => r.youtube_id) as { id: string; youtube_id: string }[]
-    )
+    ).catch(() => {})
   }
 
   const roomResult = await insertGameOrReuseLobby(supabase, {

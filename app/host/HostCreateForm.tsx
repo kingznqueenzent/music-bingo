@@ -60,19 +60,26 @@ export function HostCreateForm() {
       return
     }
     setLoading(true)
-    const result = await createGame(name || 'Music Bingo', urls, {
-      gridSize,
-      tier,
-      randomShuffle,
-      winPattern,
-    })
-    setLoading(false)
-    if (result.error) {
-      setError(withSupabaseKeyHint(result.error))
-      return
-    }
-    if (result.game?.id) {
-      router.push(`/host/${result.game.id}?code=${encodeURIComponent(result.code ?? '')}`)
+    try {
+      const result = await createGame(name || 'Music Bingo', urls, {
+        gridSize,
+        tier,
+        randomShuffle,
+        winPattern,
+      })
+      if (result.error) {
+        setError(withSupabaseKeyHint(result.error))
+        return
+      }
+      if (result.game?.id) {
+        router.push(`/host/${result.game.id}?code=${encodeURIComponent(result.code ?? '')}`)
+        return
+      }
+      setError('Game was created but no room id was returned. Refresh and try again.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create game. Try again.')
+    } finally {
+      setLoading(false)
     }
   }
 

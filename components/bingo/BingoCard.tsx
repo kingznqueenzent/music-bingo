@@ -133,7 +133,7 @@ export function BingoCard({
 
   return (
     <div
-      className={`bingo-card-shell mx-auto w-full max-w-md bg-brand-surface rounded-2xl p-2 sm:p-4 border border-brand-neon/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu contain-paint ${className}`}
+      className={`bingo-card-shell mx-auto w-full max-w-md bg-brand-surface rounded-2xl p-2 sm:p-4 border border-brand-neon/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu ${className}`}
     >
       <div
         className="bingo-grid grid gap-1"
@@ -222,10 +222,10 @@ export function BingoCard({
                   handleCellTap(cell, row, col)
                 }}
                 className={`
-                  bingo-cell relative aspect-square rounded-xl flex flex-col items-center justify-center
-                  p-1.5 sm:p-2 text-center border transition-colors duration-200
-                  overflow-hidden cursor-pointer touch-manipulation min-h-11 sm:min-h-[4.5rem]
-                  select-none active:scale-[0.98] transform-gpu gap-0.5
+                  bingo-cell relative aspect-square rounded-xl flex flex-col items-stretch justify-center
+                  p-1 sm:p-1.5 text-center border transition-colors duration-200
+                  cursor-pointer touch-manipulation min-h-[3.25rem] sm:min-h-[4.5rem]
+                  select-none active:scale-[0.98] transform-gpu
                   ${markAnim ? 'animate-bingo-mark animate-bingo-gold' : ''}
                   ${wrongAnim ? 'animate-bingo-wrong' : ''}
                   ${isActive ? 'bingo-cell-called-glow' : ''}
@@ -241,26 +241,28 @@ export function BingoCard({
                     ✓
                   </span>
                 ) : null}
-                {showAlbumArt ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={cell.albumArtUrl!}
-                    alt=""
-                    className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 mb-0.5 pointer-events-none opacity-90"
-                  />
-                ) : null}
-                <span
-                  className={`pointer-events-none w-full min-w-0 px-0.5 text-[9px] sm:text-[11px] font-semibold leading-tight sm:leading-snug line-clamp-2 sm:line-clamp-3 ${
-                    isCalledMarked && !isFree ? 'text-brand-neon' : ''
-                  }`}
-                >
-                  {parts.title}
-                </span>
-                {parts.artist ? (
-                  <span className="pointer-events-none w-full min-w-0 px-0.5 text-[8px] sm:text-[10px] text-white/40 leading-tight line-clamp-1">
-                    {parts.artist}
+                <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full gap-0.5 overflow-hidden px-0.5">
+                  {showAlbumArt ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={cell.albumArtUrl!}
+                      alt=""
+                      className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 pointer-events-none opacity-90"
+                    />
+                  ) : null}
+                  <span
+                    className={`bingo-cell-title pointer-events-none w-full min-w-0 ${
+                      isCalledMarked && !isFree ? 'text-brand-neon' : ''
+                    }`}
+                  >
+                    {parts.title}
                   </span>
-                ) : null}
+                  {parts.artist ? (
+                    <span className="bingo-cell-artist pointer-events-none w-full min-w-0 text-white/40">
+                      {parts.artist}
+                    </span>
+                  ) : null}
+                </div>
               </button>
             )
           })

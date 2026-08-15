@@ -171,23 +171,30 @@ function CreateFromMediaFormInner() {
     setSubmitError('')
     if (!canSubmit) return
     setLoading(true)
-    const playableIds = [...selected].filter((id) => {
-      const song = items.find((s) => s.id === id)
-      return song && songHasPlayableSource(song)
-    })
-    const result = await createGameFromMediaLibrary(name.trim() || 'Media Bingo', playableIds, {
-      gridSize,
-      tier,
-      randomShuffle,
-      winPattern,
-    })
-    setLoading(false)
-    if (result.error) {
-      setSubmitError(withSupabaseKeyHint(result.error))
-      return
-    }
-    if (result.game?.id) {
-      router.push(`/host/${result.game.id}?code=${encodeURIComponent(result.code ?? '')}`)
+    try {
+      const playableIds = [...selected].filter((id) => {
+        const song = items.find((s) => s.id === id)
+        return song && songHasPlayableSource(song)
+      })
+      const result = await createGameFromMediaLibrary(name.trim() || 'Media Bingo', playableIds, {
+        gridSize,
+        tier,
+        randomShuffle,
+        winPattern,
+      })
+      if (result.error) {
+        setSubmitError(withSupabaseKeyHint(result.error))
+        return
+      }
+      if (result.game?.id) {
+        router.push(`/host/${result.game.id}?code=${encodeURIComponent(result.code ?? '')}`)
+        return
+      }
+      setSubmitError('Game was created but no room id was returned. Refresh and try again.')
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not create game. Try again.')
+    } finally {
+      setLoading(false)
     }
   }
 

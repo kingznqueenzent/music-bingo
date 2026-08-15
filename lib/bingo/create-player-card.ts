@@ -95,26 +95,30 @@ export async function ensureBingoGameTracks(
   }
 
   const tracks: GameTrackRow[] = []
-  for (const song of rows) {
-    const { data: inserted, error: insertError } = await supabase
-      .from(CHOICE_A_TRACKS_TABLE)
-      .insert({
-        game_id: gameId,
-        title: resolvePlaylistSongTitleForStorage(song),
-        artist: null,
-        played: false,
-      })
-      .select('id, title, artist')
-      .single()
+  const insertPayload = rows.map((song) => ({
+    game_id: gameId,
+    title: resolvePlaylistSongTitleForStorage(song),
+    artist: null,
+    played: false,
+  }))
 
-    if (insertError || !inserted) {
-      return { tracks: [], error: insertError?.message ?? 'Failed to sync bingo tracks' }
-    }
+  const { data: inserted, error: insertError } = await supabase
+    .from(CHOICE_A_TRACKS_TABLE)
+    .insert(insertPayload)
+    .select('id, title, artist')
 
+  if (insertError || !inserted?.length) {
+    return { tracks: [], error: insertError?.message ?? 'Failed to sync bingo tracks' }
+  }
+
+  for (let i = 0; i < inserted.length; i++) {
+    const row = inserted[i]
+    const song = rows[i]
+    if (!row || !song) continue
     tracks.push({
-      id: inserted.id,
-      title: inserted.title,
-      artist: inserted.artist,
+      id: row.id,
+      title: row.title,
+      artist: row.artist,
       playlistSongId: song.id,
     })
   }

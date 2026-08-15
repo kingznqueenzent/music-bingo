@@ -242,6 +242,7 @@ export function HostPlayerBoardPanel({
           username: 'Host',
           playerIdentifier: profileIdentifier,
         }),
+        signal: AbortSignal.timeout(45_000),
       })
       const data = (await res.json()) as { ok?: boolean; error?: string; cardId?: string }
       if (!res.ok || !data.ok || !data.cardId) {
@@ -275,7 +276,8 @@ export function HostPlayerBoardPanel({
         (payload) => {
           const row = payload.new as { current_song_id?: string | null; hide_song_titles?: boolean | null }
           if ('current_song_id' in row) {
-            setActiveSongId(row.current_song_id ?? null)
+            const nextId = row.current_song_id ?? null
+            setActiveSongId((prev) => (prev === nextId ? prev : nextId))
           }
         }
       )
