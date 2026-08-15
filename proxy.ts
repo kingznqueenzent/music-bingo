@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
-import { isKingzHost, isLyricGridHost, normalizeHost } from '@/lib/site-host'
+import { isKingzHost, isLyricGridPreferredHost, normalizeHost } from '@/lib/site-host'
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL?.toLowerCase().trim()
 
@@ -171,11 +171,11 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (host && isLyricGridHost(host) && pathname === '/') {
+  if (host && isLyricGridPreferredHost(host) && pathname === '/') {
     return NextResponse.redirect(new URL('/lyricgrid', request.url))
   }
 
-  if (host && isLyricGridHost(host) && (pathname === '/kingz' || pathname === '/kingz/')) {
+  if (host && isLyricGridPreferredHost(host) && (pathname === '/kingz' || pathname === '/kingz/')) {
     return NextResponse.redirect(new URL('/lyricgrid', request.url))
   }
 
