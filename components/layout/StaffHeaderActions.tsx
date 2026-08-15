@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, X } from 'lucide-react'
 import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { AdminNavDrawer } from '@/components/layout/AdminNavDrawer'
+import { isPlayerFacingPath } from '@/lib/player-routes'
 
 export type StaffHeaderActionsProps = {
   /** Post-login redirect target passed to /login */
@@ -29,9 +30,10 @@ export function StaffHeaderActions({
   const [open, setOpen] = useState(false)
   const { isAdmin, loading, ready } = useIsAdmin()
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const playerMode = isPlayerFacingPath(pathname)
 
-  const showAdminControls = isAdmin
-  const showHostLogin = ready && !loading && !isAdmin
+  const showAdminControls = isAdmin && !playerMode
+  const showHostLogin = ready && !loading && !isAdmin && !playerMode
 
   const handleClose = useCallback(() => {
     setOpen(false)
@@ -59,6 +61,8 @@ export function StaffHeaderActions({
   useEffect(() => {
     if (!showAdminControls && open) handleClose()
   }, [showAdminControls, open, handleClose])
+
+  if (playerMode) return null
 
   return (
     <>

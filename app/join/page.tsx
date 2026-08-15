@@ -1,7 +1,6 @@
 import Link from 'next/link'
 import { JoinForm } from './JoinForm'
 import { getDefaultJoinRoomCode } from '@/lib/default-room-code'
-import { StaffAccessFooterLink } from '@/components/layout/StaffAccessFooterLink'
 
 export default async function JoinPage({
   searchParams,
@@ -22,9 +21,6 @@ export default async function JoinPage({
       <Link href="/lyricgrid" className="mt-12 text-slate-300 hover:text-white text-lg transition-colors">
         ← Back to Home
       </Link>
-      <div className="mt-4">
-        <StaffAccessFooterLink from="/join" />
-      </div>
     </main>
   )
 }

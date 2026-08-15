@@ -1,11 +1,19 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { StaffHeaderActions } from '@/components/layout/StaffHeaderActions'
+import { isPlayerFacingPath } from '@/lib/player-routes'
 
-/** Compact shell header — matches the intended LyricGrid admin chrome. */
+const PLAYER_NAV_LINK =
+  'text-xs sm:text-sm text-white/50 hover:text-[#00FF66]/90 transition-colors min-h-11 inline-flex items-center px-2 touch-manipulation'
+
+/** Compact shell header — staff chrome on host/admin routes; player-simple on /play and /join. */
 export function Navbar() {
+  const pathname = usePathname()
+  const playerMode = isPlayerFacingPath(pathname)
+
   return (
     <header className="fixed top-0 left-0 right-0 z-[10000] h-12 bg-[#121212]/90 backdrop-blur-sm border-b border-white/5 transform-gpu contain-layout pt-[env(safe-area-inset-top,0px)]">
       <div className="flex items-center justify-between gap-3 px-4 sm:px-6 h-12">
@@ -18,12 +26,23 @@ export function Navbar() {
           <span className="truncate">LyricGrid</span>
         </Link>
 
-        <StaffHeaderActions
-          loginFrom="/host"
-          showAdminLabel={false}
-          loginClassName="text-xs text-white/50 hover:text-[#00FF66]/90 transition-colors min-h-11 inline-flex items-center px-2"
-          menuButtonClassName="min-h-11 min-w-11 h-11 w-11 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors touch-manipulation"
-        />
+        {playerMode ? (
+          <nav className="flex items-center gap-1 sm:gap-2 shrink-0" aria-label="Player navigation">
+            <Link href="/lyricgrid" className={PLAYER_NAV_LINK}>
+              Home
+            </Link>
+            <Link href="/join" className={PLAYER_NAV_LINK}>
+              Join
+            </Link>
+          </nav>
+        ) : (
+          <StaffHeaderActions
+            loginFrom="/host"
+            showAdminLabel={false}
+            loginClassName="text-xs text-white/50 hover:text-[#00FF66]/90 transition-colors min-h-11 inline-flex items-center px-2"
+            menuButtonClassName="min-h-11 min-w-11 h-11 w-11 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors touch-manipulation"
+          />
+        )}
       </div>
     </header>
   )
