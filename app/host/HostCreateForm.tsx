@@ -6,6 +6,9 @@ import { createGame } from '@/app/actions/game'
 import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 import { RandomShuffleToggle } from '@/components/host/RandomShuffleToggle'
+import { WinPatternSelector } from '@/components/host/WinPatternSelector'
+import { useHostWinPatternOptional } from '@/components/host/HostWinPatternContext'
+import type { WinPattern } from '@/lib/bingo-win-pattern'
 
 const MIN_5X5 = 45
 const MIN_4X4 = 32
@@ -23,11 +26,15 @@ const labelClass = 'block text-sm font-semibold mb-2 text-white/80'
 
 export function HostCreateForm() {
   const router = useRouter()
+  const winPatternCtx = useHostWinPatternOptional()
   const [name, setName] = useState('')
   const [urlsText, setUrlsText] = useState('')
   const [gridSize, setGridSize] = useState<4 | 5>(5)
   const [tier, setTier] = useState<GameTier>('free')
   const [randomShuffle, setRandomShuffle] = useState(false)
+  const [localWinPattern, setLocalWinPattern] = useState<WinPattern>('line')
+  const winPattern = winPatternCtx?.winPattern ?? localWinPattern
+  const setWinPattern = winPatternCtx?.setWinPattern ?? setLocalWinPattern
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -53,7 +60,12 @@ export function HostCreateForm() {
       return
     }
     setLoading(true)
-    const result = await createGame(name || 'Music Bingo', urls, { gridSize, tier, randomShuffle })
+    const result = await createGame(name || 'Music Bingo', urls, {
+      gridSize,
+      tier,
+      randomShuffle,
+      winPattern,
+    })
     setLoading(false)
     if (result.error) {
       setError(withSupabaseKeyHint(result.error))
@@ -114,6 +126,14 @@ export function HostCreateForm() {
             <span>4×4 (min {MIN_4X4} songs)</span>
           </label>
         </div>
+      </div>
+      <div>
+        <label className={labelClass}>Win pattern</label>
+        <WinPatternSelector
+          value={winPattern}
+          onChange={setWinPattern}
+          hint="Players must complete this pattern to claim BINGO."
+        />
       </div>
       <RandomShuffleToggle checked={randomShuffle} onChange={setRandomShuffle} />
       <div>

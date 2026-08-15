@@ -4,6 +4,7 @@ import { HostMonetizationTeasers } from '@/components/HostMonetizationTeasers'
 import { HostTournamentsNavLink } from '@/components/HostTournamentsNavLink'
 import { requireAdminSession } from '@/lib/admin-guard-server'
 import { HostCommandCenter } from '@/components/host/HostCommandCenter'
+import { HostPageShell } from '@/components/host/HostPageShell'
 import { HostGamesList } from '@/components/host/HostGamesList'
 import { HostThemeLoadPanel } from '@/components/host/HostThemeLoadPanel'
 
@@ -13,6 +14,7 @@ export default async function HostPage() {
   await requireAdminSession('/host')
 
   return (
+    <HostPageShell>
     <main className="min-h-[calc(100dvh-3rem)] lg-surface-canvas flex flex-col items-center p-8">
       <h1 className="text-4xl md:text-5xl font-extrabold mb-2 text-[var(--lg-neon)]">
         Host Control Panel
@@ -57,5 +59,6 @@ export default async function HostPage() {
         ← Back to Home
       </Link>
     </main>
+    </HostPageShell>
   )
 }

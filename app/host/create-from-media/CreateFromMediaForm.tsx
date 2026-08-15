@@ -22,6 +22,8 @@ import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
 import { useHostTier } from '@/app/media-manager/hooks/useHostTier'
 import { MediaLibraryUpgradeModal } from '@/components/media/MediaLibraryUpgradeModal'
 import { RandomShuffleToggle } from '@/components/host/RandomShuffleToggle'
+import { WinPatternSelector } from '@/components/host/WinPatternSelector'
+import type { WinPattern } from '@/lib/bingo-win-pattern'
 import { Loader2 } from 'lucide-react'
 
 const MIN_5X5 = 45
@@ -64,6 +66,7 @@ function CreateFromMediaFormInner() {
   const [gridSize, setGridSize] = useState<4 | 5>(5)
   const [tier, setTier] = useState<GameTier>('pro')
   const [randomShuffle, setRandomShuffle] = useState(false)
+  const [winPattern, setWinPattern] = useState<WinPattern>('line')
   const [loading, setLoading] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -176,6 +179,7 @@ function CreateFromMediaFormInner() {
       gridSize,
       tier,
       randomShuffle,
+      winPattern,
     })
     setLoading(false)
     if (result.error) {
@@ -252,6 +256,15 @@ function CreateFromMediaFormInner() {
             </label>
           </div>
         </div>
+      </div>
+
+      <div>
+        <label className="block text-lg mb-2 text-slate-200">Win pattern</label>
+        <WinPatternSelector
+          value={winPattern}
+          onChange={setWinPattern}
+          hint="Players must complete this pattern to claim BINGO."
+        />
       </div>
 
       <RandomShuffleToggle checked={randomShuffle} onChange={setRandomShuffle} />

@@ -3,13 +3,8 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { WinPattern } from '@/lib/bingo-win-pattern'
-
-const PATTERNS: { value: WinPattern; label: string }[] = [
-  { value: 'line', label: 'Single Line' },
-  { value: 'corners', label: 'Four Corners' },
-  { value: 'x', label: 'X-Pattern' },
-  { value: 'blackout', label: 'Blackout' },
-]
+import { WinPatternSelector } from '@/components/host/WinPatternSelector'
+import { useHostWinPatternOptional } from '@/components/host/HostWinPatternContext'
 
 function randomJoinCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -21,8 +16,11 @@ function randomJoinCode(): string {
 }
 
 export function HostCommandCenter() {
+  const winPatternCtx = useHostWinPatternOptional()
+  const [localPattern, setLocalPattern] = useState<WinPattern>('line')
+  const pattern = winPatternCtx?.winPattern ?? localPattern
+  const setPattern = winPatternCtx?.setWinPattern ?? setLocalPattern
   const [joinCode, setJoinCode] = useState('')
-  const [pattern, setPattern] = useState<WinPattern>('line')
   const [verifyCardId, setVerifyCardId] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -94,26 +92,15 @@ export function HostCommandCenter() {
           <h3 className="text-sm font-semibold text-[#FFD700]/90 uppercase tracking-wide mb-2">
             Win pattern
           </h3>
-          <div className="flex flex-wrap gap-2">
-            {PATTERNS.map((p) => (
-              <button
-                key={p.value}
-                type="button"
-                onClick={() => setPattern(p.value)}
-                className={`rounded-full px-4 py-2 text-xs font-semibold transition-colors ${
-                  pattern === p.value
-                    ? 'bg-[#FFD700] text-[#121212]'
-                    : 'bg-[var(--lg-canvas)] text-white/60 hover:bg-white/10'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-white/35 text-xs mt-2">
-            Selected pattern: <strong className="text-white/70">{pattern}</strong> — applied when you start a game
-            from the dashboard.
-          </p>
+          <WinPatternSelector
+            value={pattern}
+            onChange={setPattern}
+            hint={
+              winPatternCtx
+                ? 'Synced with the New Game form below — saved to games.mode when you create.'
+                : 'Applied when you create a game from this page.'
+            }
+          />
         </div>
 
         <div>

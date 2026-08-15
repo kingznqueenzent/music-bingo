@@ -806,7 +806,7 @@ export function HostDashboard({
   const gamePaceSeconds = game.game_pace_seconds ?? DEFAULT_GAME_PACE_SECONDS
   const gridSize = game.grid_size === 4 ? 4 : 5
   const stageUrl = typeof window !== 'undefined' ? `${window.location.origin}/stage/${gameId}` : ''
-  const winPattern = (game.mode as WinPattern) || 'line'
+  const winPattern = normalizeWinPattern(game.mode)
   const upNext = songs.filter((s) => !playedIds.has(s.id))
   const playedSongs = songs.filter((s) => playedIds.has(s.id))
   const trackSearchQ = trackSearch.trim().toLowerCase()

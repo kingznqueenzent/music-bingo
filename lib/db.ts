@@ -5,6 +5,7 @@
 import type { Theme, Genre, Era } from '@/lib/supabase/types'
 import { sortThemesChronologicalThenGenre } from '@/lib/sort-themes'
 import { DEFAULT_ROOM_CODE, generateRoomCode, isLyricGridLive } from '@/lib/default-room-code'
+import { normalizeWinPattern, type WinPattern } from '@/lib/bingo-win-pattern'
 
 export async function getGenresDirect(): Promise<{ genres: Genre[]; error?: string }> {
   const url = process.env.DATABASE_URL?.trim()
@@ -96,7 +97,7 @@ export type CreateGameFromThemeResult =
 /** Create a game from a theme using direct Postgres (avoids Supabase API schema issues). */
 export async function createGameFromThemeDirect(
   themeId: string,
-  options: { randomShuffle?: boolean } = {}
+  options: { randomShuffle?: boolean; winPattern?: WinPattern } = {}
 ): Promise<CreateGameFromThemeResult> {
   const url = process.env.DATABASE_URL?.trim()
   if (!url) return { error: 'DATABASE_URL is not set' }
@@ -133,6 +134,7 @@ export async function createGameFromThemeDirect(
 
     const { shuffleArray } = await import('@/lib/bingo/cards')
     const themeSongs = options.randomShuffle ? shuffleArray(themeSongsRaw) : themeSongsRaw
+    const mode = normalizeWinPattern(options.winPattern)
 
     const playlistRes = await client.query<{ id: string }>(
       `INSERT INTO public.playlists (name) VALUES ($1) RETURNING id`,
@@ -164,9 +166,9 @@ export async function createGameFromThemeDirect(
         const code = generateRoomCode()
         try {
           const gameRes = await client.query<{ id: string }>(
-            `INSERT INTO public.games (playlist_id, code, room_code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
-             VALUES ($1, $2, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
-            [playlistId, code, themeId]
+            `INSERT INTO public.games (playlist_id, code, room_code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier, mode)
+             VALUES ($1, $2, $2, 'lobby', $3, 5, 20, 0, 'free', $4) RETURNING id`,
+            [playlistId, code, themeId, mode]
           )
           const game = gameRes.rows[0]
           if (!game) return { error: 'Failed to create game' }
@@ -192,17 +194,17 @@ export async function createGameFromThemeDirect(
         `UPDATE public.games
          SET playlist_id = $1, status = 'lobby', theme_id = $2, grid_size = 5,
              clip_seconds = 20, crossfade_seconds = 0, tier = 'free', current_song_id = NULL,
-             code = $4, room_code = $4
+             mode = $5, code = $4, room_code = $4
          WHERE id = $3`,
-        [playlistId, themeId, existingId, DEFAULT_ROOM_CODE]
+        [playlistId, themeId, existingId, DEFAULT_ROOM_CODE, mode]
       )
       return { game: { id: existingId }, code: DEFAULT_ROOM_CODE }
     }
 
     const gameRes = await client.query<{ id: string }>(
-      `INSERT INTO public.games (playlist_id, code, room_code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier)
-       VALUES ($1, $2, $2, 'lobby', $3, 5, 20, 0, 'free') RETURNING id`,
-      [playlistId, DEFAULT_ROOM_CODE, themeId]
+      `INSERT INTO public.games (playlist_id, code, room_code, status, theme_id, grid_size, clip_seconds, crossfade_seconds, tier, mode)
+       VALUES ($1, $2, $2, 'lobby', $3, 5, 20, 0, 'free', $4) RETURNING id`,
+      [playlistId, DEFAULT_ROOM_CODE, themeId, mode]
     )
     const game = gameRes.rows[0]
     if (!game) return { error: 'Failed to create game' }

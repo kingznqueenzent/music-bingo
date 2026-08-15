@@ -10,6 +10,7 @@ import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media
 import { startGameSession } from '@/lib/game-start'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { fillYoutubeTitles } from '@/lib/youtube-titles'
+import { normalizeWinPattern, type WinPattern } from '@/lib/bingo-win-pattern'
 
 export type GameCreateOptions = {
   gridSize?: 4 | 5
@@ -19,6 +20,8 @@ export type GameCreateOptions = {
   logoUrl?: string | null
   /** When true, randomize playlist_songs position order before dealing cards. */
   randomShuffle?: boolean
+  /** Winning pattern stored as `games.mode` (defaults to line). */
+  winPattern?: WinPattern
 }
 
 const MIN_SONGS_5X5 = 45
@@ -92,6 +95,7 @@ export async function createGame(
     crossfade_seconds: crossfadeSeconds,
     tier,
     logo_url: options.logoUrl ?? null,
+    mode: normalizeWinPattern(options.winPattern),
   })
 
   if (roomResult.error) {
@@ -233,6 +237,7 @@ export async function createGameFromMediaLibrary(
     crossfade_seconds: crossfadeSeconds,
     tier,
     logo_url: options.logoUrl ?? null,
+    mode: normalizeWinPattern(options.winPattern),
   })
 
   if (roomResult.error) {
@@ -245,7 +250,10 @@ export async function createGameFromMediaLibrary(
 export async function createGameFromTheme(themeId: string, options: GameCreateOptions = {}) {
   // When DATABASE_URL is set, use direct Postgres so "Host this theme" works even if Supabase REST has schema cache issues.
   if (process.env.DATABASE_URL) {
-    const result = await createGameFromThemeDirect(themeId, { randomShuffle: options.randomShuffle })
+    const result = await createGameFromThemeDirect(themeId, {
+      randomShuffle: options.randomShuffle,
+      winPattern: normalizeWinPattern(options.winPattern),
+    })
     if ('error' in result) return { error: result.error }
     return { game: result.game, code: result.code }
   }
@@ -331,6 +339,7 @@ export async function createGameFromTheme(themeId: string, options: GameCreateOp
     crossfade_seconds: 0,
     tier: options.tier ?? 'free',
     logo_url: options.logoUrl ?? null,
+    mode: normalizeWinPattern(options.winPattern),
   })
 
   if (roomResult.error) {
@@ -468,7 +477,7 @@ export async function startGame(gameId: string) {
   }
 }
 
-export type WinPattern = 'line' | 'x' | 'blackout' | 'corners'
+export type { WinPattern }
 
 /** Host: update clip length, crossfade, logo (Enterprise), winning pattern, and stage leaderboard toggle */
 export async function updateGameSettings(
