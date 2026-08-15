@@ -478,8 +478,6 @@ export async function startGame(gameId: string) {
   }
 }
 
-export type { WinPattern }
-
 /** Host: update clip length, crossfade, logo (Enterprise), winning pattern, and stage leaderboard toggle */
 export async function updateGameSettings(
   gameId: string,

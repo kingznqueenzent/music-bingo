@@ -11,8 +11,9 @@ import {
   playNextSong,
   startGame,
   type CardCellVerification,
-  type WinPattern,
 } from '@/app/actions/game'
+import type { WinPattern } from '@/lib/bingo-win-pattern'
+import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { formatPlayerCapLabel, type GameTier } from '@/lib/tiers'
 import { DEFAULT_GAME_PACE_SECONDS } from '@/lib/game-pace'
 import { debounce } from '@/lib/debounce'
@@ -42,7 +43,6 @@ import { resolveWheelSegments, pickWheelSegmentIndex } from '@/lib/stage-prize-w
 import { getLevelFromXp } from '@/lib/xp-levels'
 import { toEvaluatorPattern, verifyBingoFromCells } from '@/lib/bingo-evaluator'
 import { getWinProgress } from '@/lib/bingo/player-progress'
-import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSoundboard } from '@/components/host/HostSoundboard'
