@@ -5,8 +5,16 @@ import { useRouter } from 'next/navigation'
 import { useFeatureFlags } from '@/components/FeatureFlagsProvider'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
 import { getDefaultJoinRoomCode } from '@/lib/default-room-code'
+import { createClient } from '@/lib/supabase/client'
+import {
+  browserPlayerIdentifier,
+  getOrCreateBrowserSessionId,
+  getStoredCardIdForGame,
+  setStoredPlayerCardId,
+} from '@/lib/bingo/player-card-session'
 
 type JoinPreview = {
+  gameId: string
   venueDisplayName: string | null
   logoUrl: string | null
   brandPrimaryHex: string | null
@@ -43,6 +51,7 @@ export function JoinForm({ initialGameCode = getDefaultJoinRoomCode() }: { initi
         const data = (await res.json()) as {
           ok?: boolean
           game?: {
+            id: string
             venueDisplayName: string | null
             logoUrl: string | null
             brandPrimaryHex: string | null
@@ -53,6 +62,7 @@ export function JoinForm({ initialGameCode = getDefaultJoinRoomCode() }: { initi
         }
         if (data.ok && data.game) {
           setPreview({
+            gameId: data.game.id,
             venueDisplayName: data.game.venueDisplayName,
             logoUrl: data.game.logoUrl,
             brandPrimaryHex: data.game.brandPrimaryHex,
@@ -99,20 +109,51 @@ export function JoinForm({ initialGameCode = getDefaultJoinRoomCode() }: { initi
     }
     setLoading(true)
     try {
+      const gameId = preview?.gameId
+      const storedCardId = gameId ? getStoredCardIdForGame(gameId) : null
+      if (storedCardId && gameId) {
+        router.push(`/play?cardId=${storedCardId}&gameId=${gameId}`)
+        return
+      }
+
+      const platformIdentifier = platformId.trim()
+      const browserIdentifier = browserPlayerIdentifier(getOrCreateBrowserSessionId())
+      const playerIdentifier = platformIdentifier || browserIdentifier
+
+      const supabase = createClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const res = await fetch('/api/bingo/generate-card', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           gameCode: code,
           username: displayName.trim(),
-          playerIdentifier: platformId.trim() || undefined,
+          playerIdentifier,
+          resumeCardId: storedCardId ?? undefined,
         }),
       })
-      const result = (await res.json()) as { ok?: boolean; error?: string; cardId?: string; gameId?: string }
+      const result = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        cardId?: string
+        gameId?: string
+        alreadyJoined?: boolean
+        playerIdentifier?: string | null
+      }
       if (!res.ok || !result.ok || !result.cardId || !result.gameId) {
         setError(result.error ?? 'Could not join game.')
         return
       }
+      setStoredPlayerCardId(result.gameId, result.cardId, {
+        isHost: (result.playerIdentifier ?? playerIdentifier).startsWith('host-'),
+      })
       router.push(`/play?cardId=${result.cardId}&gameId=${result.gameId}`)
     } catch {
       setError('Network error. Try again.')

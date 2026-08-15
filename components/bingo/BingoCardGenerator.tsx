@@ -4,6 +4,12 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { GridData } from '@/types/database-extras'
 import { getDefaultJoinRoomCode } from '@/lib/default-room-code'
+import { createClient } from '@/lib/supabase/client'
+import {
+  browserPlayerIdentifier,
+  getOrCreateBrowserSessionId,
+  setStoredPlayerCardId,
+} from '@/lib/bingo/player-card-session'
 
 type GenerateCardResponse = {
   ok?: boolean
@@ -87,21 +93,40 @@ export function BingoCardGenerator({
 
     setLoading(true)
     try {
+      const resolvedIdentifier =
+        playerIdentifier?.trim() || browserPlayerIdentifier(getOrCreateBrowserSessionId())
+
+      const supabase = createClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      const token = session?.access_token
+
       const res = await fetch('/api/bingo/generate-card', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           gameCode: code,
           username: name,
-          playerIdentifier: playerIdentifier?.trim() || undefined,
+          playerIdentifier: resolvedIdentifier,
         }),
       })
-      const data = (await res.json()) as GenerateCardResponse & { gridData?: GridData }
+      const data = (await res.json()) as GenerateCardResponse & {
+        gridData?: GridData
+        playerIdentifier?: string | null
+      }
 
       if (!res.ok || !data.ok || !data.cardId || !data.gameId) {
         setError(data.error ?? 'Could not generate your bingo card.')
         return
       }
+
+      setStoredPlayerCardId(data.gameId, data.cardId, {
+        isHost: (data.playerIdentifier ?? resolvedIdentifier).startsWith('host-'),
+      })
 
       const payload = {
         cardId: data.cardId,

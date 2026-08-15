@@ -6,6 +6,7 @@ import { resolvePlaylistSongTitleForStorage } from '@/lib/media-display'
 import { getMaxPlayersForTier, type GameTier } from '@/lib/tiers'
 import { roomCodeLookupFilter } from '@/lib/game-room-code'
 import { isFeatureEnabled } from '@/lib/feature-flags'
+import { resolveEffectivePlayerIdentifier } from '@/lib/bingo/player-card-session'
 
 export type GameTrackRow = {
   id: string
@@ -18,6 +19,10 @@ export type CreatePlayerBingoCardInput = {
   gameCode: string
   username: string
   playerIdentifier?: string | null
+  /** Resume an existing card when it belongs to this game (client localStorage). */
+  resumeCardId?: string | null
+  /** Authenticated Supabase user id — when it matches game host, reuse host board. */
+  authUserId?: string | null
 }
 
 export type CreatePlayerBingoCardResult =
@@ -28,6 +33,7 @@ export type CreatePlayerBingoCardResult =
       playerId: string
       gridData: GridData
       alreadyJoined?: boolean
+      playerIdentifier?: string | null
     }
   | { ok: false; error: string; status?: number }
 
@@ -143,14 +149,13 @@ export async function createPlayerBingoCard(
 ): Promise<CreatePlayerBingoCardResult> {
   const code = input.gameCode.trim().toUpperCase()
   const username = input.username.trim()
-  const identifier = input.playerIdentifier?.trim() || null
 
   if (!code) return { ok: false, error: 'Game code is required.', status: 400 }
   if (!username) return { ok: false, error: 'Username is required.', status: 400 }
 
   const { data: game, error: gameError } = await supabase
     .from('games')
-    .select('id, playlist_id, status, grid_size, tier, entry_fee_cents')
+    .select('id, playlist_id, status, grid_size, tier, entry_fee_cents, host_id')
     .or(roomCodeLookupFilter(code))
     .single()
 
@@ -159,6 +164,35 @@ export async function createPlayerBingoCard(
   }
   if (game.status === 'ended') {
     return { ok: false, error: 'This game has ended.', status: 400 }
+  }
+
+  const identifier = resolveEffectivePlayerIdentifier({
+    gameId: game.id,
+    playerIdentifier: input.playerIdentifier,
+    authUserId: input.authUserId,
+    gameHostId: game.host_id,
+  })
+
+  const resumeCardId = input.resumeCardId?.trim() || null
+  if (resumeCardId) {
+    const { data: resumed } = await supabase
+      .from('cards')
+      .select('id, player_id, grid_data')
+      .eq('id', resumeCardId)
+      .eq('game_id', game.id)
+      .maybeSingle()
+
+    if (resumed?.id) {
+      return {
+        ok: true,
+        cardId: resumed.id,
+        gameId: game.id,
+        playerId: resumed.player_id ?? '',
+        gridData: (resumed.grid_data as GridData) ?? [],
+        alreadyJoined: true,
+        playerIdentifier: identifier,
+      }
+    }
   }
 
   const tier = (game.tier as GameTier) ?? 'free'
@@ -173,7 +207,7 @@ export async function createPlayerBingoCard(
   if (identifier) {
     const { data: existingCard } = await supabase
       .from('cards')
-      .select('id, player_id')
+      .select('id, player_id, grid_data')
       .eq('game_id', game.id)
       .eq('player_identifier', identifier)
       .maybeSingle()
@@ -184,8 +218,9 @@ export async function createPlayerBingoCard(
         cardId: existingCard.id,
         gameId: game.id,
         playerId: existingCard.player_id ?? '',
-        gridData: [],
+        gridData: (existingCard.grid_data as GridData) ?? [],
         alreadyJoined: true,
+        playerIdentifier: identifier,
       }
     }
   }
@@ -213,6 +248,7 @@ export async function createPlayerBingoCard(
         playerId: existingPlayer.id,
         gridData: (playerCard.grid_data as GridData) ?? [],
         alreadyJoined: true,
+        playerIdentifier: identifier,
       }
     }
   } else if ((cardCount ?? 0) >= maxPlayers) {
@@ -321,5 +357,6 @@ export async function createPlayerBingoCard(
     gameId: game.id,
     playerId,
     gridData,
+    playerIdentifier: identifier,
   }
 }

@@ -11,15 +11,13 @@ import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display
 import type { CardCell, GameStatus, PlaylistSong } from '@/lib/supabase/types'
 import { roomCodeFromGame } from '@/types/database-extras'
 
+import {
+  hostCardStorageKey,
+  hostPlayerIdentifier,
+  setStoredPlayerCardId,
+} from '@/lib/bingo/player-card-session'
+
 const MARKS_STORAGE_PREFIX = 'bingo-marks'
-
-function hostPlayerIdentifier(gameId: string): string {
-  return `host-${gameId}`
-}
-
-function hostCardStorageKey(gameId: string): string {
-  return `lyricgrid-host-card-${gameId}`
-}
 
 function getStoredMarks(gameId: string, cardId: string): Set<string> {
   if (typeof window === 'undefined') return new Set()
@@ -209,7 +207,7 @@ export function HostPlayerBoardPanel({
         .maybeSingle()
 
       if (byIdentifier?.id) {
-        localStorage.setItem(hostCardStorageKey(gameId), byIdentifier.id)
+        setStoredPlayerCardId(gameId, byIdentifier.id, { isHost: true })
         setCardId(byIdentifier.id)
         setMarkedSongIds(getStoredMarks(gameId, byIdentifier.id))
         await loadCardGrid(byIdentifier.id)
@@ -249,7 +247,7 @@ export function HostPlayerBoardPanel({
         setError(data.error ?? 'Could not create your board.')
         return
       }
-      localStorage.setItem(hostCardStorageKey(gameId), data.cardId)
+      setStoredPlayerCardId(gameId, data.cardId, { isHost: true })
       setCardId(data.cardId)
       setMarkedSongIds(getStoredMarks(gameId, data.cardId))
       await loadCardGrid(data.cardId)

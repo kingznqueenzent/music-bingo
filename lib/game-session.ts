@@ -57,12 +57,16 @@ export async function joinGame(
   supabase: SupabaseClient,
   gameCode: string,
   playerName: string,
-  playerIdentifier?: string | null
+  playerIdentifier?: string | null,
+  resumeCardId?: string | null,
+  authUserId?: string | null
 ) {
   return createPlayerBingoCard(supabase, {
     gameCode,
     username: playerName.trim(),
     playerIdentifier: playerIdentifier?.trim() || null,
+    resumeCardId,
+    authUserId,
   })
 }
 
