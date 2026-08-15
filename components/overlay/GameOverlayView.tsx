@@ -12,6 +12,7 @@ import {
 import type { Game, PlaylistSong } from '@/lib/supabase/types'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
+import { SoundEffectReceiver } from '@/components/sfx/SoundEffectReceiver'
 
 type TickerItem = {
   id: string
@@ -149,6 +150,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
       className="min-h-0 w-full p-4 md:p-6 bg-transparent pointer-events-none"
       style={{ background: 'transparent' }}
     >
+      <SoundEffectReceiver gameId={gameId} variant="overlay" />
       <CrownedWinnerOverlay
         open={!!crownedWinner}
         playerName={crownedWinner?.playerName ?? ''}

@@ -24,6 +24,7 @@ import { getLevelFromXp } from '@/lib/xp-levels'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
 import { VinylSpinner } from '@/components/stage/VinylSpinner'
 import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
+import { SoundEffectReceiver } from '@/components/sfx/SoundEffectReceiver'
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: 'Single Line',
@@ -224,6 +225,7 @@ export function StageView({ gameId }: { gameId: string }) {
 
   return (
     <div className="fixed inset-0 h-dvh w-full bg-[#121212] overflow-hidden text-white transform-gpu">
+      <SoundEffectReceiver gameId={gameId} variant="stage" />
       <CrownedWinnerOverlay
         open={!!crownedWinner}
         playerName={crownedWinner?.playerName ?? ''}

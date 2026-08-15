@@ -61,6 +61,14 @@ export type HostShoutoutPayload = {
   sentAt?: string
 }
 
+export type SoundEffectPayload = {
+  presetId?: string
+  url?: string
+  name?: string
+  volume?: number
+  sentAt?: string
+}
+
 export type HostGameRealtimeHandlers = {
   onGameUpdate?: (row: Record<string, unknown>) => void
   onSongCalled?: () => void
@@ -76,6 +84,7 @@ export type StageRealtimeHandlers = {
   onGameUpdate?: (row: Record<string, unknown>) => void
   onSongChanged?: (songId: string | null) => void
   onShoutoutTriggered?: (payload: HostShoutoutPayload) => void
+  onSoundEffect?: (payload: SoundEffectPayload) => void
   onWinnerCrowned?: (payload: WinnerCrownedPayload) => void
   onSpinWheelStart?: (payload: SpinWheelStartPayload) => void
   onSpinWheelStop?: (payload: SpinWheelStopPayload) => void
@@ -241,6 +250,15 @@ export async function broadcastHostShoutout(
   ])
 }
 
+export async function broadcastSoundEffect(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: SoundEffectPayload
+): Promise<void> {
+  const body = { ...payload, sentAt: payload.sentAt ?? new Date().toISOString() }
+  await broadcastOnChannel(supabase, gameChannelName(gameId), 'sound_effect', body)
+}
+
 export async function broadcastPlaybackState(
   supabase: SupabaseClient,
   gameId: string,
@@ -279,6 +297,10 @@ export function subscribeStageChannel(
     .on('broadcast', { event: 'host_shoutout' }, (msg) => {
       const p = (msg as { payload?: HostShoutoutPayload }).payload
       if (p?.message) handlers.onShoutoutTriggered?.(p)
+    })
+    .on('broadcast', { event: 'sound_effect' }, (msg) => {
+      const p = (msg as { payload?: SoundEffectPayload }).payload
+      if (p && (p.presetId || p.url)) handlers.onSoundEffect?.(p)
     })
     .on('broadcast', { event: 'winner_crowned' }, (msg) => {
       const p = (msg as { payload?: WinnerCrownedPayload }).payload

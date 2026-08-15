@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Volume2, Upload, Pencil, Trash2 } from 'lucide-react'
+import { broadcastSoundEffect } from '@/lib/supabase-realtime'
+import { SFX_PRESETS, type SfxPresetId } from '@/lib/sfx/sfx-presets'
+import { playSoundEffect, readSfxVolume, writeSfxVolume } from '@/lib/sfx/play-sfx'
 
 export type SfxAsset = {
   id: string
@@ -21,15 +24,20 @@ export type HostSoundboardProps = {
   className?: string
 }
 
-export function HostSoundboard({ gameId, supabase: _supabase, className = '' }: HostSoundboardProps) {
+export function HostSoundboard({ gameId, supabase, className = '' }: HostSoundboardProps) {
   const [assets, setAssets] = useState<SfxAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [status, setStatus] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
+  const [volume, setVolume] = useState(0.8)
+  const [triggering, setTriggering] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    setVolume(readSfxVolume())
+  }, [])
 
   const loadAssets = useCallback(async () => {
     setLoading(true)
@@ -48,6 +56,35 @@ export function HostSoundboard({ gameId, supabase: _supabase, className = '' }: 
   useEffect(() => {
     void loadAssets()
   }, [loadAssets])
+
+  function handleVolumeChange(next: number) {
+    const clamped = Math.max(0, Math.min(1, next))
+    setVolume(clamped)
+    writeSfxVolume(clamped)
+  }
+
+  async function triggerSfx(payload: {
+    presetId?: SfxPresetId
+    url?: string
+    name: string
+    key: string
+  }) {
+    setTriggering(payload.key)
+    setStatus('')
+    try {
+      playSoundEffect({ presetId: payload.presetId, url: payload.url, name: payload.name, volume })
+      await broadcastSoundEffect(supabase, gameId, {
+        presetId: payload.presetId,
+        url: payload.url,
+        name: payload.name,
+        volume,
+      })
+    } catch {
+      setStatus('Broadcast failed — played locally only')
+    } finally {
+      window.setTimeout(() => setTriggering(null), 350)
+    }
+  }
 
   async function handleUpload(file: File) {
     setUploading(true)
@@ -71,20 +108,6 @@ export function HostSoundboard({ gameId, supabase: _supabase, className = '' }: 
     } finally {
       setUploading(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
-  function playSfx(url: string) {
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
-      }
-      const audio = new Audio(url)
-      audioRef.current = audio
-      void audio.play()
-    } catch {
-      setStatus('Playback blocked — click again')
     }
   }
 
@@ -118,13 +141,15 @@ export function HostSoundboard({ gameId, supabase: _supabase, className = '' }: 
 
   return (
     <div className={`rounded-2xl border border-slate-800 bg-slate-900/70 p-5 ${className}`}>
-      <div className="flex items-start justify-between gap-3 mb-1">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+        <div className="min-w-0 flex-1">
           <h3 className="text-lg font-bold text-slate-50 flex items-center gap-2">
             <Volume2 className="h-5 w-5 text-[#00FF66]" aria-hidden />
             DJ Soundboard
           </h3>
-          <p className="text-slate-500 text-sm">Upload MP3/WAV — plays on this device (host machine)</p>
+          <p className="text-slate-500 text-sm">
+            Built-in presets + custom clips — broadcasts to Stage &amp; overlay
+          </p>
         </div>
         <button
           type="button"
@@ -147,8 +172,45 @@ export function HostSoundboard({ gameId, supabase: _supabase, className = '' }: 
         />
       </div>
 
-      {status ? <p className="text-emerald-400/90 text-xs mb-3">{status}</p> : <div className="mb-3" />}
+      <div className="flex items-center gap-3 mb-4">
+        <label htmlFor="sfx-volume" className="text-xs font-semibold text-slate-400 shrink-0">
+          Volume
+        </label>
+        <input
+          id="sfx-volume"
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round(volume * 100)}
+          onChange={(e) => handleVolumeChange(Number(e.target.value) / 100)}
+          className="flex-1 accent-[#00FF66] h-2"
+        />
+        <span className="text-xs tabular-nums text-[#00FF66] w-8 text-right">{Math.round(volume * 100)}%</span>
+      </div>
 
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Built-in presets</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 mb-4">
+        {SFX_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            type="button"
+            disabled={triggering === preset.id}
+            onClick={() =>
+              void triggerSfx({ presetId: preset.id, name: preset.label, key: preset.id })
+            }
+            className="rounded-xl border border-[#00FF66]/30 bg-[#00FF66]/5 hover:bg-[#00FF66]/15 active:scale-95 disabled:opacity-50 transition-all px-2 py-2.5 text-center"
+          >
+            <span className="text-lg block" aria-hidden>
+              {preset.emoji}
+            </span>
+            <span className="text-xs font-bold text-[#00FF66]">{preset.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {status ? <p className="text-emerald-400/90 text-xs mb-3">{status}</p> : null}
+
+      <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Custom clips</p>
       {loading ? (
         <p className="text-slate-500 text-sm py-4">Loading clips…</p>
       ) : assets.length === 0 ? (
@@ -185,8 +247,15 @@ export function HostSoundboard({ gameId, supabase: _supabase, className = '' }: 
               ) : (
                 <button
                   type="button"
-                  onClick={() => playSfx(asset.file_url)}
-                  className="text-left text-sm font-semibold text-slate-100 truncate hover:text-[#00FF66] transition-colors"
+                  disabled={triggering === asset.id}
+                  onClick={() =>
+                    void triggerSfx({
+                      url: asset.file_url,
+                      name: asset.name,
+                      key: asset.id,
+                    })
+                  }
+                  className="text-left text-sm font-semibold text-slate-100 truncate hover:text-[#00FF66] transition-colors disabled:opacity-50"
                   title={asset.name}
                 >
                   {asset.name}
