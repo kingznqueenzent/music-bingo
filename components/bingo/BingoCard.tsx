@@ -42,7 +42,8 @@ function resolveCellDisplayParts(
   options: {
     position: number
     isPlayed: boolean
-    obfuscate: boolean
+    hideSongTitles: boolean
+    evilMode: boolean
   }
 ): { title: string; artist: string | null; full: string } {
   const base =
@@ -54,7 +55,13 @@ function resolveCellDisplayParts(
         }
       : splitSongDisplayParts(cell.label)
 
-  if (options.obfuscate && !options.isPlayed) {
+  // Blind Mode — always hide titles so players identify tracks by ear.
+  if (options.hideSongTitles) {
+    return { title: '???', artist: null, full: '???' }
+  }
+
+  // Evil mode — obfuscate uncalled tiles only.
+  if (options.evilMode && !options.isPlayed) {
     return { title: '?', artist: '?', full: '? — ?' }
   }
 
@@ -75,7 +82,6 @@ export function BingoCard({
   const boardSize = size
   const freePosition = getFreeCenterPosition(boardSize)
   const cellMap = new Map(cells.map((c) => [c.position, c]))
-  const obfuscateUncalled = evilMode || hideSongTitles
   const [feedback, setFeedback] = useState<string | null>(null)
   const feedbackTimerRef = useRef<number | null>(null)
   const skipClickRef = useRef(false)
@@ -176,10 +182,14 @@ export function BingoCard({
               )
             }
 
+            const showAlbumArt =
+              !!cell.albumArtUrl && !hideSongTitles && (!evilMode || isPlayed)
+
             const parts = resolveCellDisplayParts(cell, {
               position,
               isPlayed,
-              obfuscate: obfuscateUncalled,
+              hideSongTitles,
+              evilMode,
             })
 
             const stateClasses = isEarlyMark
@@ -231,18 +241,10 @@ export function BingoCard({
                     ✓
                   </span>
                 ) : null}
-                {cell.albumArtUrl && !obfuscateUncalled ? (
+                {showAlbumArt ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={cell.albumArtUrl}
-                    alt=""
-                    className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 mb-0.5 pointer-events-none opacity-90"
-                  />
-                ) : null}
-                {cell.albumArtUrl && obfuscateUncalled && isPlayed ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={cell.albumArtUrl}
+                    src={cell.albumArtUrl!}
                     alt=""
                     className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 mb-0.5 pointer-events-none opacity-90"
                   />

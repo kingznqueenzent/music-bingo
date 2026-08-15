@@ -22,7 +22,7 @@ export function VinylSpinner({
     >
       <div
         className={`absolute inset-0 rounded-full shadow-[0_0_40px_rgba(0,255,102,0.25)] ${
-          spinning ? 'animate-vinyl-spin' : ''
+          spinning ? 'animate-vinyl-spin animate-vinyl-pulse' : ''
         }`}
         style={{
           background:

@@ -386,7 +386,6 @@ export function HostPlayerBoardPanel({
         playedSongIds={playedSongIds}
         activeSongId={activeSongId}
         hideSongTitles={hideSongTitles}
-        evilMode={hideSongTitles}
         onMarkChange={handleMarkChange}
         className="max-w-none"
       />

@@ -57,7 +57,7 @@ export async function PlayPageContent({ gameId, cardId, lyricHint = null }: Play
   }
 
   return (
-    <main className="min-h-dvh bg-gradient-to-b from-[#121212] via-[#1E1E1E] to-[#121212] flex flex-col items-center p-3 sm:p-6 md:p-8 text-white overflow-x-hidden">
+    <main className="h-dvh min-h-dvh bg-gradient-to-b from-[#121212] via-[#1E1E1E] to-[#121212] flex flex-col items-center p-3 sm:p-6 md:p-8 text-white overflow-x-hidden overflow-y-auto overscroll-contain">
       <PlayView
         cardId={cardId}
         gameId={gameId}

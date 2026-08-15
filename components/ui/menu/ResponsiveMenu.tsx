@@ -154,7 +154,7 @@ export function ResponsiveMenu({
   const sheetClass = isRightSheet
     ? [
         'absolute top-0 right-0 bottom-0 flex flex-col',
-        'w-56 max-w-[88vw] border-l border-white/10',
+        'w-[min(16rem,88vw)] sm:w-64 max-w-[88vw] border-l border-white/10',
         'bg-[#1E1E1E] shadow-2xl shadow-black/60',
         'pt-[max(1.25rem,env(safe-area-inset-top))] px-5',
         'pb-[max(1.25rem,env(safe-area-inset-bottom))]',
@@ -275,7 +275,7 @@ export function ResponsiveMenu({
             </div>
           ) : null}
           {header}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1">{children}</div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain touch-pan-y py-1">{children}</div>
           {footer ? (
             <div className="pt-3 mt-auto border-t border-white/10 shrink-0">{footer}</div>
           ) : null}

@@ -22,7 +22,7 @@ export function Navbar() {
           loginFrom="/host"
           showAdminLabel={false}
           loginClassName="text-xs text-white/50 hover:text-[#00FF66]/90 transition-colors min-h-11 inline-flex items-center px-2"
-          menuButtonClassName="h-9 w-9 min-h-9 min-w-9 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors touch-manipulation"
+          menuButtonClassName="min-h-11 min-w-11 h-11 w-11 rounded-lg border border-white/10 flex items-center justify-center text-white/50 hover:text-[#00FF66] hover:border-[#00FF66]/30 transition-colors touch-manipulation"
         />
       </div>
     </header>
