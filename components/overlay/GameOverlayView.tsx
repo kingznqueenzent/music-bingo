@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Leaderboard } from '@/components/Leaderboard'
 import { CrownedWinnerOverlay } from '@/components/stage/CrownedWinnerOverlay'
@@ -12,7 +12,7 @@ import {
 import type { Game, PlaylistSong } from '@/lib/supabase/types'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
-import { SoundEffectReceiver } from '@/components/sfx/SoundEffectReceiver'
+import { SoundEffectReceiver, useSoundEffectPlayback } from '@/components/sfx/SoundEffectReceiver'
 
 type TickerItem = {
   id: string
@@ -29,6 +29,9 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
   const [crownedWinner, setCrownedWinner] = useState<WinnerCrownedPayload | null>(null)
   const [ticker, setTicker] = useState<TickerItem[]>([])
   const [shoutout, setShoutout] = useState<HostShoutoutPayload | null>(null)
+  const { bounce: sfxBounce, onSoundEffect } = useSoundEffectPlayback()
+  const songsRef = useRef(songs)
+  songsRef.current = songs
 
   const pushTicker = useCallback((item: Omit<TickerItem, 'id'>) => {
     setTicker((prev) => [
@@ -78,7 +81,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
           setCurrentSong(null)
           return
         }
-        setCurrentSong(songs.find((s) => s.id === songId) ?? null)
+        setCurrentSong(songsRef.current.find((s) => s.id === songId) ?? null)
       },
       onWinnerCrowned: (payload) => {
         setCrownedWinner(payload)
@@ -98,6 +101,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
         setShoutout(payload)
         window.setTimeout(() => setShoutout(null), 10000)
       },
+      onSoundEffect,
     })
 
     const eventsChannel = supabase
@@ -122,7 +126,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
       supabase.removeChannel(channel)
       supabase.removeChannel(eventsChannel)
     }
-  }, [gameId, supabase, songs, pushTicker])
+  }, [gameId, supabase, pushTicker, onSoundEffect])
 
   useEffect(() => {
     if (!game?.current_song_id || !songs.length) {
@@ -150,7 +154,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
       className="min-h-0 w-full p-4 md:p-6 bg-transparent pointer-events-none"
       style={{ background: 'transparent' }}
     >
-      <SoundEffectReceiver gameId={gameId} variant="overlay" />
+      <SoundEffectReceiver bounce={sfxBounce} variant="overlay" />
       <CrownedWinnerOverlay
         open={!!crownedWinner}
         playerName={crownedWinner?.playerName ?? ''}

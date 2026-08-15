@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { subscribeStageChannel, type SoundEffectPayload } from '@/lib/supabase-realtime'
+import { useCallback, useState } from 'react'
+import type { SoundEffectPayload } from '@/lib/supabase-realtime'
 import { playSoundEffect } from '@/lib/sfx/play-sfx'
 
 export type SfxBounceFlashProps = {
@@ -33,32 +32,31 @@ export function SfxBounceFlash({ label, variant = 'stage' }: SfxBounceFlashProps
   )
 }
 
+export type SoundEffectBounce = { label: string; key: number }
+
+/** Returns a stable handler to pass into subscribeStageChannel (single channel per view). */
+export function useSoundEffectPlayback() {
+  const [bounce, setBounce] = useState<SoundEffectBounce | null>(null)
+
+  const onSoundEffect = useCallback((payload: SoundEffectPayload) => {
+    const { label, durationMs } = playSoundEffect(payload)
+    const key = Date.now()
+    setBounce({ label, key })
+    window.setTimeout(() => {
+      setBounce((prev) => (prev?.key === key ? null : prev))
+    }, Math.min(durationMs + 400, 2500))
+  }, [])
+
+  return { bounce, onSoundEffect }
+}
+
 export type SoundEffectReceiverProps = {
-  gameId: string
+  bounce: SoundEffectBounce | null
   variant?: 'stage' | 'overlay'
 }
 
-/** Subscribes to host SFX broadcasts, plays audio, and shows a brief visual bounce. */
-export function SoundEffectReceiver({ gameId, variant = 'stage' }: SoundEffectReceiverProps) {
-  const supabase = useMemo(() => createClient(), [])
-  const [bounce, setBounce] = useState<{ label: string; key: number } | null>(null)
-
-  useEffect(() => {
-    const channel = subscribeStageChannel(supabase, gameId, {
-      onSoundEffect: (payload: SoundEffectPayload) => {
-        const { label, durationMs } = playSoundEffect(payload)
-        const key = Date.now()
-        setBounce({ label, key })
-        window.setTimeout(() => {
-          setBounce((prev) => (prev?.key === key ? null : prev))
-        }, Math.min(durationMs + 400, 2500))
-      },
-    })
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [gameId, supabase])
-
+/** Renders the SFX bounce flash; subscription lives on the parent stage/overlay channel. */
+export function SoundEffectReceiver({ bounce, variant = 'stage' }: SoundEffectReceiverProps) {
   if (!bounce) return null
   return <SfxBounceFlash key={bounce.key} label={bounce.label} variant={variant} />
 }

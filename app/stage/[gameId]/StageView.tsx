@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { GameClipPlayer, gameClipSourceLabel } from '@/components/GameClipPlayer'
 import { SourceIndicator } from '@/components/SourceIndicator'
@@ -24,7 +24,7 @@ import { getLevelFromXp } from '@/lib/xp-levels'
 import { JoinGameQRCode } from '@/components/JoinGameQRCode'
 import { VinylSpinner } from '@/components/stage/VinylSpinner'
 import { resolveBlindSongParts } from '@/lib/media/blind-song-label'
-import { SoundEffectReceiver } from '@/components/sfx/SoundEffectReceiver'
+import { SoundEffectReceiver, useSoundEffectPlayback } from '@/components/sfx/SoundEffectReceiver'
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: 'Single Line',
@@ -57,6 +57,11 @@ export function StageView({ gameId }: { gameId: string }) {
   const [crownedWinner, setCrownedWinner] = useState<WinnerCrownedPayload | null>(null)
   const [wheelSpin, setWheelSpin] = useState<SpinWheelStartPayload | null>(null)
   const [wheelOpen, setWheelOpen] = useState(false)
+  const { bounce: sfxBounce, onSoundEffect } = useSoundEffectPlayback()
+  const songsRef = useRef(songs)
+  songsRef.current = songs
+  const gameModeRef = useRef(game?.mode)
+  gameModeRef.current = game?.mode
 
   const fetchLeaderboard = useCallback(async () => {
     let q = supabase
@@ -106,7 +111,7 @@ export function StageView({ gameId }: { gameId: string }) {
           setCurrentSong(null)
           return
         }
-        const song = songs.find((s) => s.id === songId) ?? null
+        const song = songsRef.current.find((s) => s.id === songId) ?? null
         setCurrentSong(song)
       },
       onShoutoutTriggered: (payload) => {
@@ -130,16 +135,17 @@ export function StageView({ gameId }: { gameId: string }) {
           setCrownedWinner({
             playerName,
             cardId,
-            pattern: toEvaluatorPattern(game?.mode),
+            pattern: toEvaluatorPattern(gameModeRef.current),
           })
           window.setTimeout(() => setCrownedWinner(null), 14000)
         }
       },
+      onSoundEffect,
     })
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [gameId, supabase, songs, game?.mode])
+  }, [gameId, supabase, onSoundEffect])
 
   useEffect(() => {
     if (!game?.current_song_id || !songs.length) {
@@ -225,7 +231,7 @@ export function StageView({ gameId }: { gameId: string }) {
 
   return (
     <div className="fixed inset-0 h-dvh w-full bg-[#121212] overflow-hidden text-white transform-gpu">
-      <SoundEffectReceiver gameId={gameId} variant="stage" />
+      <SoundEffectReceiver bounce={sfxBounce} variant="stage" />
       <CrownedWinnerOverlay
         open={!!crownedWinner}
         playerName={crownedWinner?.playerName ?? ''}
