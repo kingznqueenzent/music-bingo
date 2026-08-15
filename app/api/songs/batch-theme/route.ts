@@ -4,6 +4,11 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import {
+  executeStorageCopy,
+  finalizeStorageMove,
+  planSongStorageMove,
+} from '@/lib/media/apply-song-storage-move'
+import {
   checkMediaLibraryAccess,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
@@ -15,7 +20,7 @@ async function requireHostCookie(): Promise<boolean> {
 
 const CHUNK = 100
 
-/** Batch assign theme_id to many songs (admin cookie + service role). */
+/** Batch assign theme_id to many songs (admin cookie + service role). Moves storage when theme is in path. */
 export async function PATCH(request: NextRequest) {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -36,14 +41,63 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = createClient()
   let updated = 0
+  let storageMoved = 0
+  const storageWarnings: string[] = []
 
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK)
-    const { error } = await supabase.from('songs').update({ theme_id: themeId }).in('id', chunk)
+    const { data: rows, error: fetchError } = await supabase
+      .from('songs')
+      .select('id, storage_path, media_url, artist, theme_id')
+      .in('id', chunk)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    updated += chunk.length
+    if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
+
+    for (const row of rows ?? []) {
+      const movePlan = await planSongStorageMove(supabase, row, { theme_id: themeId })
+      const updatePayload: Record<string, string | null> = { theme_id: themeId }
+
+      if (movePlan) {
+        try {
+          const copied = await executeStorageCopy(supabase, movePlan)
+          updatePayload.storage_path = copied.storage_path
+          updatePayload.media_url = copied.media_url
+
+          const { error: updateError } = await supabase
+            .from('songs')
+            .update(updatePayload)
+            .eq('id', row.id)
+
+          if (updateError) {
+            return NextResponse.json({ error: updateError.message }, { status: 500 })
+          }
+
+          const deleteWarning = await finalizeStorageMove(supabase, movePlan.oldPath)
+          if (deleteWarning) storageWarnings.push(deleteWarning)
+          storageMoved += 1
+          updated += 1
+          continue
+        } catch (e) {
+          const message = e instanceof Error ? e.message : 'Storage move failed'
+          return NextResponse.json({ error: `${row.id}: ${message}` }, { status: 500 })
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('songs')
+        .update(updatePayload)
+        .eq('id', row.id)
+
+      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+      updated += 1
+    }
   }
 
-  return NextResponse.json({ ok: true, updated, theme_id: themeId })
+  return NextResponse.json({
+    ok: true,
+    updated,
+    theme_id: themeId,
+    storageMoved,
+    storageWarnings: storageWarnings.length > 0 ? storageWarnings : undefined,
+  })
 }

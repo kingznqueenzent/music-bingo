@@ -15,6 +15,8 @@ import {
   Music,
 } from 'lucide-react'
 import { filterCatalogSongs } from '@/lib/media/filter-catalog-songs'
+import { resolveSongStoragePath } from '@/lib/media/resolve-song-storage-path'
+import { storagePathWouldChange } from '@/lib/media/song-storage-path'
 import { filterSongsByBatchTheme } from '@/lib/media/filter-songs-by-batch-theme'
 import {
   buildSongSearchHaystack,
@@ -73,6 +75,36 @@ function buildUpdatePayload(form: Partial<CatalogSong>): SongUpdatePayload {
         : Number(form.file_duration_sec),
     media_type: mediaType,
   }
+}
+
+function songStorageWouldMove(
+  song: CatalogSong,
+  updates: { artist?: string | null; theme_id?: string | null },
+  themeNameById: Map<string, string>
+): boolean {
+  const currentPath = resolveSongStoragePath(song)
+  if (!currentPath) return false
+
+  const themeId = updates.theme_id !== undefined ? updates.theme_id : song.theme_id
+  const themeName = themeId ? themeNameById.get(themeId) ?? 'Uncategorized' : 'Uncategorized'
+  const artist = updates.artist !== undefined ? updates.artist : song.artist
+
+  return storagePathWouldChange(currentPath, { themeName, artist })
+}
+
+function showStorageSaveToasts(
+  showToast: (type: 'success' | 'error', message: string) => void,
+  result: { ok: boolean; storageMoved?: boolean; storageWarnings?: string[] },
+  successMessage: string,
+  errorMessage: string
+): boolean {
+  if (!result.ok) {
+    showToast('error', errorMessage)
+    return false
+  }
+  showToast('success', result.storageMoved ? `${successMessage} (file moved)` : successMessage)
+  result.storageWarnings?.forEach((w) => showToast('error', w))
+  return true
 }
 
 /** Client shell for `/media-manager` — search, filters, table selection, bulk toolbar. */
@@ -164,6 +196,7 @@ function MediaManagerDashboardInner() {
   const [editForm, setEditForm] = useState<Partial<CatalogSong>>({})
   const [editSnapshot, setEditSnapshot] = useState<CatalogSong | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [savingMessage, setSavingMessage] = useState<string | null>(null)
   const [inlineSavingKey, setInlineSavingKey] = useState<string | null>(null)
   const [replacingFileId, setReplacingFileId] = useState<string | null>(null)
   const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE)
@@ -331,18 +364,27 @@ function MediaManagerDashboardInner() {
 
   const handleSaveEdit = useCallback(
     async (id: string) => {
+      const song = songs.find((s) => s.id === id)
+      const payload = buildUpdatePayload(editForm)
+      const willMove =
+        song &&
+        songStorageWouldMove(
+          song,
+          { artist: payload.artist, theme_id: payload.theme_id },
+          themeNameById
+        )
+
       setSavingId(id)
+      setSavingMessage(willMove ? 'Moving file and updating metadata…' : 'Saving…')
       setError('')
-      const ok = await updateSong(id, buildUpdatePayload(editForm))
+      const result = await updateSong(id, payload)
       setSavingId(null)
-      if (ok) {
-        showToast('success', 'Track updated')
+      setSavingMessage(null)
+      if (showStorageSaveToasts(showToast, result, 'Track updated', 'Could not save track')) {
         cancelEdit()
-      } else {
-        showToast('error', 'Could not save track')
       }
     },
-    [updateSong, editForm, setError, cancelEdit, showToast]
+    [updateSong, editForm, songs, themeNameById, setError, cancelEdit, showToast]
   )
 
   const executeDelete = useCallback(async () => {
@@ -431,47 +473,77 @@ function MediaManagerDashboardInner() {
     const ids = [...selectedIds]
     if (ids.length === 0 || !bulkThemeId) return
     setBulkApplyingTheme(true)
+    setSavingMessage('Moving files and updating metadata…')
     setError('')
-    const ok = await bulkAssignTheme(ids, bulkThemeId)
+    const result = await bulkAssignTheme(ids, bulkThemeId)
     setBulkApplyingTheme(false)
-    if (ok) {
+    setSavingMessage(null)
+    if (result.ok) {
       setSelectedIds(new Set())
       setBulkThemeId('')
+      const movedNote =
+        result.storageMoved && result.storageMoved > 0 ? ` (${result.storageMoved} file(s) moved)` : ''
+      showToast('success', `Theme applied to ${ids.length} track(s)${movedNote}`)
+      result.storageWarnings?.forEach((w) => showToast('error', w))
       await refetch()
+    } else {
+      showToast('error', 'Bulk theme update failed')
     }
-  }, [selectedIds, bulkThemeId, bulkAssignTheme, setError, refetch])
+  }, [selectedIds, bulkThemeId, bulkAssignTheme, setError, refetch, showToast])
 
   const handleInlineThemeChange = useCallback(
     async (songId: string, themeId: string) => {
+      const song = songs.find((s) => s.id === songId)
+      const willMove =
+        song && songStorageWouldMove(song, { theme_id: themeId || null }, themeNameById)
+
       setTaggingId(songId)
+      setSavingMessage(willMove ? 'Moving file and updating metadata…' : null)
       setError('')
-      const ok = await assignTheme(songId, themeId || null)
+      const result = await assignTheme(songId, themeId || null)
       setTaggingId(null)
-      if (ok) {
+      setSavingMessage(null)
+      if (result.ok) {
         const themeName = themeId ? themeNameById.get(themeId) : 'Unassigned'
-        showToast('success', `Theme set to ${themeName ?? 'Unassigned'}`)
+        showStorageSaveToasts(
+          showToast,
+          result,
+          `Theme set to ${themeName ?? 'Unassigned'}`,
+          'Could not update theme'
+        )
       } else {
         showToast('error', 'Could not update theme')
       }
     },
-    [assignTheme, setError, themeNameById, showToast]
+    [assignTheme, songs, setError, themeNameById, showToast]
   )
 
   const handleInlineFieldSave = useCallback(
     async (songId: string, field: 'title' | 'artist', value: string): Promise<boolean> => {
+      const song = songs.find((s) => s.id === songId)
+      const willMove =
+        field === 'artist' &&
+        song &&
+        songStorageWouldMove(song, { artist: value || null }, themeNameById)
+
       const key = `${songId}:${field}`
       setInlineSavingKey(key)
+      setSavingMessage(willMove ? 'Moving file and updating metadata…' : null)
       setError('')
-      const ok = await patchSongFields(
+      const result = await patchSongFields(
         songId,
         field === 'title' ? { title: value } : { artist: value || null }
       )
       setInlineSavingKey(null)
-      if (ok) showToast('success', field === 'title' ? 'Title saved' : 'Artist saved')
-      else showToast('error', `Could not save ${field}`)
-      return ok
+      setSavingMessage(null)
+      return showStorageSaveToasts(
+        showToast,
+        result,
+        field === 'title' ? 'Title saved' : 'Artist saved',
+        `Could not save ${field}`
+      )
     },
-    [patchSongFields, setError, showToast]
+    [patchSongFields, songs, themeNameById, setError, showToast]
   )
 
   const handleReplaceFile = useCallback(
@@ -842,6 +914,7 @@ function MediaManagerDashboardInner() {
                         isEditing={editingId === s.id}
                         isPlaying={playingSongId === s.id}
                         isSaving={savingId === s.id}
+                        savingMessage={savingId === s.id || taggingId === s.id ? savingMessage : null}
                         isTagging={taggingId === s.id}
                         isReplacingFile={replacingFileId === s.id}
                         inlineSavingKey={

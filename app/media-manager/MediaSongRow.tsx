@@ -41,6 +41,7 @@ export type MediaSongRowProps = {
   isEditing: boolean
   isPlaying: boolean
   isSaving: boolean
+  savingMessage?: string | null
   isTagging: boolean
   isReplacingFile?: boolean
   inlineSavingKey: string | null
@@ -67,6 +68,7 @@ function MediaSongRowInner({
   isEditing,
   isPlaying,
   isSaving,
+  savingMessage = null,
   isTagging,
   isReplacingFile = false,
   inlineSavingKey,
@@ -115,6 +117,12 @@ function MediaSongRowInner({
         </div>
 
         <div className="flex-1 min-w-0 space-y-1">
+          {(isSaving || isTagging) && savingMessage ? (
+            <p className="text-[10px] text-[#00FF66]/80 flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+              {savingMessage}
+            </p>
+          ) : null}
           {isEditing ? (
             <>
               <p className="text-sm font-medium text-white break-words">{editForm.title || s.title}</p>
@@ -308,6 +316,7 @@ function rowPropsEqual(prev: MediaSongRowProps, next: MediaSongRowProps): boolea
     prev.isEditing === next.isEditing &&
     prev.isPlaying === next.isPlaying &&
     prev.isSaving === next.isSaving &&
+    prev.savingMessage === next.savingMessage &&
     prev.isTagging === next.isTagging &&
     prev.isReplacingFile === next.isReplacingFile &&
     prev.inlineSavingKey === next.inlineSavingKey &&

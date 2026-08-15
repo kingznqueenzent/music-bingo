@@ -12,6 +12,28 @@ import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-me
 import type { CatalogSong, CatalogTheme, SongUpdatePayload } from '../types'
 import { isUncategorizedSong } from '@/lib/media/is-uncategorized-song'
 
+type PatchSongResponse = {
+  song?: CatalogSong
+  error?: string
+  storageMoved?: boolean
+  storageWarnings?: string[]
+}
+
+async function patchSongViaApi(
+  id: string,
+  payload: Record<string, unknown>
+): Promise<PatchSongResponse> {
+  const res = await fetch(`/api/songs/${id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const body = (await res.json()) as PatchSongResponse
+  if (!res.ok) throw new Error(body.error ?? 'Update failed')
+  return body
+}
+
 function normalizeKey(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, ' ')
 }
@@ -103,7 +125,10 @@ export function useMediaCatalog() {
   }, [songs, themes])
 
   const updateSong = useCallback(
-    async (id: string, payload: SongUpdatePayload): Promise<boolean> => {
+    async (
+      id: string,
+      payload: SongUpdatePayload
+    ): Promise<{ ok: boolean; storageMoved?: boolean; storageWarnings?: string[] }> => {
       const snapshot = songs
       const optimistic: CatalogSong = {
         ...(songs.find((s) => s.id === id) as CatalogSong),
@@ -112,34 +137,20 @@ export function useMediaCatalog() {
       setSongs((prev) => prev.map((s) => (s.id === id ? optimistic : s)))
 
       try {
-        const { data, error: updateError } = await supabase
-          .from('songs')
-          .update(payload)
-          .eq('id', id)
-          .select()
-          .single()
-
-        if (updateError) {
-          const res = await fetch(`/api/songs/${id}`, {
-            method: 'PATCH',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-          const body = (await res.json()) as { song?: CatalogSong; error?: string }
-          if (!res.ok) throw new Error(body.error ?? updateError.message)
-          if (body.song) setSongs((prev) => prev.map((s) => (s.id === id ? body.song! : s)))
-        } else if (data) {
-          setSongs((prev) => prev.map((s) => (s.id === id ? (data as CatalogSong) : s)))
+        const body = await patchSongViaApi(id, payload)
+        if (body.song) setSongs((prev) => prev.map((s) => (s.id === id ? body.song! : s)))
+        return {
+          ok: true,
+          storageMoved: body.storageMoved,
+          storageWarnings: body.storageWarnings,
         }
-        return true
       } catch (e) {
         setSongs(snapshot)
         setError(e instanceof Error ? e.message : 'Update failed')
-        return false
+        return { ok: false }
       }
     },
-    [songs, supabase]
+    [songs]
   )
 
   const deleteSong = useCallback(
@@ -162,9 +173,9 @@ export function useMediaCatalog() {
   )
 
   const assignTheme = useCallback(
-    async (id: string, themeId: string | null): Promise<boolean> => {
+    async (id: string, themeId: string | null): Promise<{ ok: boolean; storageMoved?: boolean; storageWarnings?: string[] }> => {
       const song = songs.find((s) => s.id === id)
-      if (!song) return false
+      if (!song) return { ok: false }
       return updateSong(id, {
         title: song.title,
         artist: song.artist,
@@ -216,40 +227,46 @@ export function useMediaCatalog() {
   }, [songs, themes, bulkDeleteSongs])
 
   const bulkAssignTheme = useCallback(
-    async (ids: string[], themeId: string | null): Promise<boolean> => {
-      if (ids.length === 0) return true
+    async (
+      ids: string[],
+      themeId: string | null
+    ): Promise<{ ok: boolean; storageMoved?: number; storageWarnings?: string[] }> => {
+      if (ids.length === 0) return { ok: true }
       const idSet = new Set(ids)
       const snapshot = songs
       setSongs((prev) => prev.map((s) => (idSet.has(s.id) ? { ...s, theme_id: themeId } : s)))
 
       try {
         const CHUNK = 100
+        let storageMoved = 0
+        const storageWarnings: string[] = []
+
         for (let i = 0; i < ids.length; i += CHUNK) {
           const chunk = ids.slice(i, i + CHUNK)
-          const { error: updateError } = await supabase
-            .from('songs')
-            .update({ theme_id: themeId })
-            .in('id', chunk)
-
-          if (updateError) {
-            const res = await fetch('/api/songs/batch-theme', {
-              method: 'PATCH',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids: chunk, theme_id: themeId }),
-            })
-            const body = (await res.json()) as { error?: string }
-            if (!res.ok) throw new Error(body.error ?? updateError.message)
+          const res = await fetch('/api/songs/batch-theme', {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: chunk, theme_id: themeId }),
+          })
+          const body = (await res.json()) as {
+            error?: string
+            storageMoved?: number
+            storageWarnings?: string[]
           }
+          if (!res.ok) throw new Error(body.error ?? 'Bulk theme update failed')
+          storageMoved += body.storageMoved ?? 0
+          if (body.storageWarnings?.length) storageWarnings.push(...body.storageWarnings)
         }
-        return true
+
+        return { ok: true, storageMoved, storageWarnings }
       } catch (e) {
         setSongs(snapshot)
         setError(e instanceof Error ? e.message : 'Bulk theme update failed')
-        return false
+        return { ok: false }
       }
     },
-    [songs, supabase]
+    [songs]
   )
 
   const removeDuplicates = useCallback(async (): Promise<number> => {
@@ -287,42 +304,28 @@ export function useMediaCatalog() {
     async (
       id: string,
       fields: Partial<Pick<CatalogSong, 'title' | 'artist' | 'media_url' | 'youtube_url' | 'media_type'>>
-    ): Promise<boolean> => {
+    ): Promise<{ ok: boolean; storageMoved?: boolean; storageWarnings?: string[] }> => {
       const song = songs.find((s) => s.id === id)
-      if (!song) return false
+      if (!song) return { ok: false }
 
       const snapshot = songs
       setSongs((prev) => prev.map((s) => (s.id === id ? { ...s, ...fields } : s)))
 
       try {
-        const { data, error: updateError } = await supabase
-          .from('songs')
-          .update(fields)
-          .eq('id', id)
-          .select()
-          .single()
-
-        if (updateError) {
-          const res = await fetch(`/api/songs/${id}`, {
-            method: 'PATCH',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(fields),
-          })
-          const body = (await res.json()) as { song?: CatalogSong; error?: string }
-          if (!res.ok) throw new Error(body.error ?? updateError.message)
-          if (body.song) setSongs((prev) => prev.map((s) => (s.id === id ? body.song! : s)))
-        } else if (data) {
-          setSongs((prev) => prev.map((s) => (s.id === id ? (data as CatalogSong) : s)))
+        const body = await patchSongViaApi(id, fields)
+        if (body.song) setSongs((prev) => prev.map((s) => (s.id === id ? body.song! : s)))
+        return {
+          ok: true,
+          storageMoved: body.storageMoved,
+          storageWarnings: body.storageWarnings,
         }
-        return true
       } catch (e) {
         setSongs(snapshot)
         setError(e instanceof Error ? e.message : 'Update failed')
-        return false
+        return { ok: false }
       }
     },
-    [songs, supabase]
+    [songs]
   )
 
   const replaceSongFile = useCallback(
