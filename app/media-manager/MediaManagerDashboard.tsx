@@ -31,6 +31,8 @@ import { BulkThemeToolbar } from './BulkThemeToolbar'
 import { MediaManagerFilterBar, type BatchThemeFilter } from './MediaManagerFilterBar'
 import { MediaManagerFilterTabs, MediaManagerFiltersPanel } from './MediaManagerFilterTabs'
 import { MediaSongRow } from './MediaSongRow'
+import { ConfirmDeleteModal } from './ConfirmDeleteModal'
+import { MediaManagerToast, useMediaManagerToast } from './MediaManagerToast'
 import { useMediaCatalog } from './hooks/useMediaCatalog'
 import { useHostTier } from './hooks/useHostTier'
 import { MediaManagerUpgradeWall } from './MediaManagerUpgradeWall'
@@ -110,7 +112,10 @@ function MediaManagerDashboardInner() {
     deleteUnassignedSongs,
     bulkAssignTheme,
     removeDuplicates,
+    replaceSongFile,
   } = useMediaCatalog()
+
+  const { toast, showToast, dismissToast } = useMediaManagerToast()
 
   const hostTier = useHostTier(songs.length)
   const [quotaModalOpen, setQuotaModalOpen] = useState(false)
@@ -160,7 +165,15 @@ function MediaManagerDashboardInner() {
   const [editSnapshot, setEditSnapshot] = useState<CatalogSong | null>(null)
   const [savingId, setSavingId] = useState<string | null>(null)
   const [inlineSavingKey, setInlineSavingKey] = useState<string | null>(null)
+  const [replacingFileId, setReplacingFileId] = useState<string | null>(null)
   const [displayLimit, setDisplayLimit] = useState(PAGE_SIZE)
+  const [deleteTarget, setDeleteTarget] = useState<
+    | { kind: 'single'; id: string; title: string }
+    | { kind: 'bulk'; ids: string[] }
+    | { kind: 'unassigned'; count: number }
+    | null
+  >(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   useEffect(() => {
     if (!themeFromUrl) return
@@ -322,20 +335,72 @@ function MediaManagerDashboardInner() {
       setError('')
       const ok = await updateSong(id, buildUpdatePayload(editForm))
       setSavingId(null)
-      if (ok) cancelEdit()
+      if (ok) {
+        showToast('success', 'Track updated')
+        cancelEdit()
+      } else {
+        showToast('error', 'Could not save track')
+      }
     },
-    [updateSong, editForm, setError, cancelEdit]
+    [updateSong, editForm, setError, cancelEdit, showToast]
   )
 
+  const executeDelete = useCallback(async () => {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    if (deleteTarget.kind === 'bulk') setBulkDeleting(true)
+    if (deleteTarget.kind === 'unassigned') setCleaningUnassigned(true)
+    setError('')
+
+    let ok = false
+    if (deleteTarget.kind === 'single') {
+      if (playingSongId === deleteTarget.id) stop()
+      if (editingId === deleteTarget.id) cancelEdit()
+      ok = await deleteSong(deleteTarget.id)
+      if (ok) showToast('success', `"${deleteTarget.title}" removed from library`)
+      else showToast('error', 'Could not delete track')
+    } else if (deleteTarget.kind === 'bulk') {
+      if (playingSongId && deleteTarget.ids.includes(playingSongId)) stop()
+      ok = await bulkDeleteSongs(deleteTarget.ids)
+      if (ok) {
+        setSelectedIds(new Set())
+        showToast('success', `Deleted ${deleteTarget.ids.length} track(s)`)
+      } else {
+        showToast('error', 'Bulk delete failed')
+      }
+    } else {
+      ok = (await deleteUnassignedSongs()) > 0
+      if (ok) {
+        setSelectedIds(new Set())
+        showToast('success', `Deleted ${deleteTarget.count} uncategorized track(s)`)
+      } else {
+        showToast('error', 'Could not clear uncategorized tracks')
+      }
+    }
+
+    setDeleteLoading(false)
+    setBulkDeleting(false)
+    setCleaningUnassigned(false)
+    if (ok) setDeleteTarget(null)
+  }, [
+    deleteTarget,
+    playingSongId,
+    stop,
+    editingId,
+    cancelEdit,
+    deleteSong,
+    bulkDeleteSongs,
+    deleteUnassignedSongs,
+    setError,
+    showToast,
+  ])
+
   const handleDelete = useCallback(
-    async (id: string) => {
-      if (!confirm('Remove this track from the library?')) return
-      setError('')
-      if (playingSongId === id) stop()
-      if (editingId === id) cancelEdit()
-      await deleteSong(id)
+    (id: string) => {
+      const song = songs.find((s) => s.id === id)
+      setDeleteTarget({ kind: 'single', id, title: song?.title ?? 'Track' })
     },
-    [playingSongId, stop, editingId, cancelEdit, deleteSong, setError]
+    [songs]
   )
 
   const handleRemoveDupes = useCallback(async () => {
@@ -353,25 +418,14 @@ function MediaManagerDashboardInner() {
       window.alert('No uncategorized tracks to remove.')
       return
     }
-    if (!confirm(`Delete ${count} uncategorized track(s)? This cannot be undone.`)) return
-    setCleaningUnassigned(true)
-    setError('')
-    const deleted = await deleteUnassignedSongs()
-    setCleaningUnassigned(false)
-    if (deleted > 0) setSelectedIds(new Set())
-  }, [themeCounts.uncategorized, deleteUnassignedSongs, setError])
+    setDeleteTarget({ kind: 'unassigned', count })
+  }, [themeCounts.uncategorized])
 
   const handleBulkDelete = useCallback(async () => {
     const ids = [...selectedIds]
     if (ids.length === 0) return
-    if (!confirm(`Delete ${ids.length} selected track(s)?`)) return
-    setBulkDeleting(true)
-    setError('')
-    if (playingSongId && ids.includes(playingSongId)) stop()
-    const ok = await bulkDeleteSongs(ids)
-    setBulkDeleting(false)
-    if (ok) setSelectedIds(new Set())
-  }, [selectedIds, playingSongId, stop, bulkDeleteSongs, setError])
+    setDeleteTarget({ kind: 'bulk', ids })
+  }, [selectedIds])
 
   const handleBulkApplyTheme = useCallback(async () => {
     const ids = [...selectedIds]
@@ -391,10 +445,16 @@ function MediaManagerDashboardInner() {
     async (songId: string, themeId: string) => {
       setTaggingId(songId)
       setError('')
-      await assignTheme(songId, themeId || null)
+      const ok = await assignTheme(songId, themeId || null)
       setTaggingId(null)
+      if (ok) {
+        const themeName = themeId ? themeNameById.get(themeId) : 'Unassigned'
+        showToast('success', `Theme set to ${themeName ?? 'Unassigned'}`)
+      } else {
+        showToast('error', 'Could not update theme')
+      }
     },
-    [assignTheme, setError]
+    [assignTheme, setError, themeNameById, showToast]
   )
 
   const handleInlineFieldSave = useCallback(
@@ -407,9 +467,23 @@ function MediaManagerDashboardInner() {
         field === 'title' ? { title: value } : { artist: value || null }
       )
       setInlineSavingKey(null)
+      if (ok) showToast('success', field === 'title' ? 'Title saved' : 'Artist saved')
+      else showToast('error', `Could not save ${field}`)
       return ok
     },
-    [patchSongFields, setError]
+    [patchSongFields, setError, showToast]
+  )
+
+  const handleReplaceFile = useCallback(
+    async (songId: string, file: File) => {
+      setReplacingFileId(songId)
+      setError('')
+      const ok = await replaceSongFile(songId, file)
+      setReplacingFileId(null)
+      if (ok) showToast('success', 'Audio file replaced')
+      else showToast('error', 'Could not replace file')
+    },
+    [replaceSongFile, setError, showToast]
   )
 
   const handleCleanYoutubeUrl = useCallback(
@@ -475,10 +549,43 @@ function MediaManagerDashboardInner() {
 
   const handleDeleteClick = useCallback(
     (id: string) => {
-      void handleDelete(id)
+      handleDelete(id)
     },
     [handleDelete]
   )
+
+  const handleReplaceFileClick = useCallback(
+    (songId: string, file: File) => {
+      void handleReplaceFile(songId, file)
+    },
+    [handleReplaceFile]
+  )
+
+  const deleteModalCopy = useMemo(() => {
+    if (!deleteTarget) return null
+    if (deleteTarget.kind === 'single') {
+      return {
+        title: `Delete "${deleteTarget.title}"?`,
+        description:
+          'This removes the catalog entry and deletes the audio file from storage. This cannot be undone.',
+        confirmLabel: 'Delete track',
+      }
+    }
+    if (deleteTarget.kind === 'bulk') {
+      return {
+        title: `Delete ${deleteTarget.ids.length} selected track(s)?`,
+        description:
+          'Selected tracks and their storage files will be permanently removed from your library.',
+        confirmLabel: `Delete ${deleteTarget.ids.length} tracks`,
+      }
+    }
+    return {
+      title: `Delete ${deleteTarget.count} uncategorized track(s)?`,
+      description:
+        'All uncategorized tracks and their storage files will be permanently removed.',
+      confirmLabel: `Delete ${deleteTarget.count} tracks`,
+    }
+  }, [deleteTarget])
 
   const allDisplayedSelected =
     displayedSongs.length > 0 && displayedSongs.every((s) => selectedIds.has(s.id))
@@ -736,6 +843,7 @@ function MediaManagerDashboardInner() {
                         isPlaying={playingSongId === s.id}
                         isSaving={savingId === s.id}
                         isTagging={taggingId === s.id}
+                        isReplacingFile={replacingFileId === s.id}
                         inlineSavingKey={
                           inlineSavingKey?.startsWith(`${s.id}:`) ? inlineSavingKey : null
                         }
@@ -750,6 +858,7 @@ function MediaManagerDashboardInner() {
                         onCancelEdit={handleCancelEditClick}
                         onTogglePlayback={handleTogglePlayback}
                         onDelete={handleDeleteClick}
+                        onReplaceFile={handleReplaceFileClick}
                       />
                     </motion.div>
                   ))}
@@ -803,6 +912,22 @@ function MediaManagerDashboardInner() {
         tier={hostTier.tier}
         message={quotaModalMessage}
       />
+
+      {deleteModalCopy ? (
+        <ConfirmDeleteModal
+          open={Boolean(deleteTarget)}
+          title={deleteModalCopy.title}
+          description={deleteModalCopy.description}
+          confirmLabel={deleteModalCopy.confirmLabel}
+          loading={deleteLoading || bulkDeleting || cleaningUnassigned}
+          onConfirm={() => void executeDelete()}
+          onCancel={() => {
+            if (!deleteLoading) setDeleteTarget(null)
+          }}
+        />
+      ) : null}
+
+      <MediaManagerToast toast={toast} onDismiss={dismissToast} />
     </main>
   )
 }

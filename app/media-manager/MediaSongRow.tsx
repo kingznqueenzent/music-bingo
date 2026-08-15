@@ -1,6 +1,6 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useRef } from 'react'
 import {
   Pencil,
   Trash2,
@@ -13,9 +13,11 @@ import {
   Music,
   Video,
   Youtube,
+  RefreshCw,
 } from 'lucide-react'
 import { formatDuration } from '@/lib/media/probe-media-duration'
 import { getSongYoutubeCandidate } from '@/lib/media/normalize-youtube-url'
+import { BATCH_FILE_ACCEPT } from './MediaUploadDropzone'
 import { InlineEditableField } from './InlineEditableField'
 import { ThemeSelect } from './ThemeSelect'
 import type { CatalogSong, CatalogTheme } from './types'
@@ -40,6 +42,7 @@ export type MediaSongRowProps = {
   isPlaying: boolean
   isSaving: boolean
   isTagging: boolean
+  isReplacingFile?: boolean
   inlineSavingKey: string | null
   editForm: Partial<CatalogSong>
   onToggleSelect: (id: string) => void
@@ -52,6 +55,7 @@ export type MediaSongRowProps = {
   onCancelEdit: () => void
   onTogglePlayback: (song: CatalogSong) => void
   onDelete: (id: string) => void
+  onReplaceFile?: (songId: string, file: File) => void
 }
 
 function MediaSongRowInner({
@@ -64,6 +68,7 @@ function MediaSongRowInner({
   isPlaying,
   isSaving,
   isTagging,
+  isReplacingFile = false,
   inlineSavingKey,
   editForm,
   onToggleSelect,
@@ -76,7 +81,9 @@ function MediaSongRowInner({
   onCancelEdit,
   onTogglePlayback,
   onDelete,
+  onReplaceFile,
 }: MediaSongRowProps) {
+  const replaceInputRef = useRef<HTMLInputElement>(null)
   const hasPreview = Boolean(s.media_url?.trim())
   const fullDur = s.file_duration_sec ?? s.duration_sec
   const showCleanYoutube = Boolean(getSongYoutubeCandidate(s))
@@ -165,6 +172,37 @@ function MediaSongRowInner({
               )}
               Clean YouTube URL
             </button>
+          ) : null}
+
+          {!isEditing && onReplaceFile ? (
+            <>
+              <input
+                ref={replaceInputRef}
+                type="file"
+                accept={BATCH_FILE_ACCEPT}
+                className="hidden"
+                disabled={isReplacingFile}
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) onReplaceFile(s.id, file)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                disabled={isReplacingFile}
+                onClick={() => replaceInputRef.current?.click()}
+                className="inline-flex items-center gap-1 text-[10px] text-white/45 hover:text-[#00FF66] disabled:opacity-50 min-h-8"
+                title="Upload a new MP3/MP4 for this track"
+              >
+                {isReplacingFile ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-3 h-3" />
+                )}
+                {hasPreview ? 'Replace file' : 'Add file'}
+              </button>
+            </>
           ) : null}
         </div>
 
@@ -271,6 +309,7 @@ function rowPropsEqual(prev: MediaSongRowProps, next: MediaSongRowProps): boolea
     prev.isPlaying === next.isPlaying &&
     prev.isSaving === next.isSaving &&
     prev.isTagging === next.isTagging &&
+    prev.isReplacingFile === next.isReplacingFile &&
     prev.inlineSavingKey === next.inlineSavingKey &&
     (prev.isEditing ? prev.editForm === next.editForm : true) &&
     prev.onToggleSelect === next.onToggleSelect &&
@@ -282,7 +321,8 @@ function rowPropsEqual(prev: MediaSongRowProps, next: MediaSongRowProps): boolea
     prev.onSaveEdit === next.onSaveEdit &&
     prev.onCancelEdit === next.onCancelEdit &&
     prev.onTogglePlayback === next.onTogglePlayback &&
-    prev.onDelete === next.onDelete
+    prev.onDelete === next.onDelete &&
+    prev.onReplaceFile === next.onReplaceFile
   )
 }
 

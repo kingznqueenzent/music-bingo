@@ -2,6 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { resolveSongStoragePath } from '@/lib/media/resolve-song-storage-path'
+import {
+  MEDIA_BUCKET,
+  uploadMediaToStorage,
+  validateMediaFile,
+} from '@/lib/media/supabase-storage-upload'
+import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
 import type { CatalogSong, CatalogTheme, SongUpdatePayload } from '../types'
 import { isUncategorizedSong } from '@/lib/media/is-uncategorized-song'
 
@@ -141,12 +148,9 @@ export function useMediaCatalog() {
       setSongs((prev) => prev.filter((s) => s.id !== id))
 
       try {
-        const { error: deleteError } = await supabase.from('songs').delete().eq('id', id)
-        if (deleteError) {
-          const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
-          const body = (await res.json()) as { error?: string }
-          if (!res.ok) throw new Error(body.error ?? deleteError.message)
-        }
+        const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
+        const body = (await res.json()) as { error?: string }
+        if (!res.ok) throw new Error(body.error ?? 'Delete failed')
         return true
       } catch (e) {
         setSongs(snapshot)
@@ -154,7 +158,7 @@ export function useMediaCatalog() {
         return false
       }
     },
-    [songs, supabase]
+    [songs]
   )
 
   const assignTheme = useCallback(
@@ -187,13 +191,10 @@ export function useMediaCatalog() {
 
       try {
         for (const id of ids) {
-          const { error: deleteError } = await supabase.from('songs').delete().eq('id', id)
-          if (deleteError) {
-            const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
-            if (!res.ok) {
-              const body = (await res.json()) as { error?: string }
-              throw new Error(body.error ?? deleteError.message)
-            }
+          const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
+          if (!res.ok) {
+            const body = (await res.json()) as { error?: string }
+            throw new Error(body.error ?? 'Bulk delete failed')
           }
         }
         return true
@@ -203,7 +204,7 @@ export function useMediaCatalog() {
         return false
       }
     },
-    [songs, supabase]
+    [songs]
   )
 
   const deleteUnassignedSongs = useCallback(async (): Promise<number> => {
@@ -268,13 +269,10 @@ export function useMediaCatalog() {
 
     try {
       for (const id of duplicateIds) {
-        const { error: deleteError } = await supabase.from('songs').delete().eq('id', id)
-        if (deleteError) {
-          const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
-          if (!res.ok) {
-            const body = (await res.json()) as { error?: string }
-            throw new Error(body.error ?? deleteError.message)
-          }
+        const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
+        if (!res.ok) {
+          const body = (await res.json()) as { error?: string }
+          throw new Error(body.error ?? 'Could not remove duplicates')
         }
       }
       return duplicateIds.length
@@ -327,6 +325,69 @@ export function useMediaCatalog() {
     [songs, supabase]
   )
 
+  const replaceSongFile = useCallback(
+    async (id: string, file: File): Promise<boolean> => {
+      const validated = validateMediaFile(file)
+      if ('error' in validated) {
+        setError(validated.error)
+        return false
+      }
+
+      const song = songs.find((s) => s.id === id)
+      if (!song) return false
+
+      const oldPath = resolveSongStoragePath(song)
+      const snapshot = songs
+
+      try {
+        const uploaded = await uploadMediaToStorage(supabase, file)
+        const mediaType = uploaded.ext === 'mp4' ? 'video' : 'audio'
+        const fileDurationSec = await probeMediaDuration(file)
+        const fields = {
+          media_url: uploaded.publicUrl,
+          storage_path: uploaded.path,
+          media_type: mediaType,
+          file_duration_sec: fileDurationSec,
+          duration_sec: defaultClipDurationSec(fileDurationSec),
+        }
+
+        setSongs((prev) => prev.map((s) => (s.id === id ? { ...s, ...fields } : s)))
+
+        const { data, error: updateError } = await supabase
+          .from('songs')
+          .update(fields)
+          .eq('id', id)
+          .select()
+          .single()
+
+        if (updateError) {
+          const res = await fetch(`/api/songs/${id}`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(fields),
+          })
+          const body = (await res.json()) as { song?: CatalogSong; error?: string }
+          if (!res.ok) throw new Error(body.error ?? updateError.message)
+          if (body.song) setSongs((prev) => prev.map((s) => (s.id === id ? body.song! : s)))
+        } else if (data) {
+          setSongs((prev) => prev.map((s) => (s.id === id ? (data as CatalogSong) : s)))
+        }
+
+        if (oldPath && oldPath !== uploaded.path) {
+          await supabase.storage.from(MEDIA_BUCKET).remove([oldPath])
+        }
+
+        return true
+      } catch (e) {
+        setSongs(snapshot)
+        setError(e instanceof Error ? e.message : 'File replacement failed')
+        return false
+      }
+    },
+    [songs, supabase]
+  )
+
   return {
     songs,
     themes,
@@ -343,5 +404,6 @@ export function useMediaCatalog() {
     deleteUnassignedSongs,
     bulkAssignTheme,
     removeDuplicates,
+    replaceSongFile,
   }
 }

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
+import { deleteSongStorageObject } from '@/lib/media/delete-song-storage'
 import {
   checkMediaLibraryAccess,
   mediaLibraryBlockedResponse,
@@ -71,6 +72,19 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params
   const supabase = createClient()
+
+  const { data: song, error: fetchError } = await supabase
+    .from('songs')
+    .select('storage_path, media_url')
+    .eq('id', id)
+    .single()
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: fetchError.code === 'PGRST116' ? 404 : 500 })
+  }
+
+  await deleteSongStorageObject(supabase, song)
+
   const { error } = await supabase.from('songs').delete().eq('id', id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
