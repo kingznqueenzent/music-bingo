@@ -46,6 +46,7 @@ import { getWinProgress } from '@/lib/bingo/player-progress'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSoundboard } from '@/components/host/HostSoundboard'
+import { HostConfirmModal } from '@/components/host/HostConfirmModal'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
 import { HostPlayerBoardPanel, hostBoardGameCode } from '@/components/host/HostPlayerBoardPanel'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
@@ -111,6 +112,9 @@ export function HostDashboard({
   const [resetPlayedLoading, setResetPlayedLoading] = useState(false)
   const [startGameLoading, setStartGameLoading] = useState(false)
   const [startGameWarning, setStartGameWarning] = useState('')
+  const [endGameConfirmOpen, setEndGameConfirmOpen] = useState(false)
+  const [newGameConfirmOpen, setNewGameConfirmOpen] = useState(false)
+  const [lifecycleLoading, setLifecycleLoading] = useState(false)
   const [playbackPaused, setPlaybackPaused] = useState(false)
   const [playerBoards, setPlayerBoards] = useState<PlayerBoardStatus[]>([])
   const [winnersCircle, setWinnersCircle] = useState<{
@@ -438,6 +442,82 @@ export function HostDashboard({
   const handleClipEnded = useCallback(() => {
     scheduleAutoAdvance()
   }, [scheduleAutoAdvance])
+
+  async function handleEndGameConfirmed() {
+    setLifecycleLoading(true)
+    setActionError('')
+    try {
+      const res = await fetch('/api/game/end', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId }),
+      })
+      const data = (await res.json()) as { ok?: boolean; error?: string }
+      if (!data.ok) {
+        setActionError(data.error ?? 'Could not end game')
+        return
+      }
+      setGame((prev) =>
+        prev
+          ? { ...prev, status: 'ended', current_song_id: null, auto_play_enabled: false }
+          : prev
+      )
+      setPlayingSongId(null)
+      setCurrentSong(null)
+      setEndGameConfirmOpen(false)
+      setVerifyBingoSuccess('Game ended. Players see Game Over.')
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLifecycleLoading(false)
+    }
+  }
+
+  async function handleNewGameConfirmed() {
+    setLifecycleLoading(true)
+    setActionError('')
+    try {
+      const res = await fetch('/api/game/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId }),
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        error?: string
+        gameId?: string
+        roomCode?: string
+        reusedSameGame?: boolean
+      }
+      if (!data.ok || !data.gameId) {
+        setActionError(data.error ?? 'Could not start new game')
+        return
+      }
+      setNewGameConfirmOpen(false)
+      if (data.reusedSameGame) {
+        setGame((prev) =>
+          prev
+            ? { ...prev, status: 'lobby', current_song_id: null, auto_play_enabled: false }
+            : prev
+        )
+        setPlayed([])
+        setPlayingSongId(null)
+        setCurrentSong(null)
+        setPlayerBoards([])
+        setPlayerCount(0)
+        setVerifyBingoSuccess(
+          `Lobby reset. Room code ${data.roomCode ?? displayCode} — players should rejoin for new cards.`
+        )
+        setRetryTrigger((n) => n + 1)
+      } else {
+        window.location.assign(`/host/${data.gameId}?code=${encodeURIComponent(data.roomCode ?? '')}`)
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLifecycleLoading(false)
+    }
+  }
 
   // Do not auto-load/play the last song on host page load – playback starts only when host clicks Play in "Up next"
 
@@ -1075,6 +1155,24 @@ export function HostDashboard({
               '▶️ Start game'
             )}
           </button>
+          {gameStatus !== 'ended' ? (
+            <button
+              type="button"
+              onClick={() => setEndGameConfirmOpen(true)}
+              disabled={lifecycleLoading}
+              className="w-full sm:w-auto rounded-full border border-red-500/50 px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-red-300 hover:bg-red-500/10 transition-colors min-h-12 inline-flex items-center justify-center touch-manipulation disabled:opacity-50"
+            >
+              End Current Game
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setNewGameConfirmOpen(true)}
+            disabled={lifecycleLoading}
+            className="w-full sm:w-auto rounded-full border border-[#00FF66]/50 px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 transition-colors min-h-12 inline-flex items-center justify-center touch-manipulation disabled:opacity-50"
+          >
+            Start New Game
+          </button>
           {gameAlreadyLive ? (
             <p className="w-full text-[#00FF66]/90 text-sm font-medium" role="status">
               Game is live — use Song Controls or Up Next below to call tracks.
@@ -1082,7 +1180,7 @@ export function HostDashboard({
           ) : null}
           {gameStatus === 'ended' ? (
             <p className="w-full text-slate-400 text-sm font-medium" role="status">
-              This game has ended. Create a new game from the host panel to start again.
+              This game has ended. Tap <span className="text-[#00FF66]">Start New Game</span> for a fresh lobby.
             </p>
           ) : null}
           {songsLoadError ? (
@@ -1782,6 +1880,27 @@ export function HostDashboard({
           />
         </>
       ) : null}
+
+      <HostConfirmModal
+        open={endGameConfirmOpen}
+        title="End current game?"
+        description="Players will see a Game Over screen. You can start a new game afterward with a fresh lobby."
+        confirmLabel="End Current Game"
+        confirmTone="danger"
+        loading={lifecycleLoading}
+        onConfirm={() => void handleEndGameConfirmed()}
+        onCancel={() => setEndGameConfirmOpen(false)}
+      />
+      <HostConfirmModal
+        open={newGameConfirmOpen}
+        title="Start a new game?"
+        description="This ends the current session (if still live), clears player cards for a fresh round, and opens a new lobby. Players will be asked to rejoin."
+        confirmLabel="Start New Game"
+        confirmTone="primary"
+        loading={lifecycleLoading}
+        onConfirm={() => void handleNewGameConfirmed()}
+        onCancel={() => setNewGameConfirmOpen(false)}
+      />
     </div>
   )
 }

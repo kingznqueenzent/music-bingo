@@ -368,3 +368,43 @@ export async function broadcastSpinWheelStop(
 ): Promise<void> {
   await sendGameBroadcast(supabase, gameId, 'spin_wheel_stop', payload)
 }
+
+export type GameEndedPayload = {
+  reason?: 'host_ended' | 'already_ended' | 'new_game' | string
+  newGameId?: string
+  roomCode?: string
+  sentAt?: string
+}
+
+export type NewGameStartedPayload = {
+  newGameId: string
+  roomCode: string
+  reusedSameGame?: boolean
+  sentAt?: string
+}
+
+/** Notify stage + players that the session ended (also mirrored via games.status realtime). */
+export async function broadcastGameEnded(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: GameEndedPayload = {}
+): Promise<void> {
+  const body = { ...payload, sentAt: payload.sentAt ?? new Date().toISOString() }
+  await Promise.all([
+    broadcastOnChannel(supabase, gameChannelName(gameId), 'game_ended', body),
+    broadcastOnChannel(supabase, playChannelName(gameId), 'game_ended', body),
+  ])
+}
+
+/** Tell players on the old session that a replacement lobby is ready. */
+export async function broadcastNewGameStarted(
+  supabase: SupabaseClient,
+  previousGameId: string,
+  payload: NewGameStartedPayload
+): Promise<void> {
+  const body = { ...payload, sentAt: new Date().toISOString() }
+  await Promise.all([
+    broadcastOnChannel(supabase, gameChannelName(previousGameId), 'new_game_started', body),
+    broadcastOnChannel(supabase, playChannelName(previousGameId), 'new_game_started', body),
+  ])
+}

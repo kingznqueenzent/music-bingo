@@ -108,6 +108,11 @@ export function PlayView({
   const latestMarksRef = useRef<Set<string>>(new Set())
   const [envelopeSponsor, setEnvelopeSponsor] = useState<GameSponsor | null>(null)
   const [gameStatus, setGameStatus] = useState<GameStatus>('lobby')
+  const [newGameOffer, setNewGameOffer] = useState<{
+    newGameId: string
+    roomCode: string
+    reusedSameGame?: boolean
+  } | null>(null)
   const [chatEmail, setChatEmail] = useState('')
   const [hostShoutout, setHostShoutout] = useState<{ kind: string; message: string } | null>(null)
   const [clipSeconds, setClipSeconds] = useState(20)
@@ -617,6 +622,40 @@ export function PlayView({
           }
         }
       )
+      .on(
+        'broadcast',
+        { event: 'game_ended' },
+        (payload: {
+          payload?: { reason?: string; newGameId?: string; roomCode?: string }
+        }) => {
+          setGameStatus('ended')
+          const p = payload?.payload
+          if (p?.newGameId && p.roomCode) {
+            setNewGameOffer({
+              newGameId: p.newGameId,
+              roomCode: p.roomCode,
+              reusedSameGame: p.newGameId === gameId,
+            })
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'new_game_started' },
+        (payload: {
+          payload?: { newGameId?: string; roomCode?: string; reusedSameGame?: boolean }
+        }) => {
+          const p = payload?.payload
+          if (p?.newGameId && p.roomCode) {
+            setGameStatus('ended')
+            setNewGameOffer({
+              newGameId: p.newGameId,
+              roomCode: p.roomCode,
+              reusedSameGame: !!p.reusedSameGame || p.newGameId === gameId,
+            })
+          }
+        }
+      )
       .subscribe()
 
     const gameChannel = supabase
@@ -786,6 +825,42 @@ export function PlayView({
         <Link href="/join" className="mt-6 inline-block text-xl underline hover:text-yellow-400">
           Join game
         </Link>
+      </div>
+    )
+  }
+
+  if (gameStatus === 'ended') {
+    const joinHref = newGameOffer?.roomCode
+      ? `/join?code=${encodeURIComponent(newGameOffer.roomCode)}`
+      : '/join'
+    return (
+      <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-[#121212]/95 p-6 text-center backdrop-blur-sm">
+        <div className="max-w-md w-full rounded-2xl border border-[#00FF66]/30 bg-[#1E1E1E] p-8 shadow-[0_0_48px_rgba(0,255,102,0.12)]">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#00FF66]/80 mb-2">
+            Session ended
+          </p>
+          <h2 className="text-3xl font-bold text-white tracking-tight">Thanks for Playing!</h2>
+          <p className="mt-3 text-sm text-white/55">
+            The host ended this Music Bingo game.
+            {newGameOffer
+              ? ` A new lobby is ready — room code ${newGameOffer.roomCode}.`
+              : ' Hang tight or rejoin when the next round starts.'}
+          </p>
+          <div className="mt-6 flex flex-col gap-3">
+            <Link
+              href={joinHref}
+              className="inline-flex items-center justify-center rounded-xl bg-[#00FF66] px-6 py-3.5 text-base font-bold text-black hover:bg-[#39FF14] transition-colors"
+            >
+              {newGameOffer ? 'Join New Game' : 'Back to Join'}
+            </Link>
+            <Link
+              href="/lyricgrid"
+              className="inline-flex items-center justify-center rounded-xl border border-white/15 px-6 py-3 text-sm font-semibold text-white/70 hover:text-white hover:border-white/30 transition-colors"
+            >
+              LyricGrid Home
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
