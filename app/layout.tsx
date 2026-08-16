@@ -22,21 +22,40 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://lyricgrid.ca'),
   title: {
-    default: 'LyricGrid – Music Bingo',
+    default: 'LyricGrid | Professional Music Bingo & Live Event Engine',
     template: '%s | LyricGrid',
   },
   description:
-    'Interactive music bingo for livestreams and parties. Join with a game code, play with friends, and compete on the global leaderboard.',
-  metadataBase: new URL('https://lyricgrid.ca'),
+    'The ultimate BYOM music bingo and live event streaming platform for professional DJs and hosts.',
+  applicationName: 'LyricGrid',
+  authors: [{ name: 'Kingz & Queenz Entertainment' }],
+  generator: 'Next.js',
+  keywords: ['Music Bingo', 'DJ Software', 'Live Streaming', 'Blind Bingo', 'LyricGrid'],
+  icons: {
+    icon: '/assets/logo/favicon.ico',
+    shortcut: '/assets/logo/favicon.png',
+    apple: '/assets/logo/apple-touch-icon.png',
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_CA',
+    url: 'https://lyricgrid.ca',
+    siteName: 'LyricGrid',
+    title: 'LyricGrid | Professional Music Bingo',
+    description: 'Interactive music bingo, blind mode, and live event production engine.',
+  },
 };
 
 /** Device-width viewport + manipulation touch model reduces legacy tap delay on mobile. */
 export const viewport: Viewport = {
-  width: "device-width",
+  themeColor: '#121212',
+  width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
-  viewportFit: "cover",
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
