@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { resolveHostTier } from '@/lib/host-tier'
+import { loadProfileSubscriptionTier } from '@/lib/media/media-library-access-server'
 import {
   checkTrackQuota,
   MEDIA_LIBRARY_REQUIRES_PRO_CODE,
@@ -20,7 +21,9 @@ export async function assertTrackQuotaForInsert(
   addingCount: number,
   profileTier?: string | null
 ): Promise<TrackQuotaCheckResult> {
-  const tier = resolveHostTier({ profileTier })
+  const resolvedTier =
+    profileTier !== undefined ? profileTier : await loadProfileSubscriptionTier(supabase)
+  const tier = resolveHostTier({ profileTier: resolvedTier })
   const currentCount = await countCatalogSongs(supabase)
   return checkTrackQuota(tier, currentCount, addingCount)
 }

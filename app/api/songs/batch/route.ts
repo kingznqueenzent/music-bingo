@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import {
-  checkMediaLibraryAccess,
+  checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
 import {
@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No songs provided.' }, { status: 400 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }
@@ -59,7 +60,6 @@ export async function POST(request: NextRequest) {
     media_type: row.youtube_url ? 'youtube' : String(row.media_type ?? 'audio'),
   }))
 
-  const supabase = createClient()
   const quota = await assertTrackQuotaForInsert(supabase, payload.length)
   if (!quota.allowed) {
     return NextResponse.json(trackQuotaErrorResponse(quota), { status: 403 })

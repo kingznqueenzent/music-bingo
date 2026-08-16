@@ -10,7 +10,7 @@ function normalizeTier(value: string | null | undefined): GameTier | null {
 
 /**
  * Host tier resolution for media-library and branding gates:
- * 1. Explicit profile tier when provided (future: `player_profiles.tier`).
+ * 1. Explicit profile tier when provided (`player_profiles.subscription_tier`).
  * 2. `HOST_TIER` env override — ops / Vercel production default for venue accounts.
  * 3. Fallback `free` (media library blocked; core hosting still available).
  */

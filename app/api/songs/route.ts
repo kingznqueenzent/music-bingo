@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import {
-  checkMediaLibraryAccess,
+  checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
 import {
@@ -23,12 +23,12 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }
 
-  const supabase = createClient()
   const pageSize = 1000
   const songs: Record<string, unknown>[] = []
   let page = 0
@@ -57,13 +57,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const body = (await request.json()) as Record<string, unknown>
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }
-
-  const body = (await request.json()) as Record<string, unknown>
-  const supabase = createClient()
 
   const quota = await assertTrackQuotaForInsert(supabase, 1)
   if (!quota.allowed) {

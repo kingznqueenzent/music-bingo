@@ -10,7 +10,7 @@ import {
   planSongStorageMove,
 } from '@/lib/media/apply-song-storage-move'
 import {
-  checkMediaLibraryAccess,
+  checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
 
@@ -49,14 +49,13 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const access = checkMediaLibraryAccess()
-  if (!access.allowed) {
-    return mediaLibraryBlockedResponse(access.tier)
-  }
-
   const { id } = await context.params
   const body = (await request.json()) as Record<string, unknown>
   const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
+  }
 
   const { data: existing, error: fetchError } = await supabase
     .from('songs')
@@ -124,13 +123,12 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const { id } = await context.params
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }
-
-  const { id } = await context.params
-  const supabase = createClient()
 
   const { data: song, error: fetchError } = await supabase
     .from('songs')

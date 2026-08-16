@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { resolveHostTier } from '@/lib/host-tier'
+import { loadProfileSubscriptionTier } from '@/lib/media/media-library-access-server'
 import { buildTrackQuotaSnapshot, getTrackLimitForTier } from '@/lib/media/track-quota'
 import { hasBrandingAccess, hasMediaLibraryAccess } from '@/lib/tiers'
 import { countCatalogSongs } from '@/lib/media/track-quota-server'
@@ -9,7 +10,8 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET() {
   try {
     const supabase = createClient()
-    const tier = resolveHostTier()
+    const profileTier = await loadProfileSubscriptionTier(supabase)
+    const tier = resolveHostTier({ profileTier })
     const currentCount = await countCatalogSongs(supabase)
     const snapshot = buildTrackQuotaSnapshot(tier, currentCount)
 

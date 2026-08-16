@@ -2,9 +2,10 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
+import { createClient } from '@/lib/supabase/server'
 import { autoCategorizeSong } from '@/lib/songAutoCategorizer'
 import {
-  checkMediaLibraryAccess,
+  checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
 
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No titles provided.' }, { status: 400 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const access = await checkMediaLibraryAccessForClient(createClient())
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }

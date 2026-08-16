@@ -6,7 +6,10 @@ import { generateCardLayout, minSongsForGrid, shuffleArray } from '@/lib/bingo/c
 import type { GameTier } from '@/lib/tiers'
 import { isFeatureEnabled } from '@/lib/feature-flags'
 import { insertGameOrReuseLobby, roomCodeLookupFilter } from '@/lib/game-room-code'
-import { checkMediaLibraryAccess, mediaLibraryBlockedMessage } from '@/lib/media/media-library-access-server'
+import {
+  checkMediaLibraryAccessForClient,
+  mediaLibraryBlockedMessage,
+} from '@/lib/media/media-library-access-server'
 import { startGameSession } from '@/lib/game-start'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { fillYoutubeTitles } from '@/lib/youtube-titles'
@@ -141,12 +144,12 @@ export async function createGameFromMediaLibrary(
   songIds: string[],
   options: GameCreateOptions = {}
 ) {
-  const access = checkMediaLibraryAccess()
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return { error: mediaLibraryBlockedMessage() }
   }
 
-  const supabase = createClient()
   const gridSize = options.gridSize ?? 5
   const tier = options.tier ?? 'pro'
   const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4

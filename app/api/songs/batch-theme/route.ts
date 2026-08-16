@@ -9,7 +9,7 @@ import {
   planSongStorageMove,
 } from '@/lib/media/apply-song-storage-move'
 import {
-  checkMediaLibraryAccess,
+  checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
 
@@ -34,12 +34,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'No song ids provided.' }, { status: 400 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }
 
-  const supabase = createClient()
   let updated = 0
   let storageMoved = 0
   const storageWarnings: string[] = []

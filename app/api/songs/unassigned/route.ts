@@ -5,7 +5,7 @@ import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import { allDecadeThemeNames } from '@/lib/decade-theme-catalog'
 import { isDecadeThemeName, titleHasYoutubeArtifact } from '@/lib/media/decade-theme-assignment'
 import {
-  checkMediaLibraryAccess,
+  checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
 
@@ -27,12 +27,12 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const access = checkMediaLibraryAccess()
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)
   }
 
-  const supabase = createClient()
   const decadeNames = allDecadeThemeNames()
 
   const { data: decadeThemes, error: themeErr } = await supabase
