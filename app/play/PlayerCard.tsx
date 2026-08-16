@@ -112,6 +112,7 @@ export function PlayView({
   const [hostShoutout, setHostShoutout] = useState<{ kind: string; message: string } | null>(null)
   const [clipSeconds, setClipSeconds] = useState(20)
   const [crossfadeSeconds, setCrossfadeSeconds] = useState(0)
+  const [activeSongFetched, setActiveSongFetched] = useState<PlaylistSong | null>(null)
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -545,6 +546,35 @@ export function PlayView({
     }
   }, [gameId, supabase])
 
+  /** Host can call any playlist track — fetch media fields even when it is not on this card. */
+  useEffect(() => {
+    if (!activeSongId) {
+      setActiveSongFetched(null)
+      return
+    }
+
+    let cancelled = false
+    void (async () => {
+      const { data, error } = await supabase
+        .from('playlist_songs')
+        .select('*')
+        .eq('id', activeSongId)
+        .maybeSingle()
+
+      if (cancelled) return
+      if (error) {
+        console.error('[PlayView] Could not load active song media:', error.message)
+        setActiveSongFetched(null)
+        return
+      }
+      setActiveSongFetched(data ?? null)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [activeSongId, supabase])
+
   useEffect(() => {
     if (!leaderboardDrawerOpen) return
     setLeaderboardLoading(true)
@@ -717,10 +747,11 @@ export function PlayView({
     () => getMarkedPositions(markedSongIds, cells, size),
     [markedSongIds, cells, size]
   )
-  const activeSong = useMemo(() => {
+  const activeSongFromCard = useMemo(() => {
     if (!activeSongId) return null
     return cells.find((c) => c.playlist_song_id === activeSongId)?.song ?? null
   }, [activeSongId, cells])
+  const activeSong = activeSongFetched ?? activeSongFromCard
   const activeMp3Url = useMemo(() => getSongMp3Url(activeSong), [activeSong])
   const activeStartSeconds = useMemo(() => getSongStartTime(activeSong), [activeSong])
   const activeIsYouTubeOnly = useMemo(
@@ -761,6 +792,7 @@ export function PlayView({
 
   return (
     <PlayerAudioGate
+      activeSongId={activeSongId}
       currentAudioUrl={activeMp3Url}
       startSeconds={activeStartSeconds}
       clipSeconds={clipSeconds}

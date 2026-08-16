@@ -8,6 +8,8 @@ const SILENT_WAV =
   'data:audio/wav;base64,T2dnUwACAAAAAAAAAAA8TUEAAAACAAABAAAAAAAAAAAAAAAAAAAAAAEAAAAAAABkYXRhAAAAAA=='
 
 export type PlayerAudioGateProps = {
+  /** Changes when host calls a different track — forces clip restart even if URL repeats. */
+  activeSongId?: string | null
   currentAudioUrl?: string | null
   startSeconds?: number
   clipSeconds?: number
@@ -21,6 +23,7 @@ export type PlayerAudioGateProps = {
  * `<audio>` is always mounted so the ref exists on the first tap.
  */
 export function PlayerAudioGate({
+  activeSongId,
   currentAudioUrl,
   startSeconds = 0,
   clipSeconds = 20,
@@ -36,45 +39,64 @@ export function PlayerAudioGate({
     const audio = audioRef.current
     if (!audio || !audioUnlocked) return
 
-    if (clipTimerRef.current) {
-      clearTimeout(clipTimerRef.current)
-      clipTimerRef.current = null
-    }
-
-    if (!currentAudioUrl) {
-      audio.pause()
-      return
-    }
-
-    audio.src = currentAudioUrl
-    audio.load()
-
-    if (isPlaying) {
-      const playClip = async () => {
-        try {
-          if (startSeconds > 0) {
-            audio.currentTime = startSeconds
-          }
-          await audio.play()
-          clipTimerRef.current = setTimeout(() => {
-            audio.pause()
-          }, Math.max(500, clipSeconds * 1000))
-        } catch (err) {
-          console.log('Audio autoplay prevented:', err)
-        }
-      }
-      void playClip()
-    } else {
-      audio.pause()
-    }
-
-    return () => {
+    const clearClipTimer = () => {
       if (clipTimerRef.current) {
         clearTimeout(clipTimerRef.current)
         clipTimerRef.current = null
       }
     }
-  }, [currentAudioUrl, isPlaying, audioUnlocked, startSeconds, clipSeconds])
+
+    clearClipTimer()
+
+    if (!currentAudioUrl || !isPlaying) {
+      audio.pause()
+      return
+    }
+
+    console.log('Playing audio URL:', currentAudioUrl, activeSongId ? `(song ${activeSongId})` : '')
+
+    const durationMs = Math.max(500, clipSeconds * 1000)
+
+    const startPlayback = () => {
+      try {
+        if (startSeconds > 0) {
+          audio.currentTime = startSeconds
+        }
+      } catch {
+        // seek may fail before metadata is ready
+      }
+
+      void audio.play().catch((err) => {
+        console.error('Audio play error:', err)
+      })
+
+      clearClipTimer()
+      clipTimerRef.current = setTimeout(() => {
+        audio.pause()
+        clipTimerRef.current = null
+      }, durationMs)
+    }
+
+    const onLoaded = () => startPlayback()
+    const onError = () => {
+      console.error('Audio load error:', currentAudioUrl)
+      clearClipTimer()
+    }
+
+    audio.pause()
+    audio.src = currentAudioUrl
+    audio.load()
+    audio.addEventListener('loadedmetadata', onLoaded)
+    audio.addEventListener('error', onError)
+    if (audio.readyState >= 1) onLoaded()
+
+    return () => {
+      clearClipTimer()
+      audio.removeEventListener('loadedmetadata', onLoaded)
+      audio.removeEventListener('error', onError)
+      audio.pause()
+    }
+  }, [activeSongId, currentAudioUrl, isPlaying, audioUnlocked, startSeconds, clipSeconds])
 
   const handleUnlockAudio = () => {
     const audio = audioRef.current
@@ -99,7 +121,13 @@ export function PlayerAudioGate({
   }
 
   const audioElement = (
-    <audio ref={audioRef} preload="auto" playsInline className="hidden" aria-hidden />
+    <audio
+      ref={audioRef}
+      preload="auto"
+      playsInline
+      className="hidden"
+      aria-hidden
+    />
   )
 
   if (!audioUnlocked) {
