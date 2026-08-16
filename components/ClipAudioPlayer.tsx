@@ -10,6 +10,9 @@ interface ClipAudioPlayerProps {
   clipSeconds: number
   crossfadeSeconds?: number
   autoPlay?: boolean
+  muted?: boolean
+  showControls?: boolean
+  showStatus?: boolean
   onEnded?: () => void
   onReadyChange?: (state: AudioReadyState, detail?: { bufferedPct: number; latencyMs: number | null }) => void
   className?: string
@@ -22,6 +25,9 @@ export function ClipAudioPlayer({
   clipSeconds,
   crossfadeSeconds = 0,
   autoPlay = true,
+  muted = false,
+  showControls = true,
+  showStatus = true,
   onEnded,
   onReadyChange,
   className = '',
@@ -128,6 +134,7 @@ export function ClipAudioPlayer({
     audio.addEventListener('canplaythrough', onCanPlayThrough)
     audio.addEventListener('progress', onProgress)
     audio.addEventListener('error', onError)
+    audio.muted = muted
     audio.preload = 'auto'
     audio.load()
     if (audio.readyState >= 1) onLoaded()
@@ -142,7 +149,7 @@ export function ClipAudioPlayer({
       setOpacity(1)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- readyState read only for guard inside canplaythrough
-  }, [src, startSeconds, clipSeconds, crossfadeSeconds, autoPlay, onEnded])
+  }, [src, startSeconds, clipSeconds, crossfadeSeconds, autoPlay, muted, onEnded])
 
   return (
     <div className={className}>

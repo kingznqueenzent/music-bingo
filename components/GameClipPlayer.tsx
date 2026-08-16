@@ -15,6 +15,9 @@ type GameClipPlayerProps = {
   clipSeconds: number
   crossfadeSeconds?: number
   autoPlay?: boolean
+  muted?: boolean
+  /** `hidden` — no visible controls (player devices). */
+  variant?: 'default' | 'hidden'
   onEnded?: () => void
   onReadyChange?: (state: AudioReadyState, detail?: { bufferedPct: number; latencyMs: number | null }) => void
   className?: string
@@ -29,6 +32,8 @@ export function GameClipPlayer({
   clipSeconds,
   crossfadeSeconds = 0,
   autoPlay = true,
+  muted = false,
+  variant = 'default',
   onEnded,
   onReadyChange,
   className = '',
@@ -36,6 +41,7 @@ export function GameClipPlayer({
   const fields = song as PlayableSongFields
   const kind = getClipSourceKind(fields)
   const startSeconds = getSongStartTime(fields)
+  const hidden = variant === 'hidden'
 
   if (kind === 'mp3') {
     const mp3Url = getSongMp3Url(fields)
@@ -48,6 +54,9 @@ export function GameClipPlayer({
         clipSeconds={clipSeconds}
         crossfadeSeconds={crossfadeSeconds}
         autoPlay={autoPlay}
+        muted={muted}
+        showControls={!hidden}
+        showStatus={!hidden}
         onEnded={onEnded}
         onReadyChange={onReadyChange}
         className={className}
@@ -64,6 +73,7 @@ export function GameClipPlayer({
         endSeconds={startSeconds + clipSeconds}
         crossfadeSeconds={crossfadeSeconds}
         autoPlay={autoPlay}
+        muted={muted}
         onEnded={onEnded}
         className={className}
       />

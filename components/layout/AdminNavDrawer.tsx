@@ -6,6 +6,7 @@ import { Shield } from 'lucide-react'
 import { ADMIN_NAV_LINKS, isAdminNavActive } from '@/components/layout/admin-nav-links'
 import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
 import { ensureHostSession, isCookieProtectedPath } from '@/lib/ensure-host-session'
+import { isPlayerFacingPath } from '@/lib/player-routes'
 
 export type AdminNavDrawerProps = {
   open: boolean
@@ -22,6 +23,8 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [navigating, setNavigating] = useState(false)
+
+  const playerMode = isPlayerFacingPath(pathname)
 
   const navigate = useCallback(
     async (href: string) => {
@@ -51,6 +54,8 @@ export function AdminNavDrawer({ open, onClose }: AdminNavDrawerProps) {
     },
     [navigating, onClose, pathname, router]
   )
+
+  if (playerMode) return null
 
   return (
     <ResponsiveMenu

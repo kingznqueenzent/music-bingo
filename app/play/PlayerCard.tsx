@@ -25,6 +25,9 @@ import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { roomCodeFromGame } from '@/types/database-extras'
 import { FeatureGate } from '@/components/FeatureGate'
 import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display'
+import { PlayerAudioGate } from '@/components/play/PlayerAudioGate'
+import { PlayerSongPlayback } from '@/components/play/PlayerSongPlayback'
+import { getSongMp3Url, getSongStartTime, shouldPlayYouTubeClip } from '@/lib/playlist-song-media'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
 
@@ -107,6 +110,8 @@ export function PlayView({
   const [gameStatus, setGameStatus] = useState<GameStatus>('lobby')
   const [chatEmail, setChatEmail] = useState('')
   const [hostShoutout, setHostShoutout] = useState<{ kind: string; message: string } | null>(null)
+  const [clipSeconds, setClipSeconds] = useState(20)
+  const [crossfadeSeconds, setCrossfadeSeconds] = useState(0)
 
   const persistMarks = useCallback(
     (ids: Set<string>) => {
@@ -262,7 +267,7 @@ export function PlayView({
 
       const { data: game, error: gameError } = await supabase
         .from('games')
-        .select('mode, grid_size, status, code, room_code, hide_song_titles, current_song_id')
+        .select('mode, grid_size, status, code, room_code, hide_song_titles, current_song_id, clip_seconds, crossfade_seconds')
         .eq('id', gameId)
         .single()
 
@@ -280,6 +285,10 @@ export function PlayView({
         setGameCode(roomCodeFromGame(game))
         setHideSongTitles(!!(game as { hide_song_titles?: boolean }).hide_song_titles)
         setActiveSongId((game as { current_song_id?: string | null }).current_song_id ?? null)
+        const cs = (game as { clip_seconds?: number | null }).clip_seconds
+        if (typeof cs === 'number' && cs >= 10) setClipSeconds(cs)
+        const xf = (game as { crossfade_seconds?: number | null }).crossfade_seconds
+        if (typeof xf === 'number' && xf >= 0) setCrossfadeSeconds(xf)
       }
 
       const { data: playedRows } = await supabase
@@ -470,6 +479,8 @@ export function PlayView({
             status?: GameStatus | null
             hide_song_titles?: boolean | null
             current_song_id?: string | null
+            clip_seconds?: number | null
+            crossfade_seconds?: number | null
           }
           // Bail when values are unchanged — Android Chrome re-renders are expensive during URL-bar resize.
           if (row.mode != null) {
@@ -488,6 +499,12 @@ export function PlayView({
           if ('current_song_id' in row) {
             const nextId = row.current_song_id ?? null
             setActiveSongId((prev) => (prev === nextId ? prev : nextId))
+          }
+          if (typeof row.clip_seconds === 'number' && row.clip_seconds >= 10) {
+            setClipSeconds((prev) => (prev === row.clip_seconds ? prev : row.clip_seconds!))
+          }
+          if (typeof row.crossfade_seconds === 'number' && row.crossfade_seconds >= 0) {
+            setCrossfadeSeconds((prev) => (prev === row.crossfade_seconds ? prev : row.crossfade_seconds!))
           }
         }
       )
@@ -700,6 +717,17 @@ export function PlayView({
     () => getMarkedPositions(markedSongIds, cells, size),
     [markedSongIds, cells, size]
   )
+  const activeSong = useMemo(() => {
+    if (!activeSongId) return null
+    return cells.find((c) => c.playlist_song_id === activeSongId)?.song ?? null
+  }, [activeSongId, cells])
+  const activeMp3Url = useMemo(() => getSongMp3Url(activeSong), [activeSong])
+  const activeStartSeconds = useMemo(() => getSongStartTime(activeSong), [activeSong])
+  const activeIsYouTubeOnly = useMemo(
+    () => !!activeSong && !activeMp3Url && shouldPlayYouTubeClip(activeSong),
+    [activeSong, activeMp3Url]
+  )
+  const hostSongPlaying = !!activeSongId && gameStatus === 'playing'
 
   const primary = whiteLabel?.brandPrimaryHex?.trim() || '#00FF66'
   const accent = whiteLabel?.brandAccentHex?.trim() || '#34d399'
@@ -732,6 +760,13 @@ export function PlayView({
   }
 
   return (
+    <PlayerAudioGate
+      currentAudioUrl={activeMp3Url}
+      startSeconds={activeStartSeconds}
+      clipSeconds={clipSeconds}
+      isPlaying={hostSongPlaying && !!activeMp3Url}
+      playerName={playerName}
+    >
     <div
       className="w-full max-w-6xl mx-auto px-2 sm:px-0 relative pb-32 lg:pb-28 lg:flex lg:flex-row lg:gap-6 lg:items-start"
       style={
@@ -1066,6 +1101,18 @@ export function PlayView({
         )}
       </FeatureGate>
     </div>
+
+    {activeIsYouTubeOnly ? (
+      <PlayerSongPlayback
+        activeSongId={activeSongId}
+        song={activeSong}
+        clipSeconds={clipSeconds}
+        crossfadeSeconds={crossfadeSeconds}
+        enabled={hostSongPlaying}
+        muted={false}
+      />
+    ) : null}
+    </PlayerAudioGate>
   )
 }
 
