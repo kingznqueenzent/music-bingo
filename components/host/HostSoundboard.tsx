@@ -5,7 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { Volume2, Upload, Pencil, Trash2 } from 'lucide-react'
 import { broadcastSoundEffect } from '@/lib/supabase-realtime'
 import { SFX_PRESETS, type SfxPresetId } from '@/lib/sfx/sfx-presets'
-import { playSoundEffect, readSfxVolume, writeSfxVolume } from '@/lib/sfx/play-sfx'
+import { playSoundEffect, preloadSfxAssets, readSfxVolume, writeSfxVolume } from '@/lib/sfx/play-sfx'
 
 export type SfxAsset = {
   id: string
@@ -37,6 +37,7 @@ export function HostSoundboard({ gameId, supabase, className = '' }: HostSoundbo
 
   useEffect(() => {
     setVolume(readSfxVolume())
+    preloadSfxAssets()
   }, [])
 
   const loadAssets = useCallback(async () => {
@@ -148,7 +149,8 @@ export function HostSoundboard({ gameId, supabase, className = '' }: HostSoundbo
             DJ Soundboard
           </h3>
           <p className="text-slate-500 text-sm">
-            Built-in presets + custom clips — broadcasts to Stage &amp; overlay
+            Local FX + custom clips — plays over the track without stopping bed audio; broadcasts to Stage &amp;
+            overlay
           </p>
         </div>
         <button

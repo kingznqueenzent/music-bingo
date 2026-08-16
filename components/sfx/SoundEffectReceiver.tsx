@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { SoundEffectPayload } from '@/lib/supabase-realtime'
-import { playSoundEffect } from '@/lib/sfx/play-sfx'
+import { playSoundEffect, preloadSfxAssets } from '@/lib/sfx/play-sfx'
 
 export type SfxBounceFlashProps = {
   label: string
@@ -37,6 +37,10 @@ export type SoundEffectBounce = { label: string; key: number }
 /** Returns a stable handler to pass into subscribeStageChannel (single channel per view). */
 export function useSoundEffectPlayback() {
   const [bounce, setBounce] = useState<SoundEffectBounce | null>(null)
+
+  useEffect(() => {
+    preloadSfxAssets()
+  }, [])
 
   const onSoundEffect = useCallback((payload: SoundEffectPayload) => {
     const { label, durationMs } = playSoundEffect(payload)
