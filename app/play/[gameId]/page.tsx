@@ -1,4 +1,5 @@
 import { PlayPageContent } from '../PlayPageContent'
+import { PlayCardBootstrap } from '../PlayCardBootstrap'
 
 export default async function PlayByGameIdPage({
   params,
@@ -9,10 +10,16 @@ export default async function PlayByGameIdPage({
 }) {
   const { gameId } = await params
   const sp = await searchParams
+  const cardId = sp.cardId?.trim() ?? ''
+
+  if (!cardId) {
+    return <PlayCardBootstrap gameId={gameId} lyricHint={sp.hint ?? null} />
+  }
+
   return (
     <PlayPageContent
       gameId={gameId}
-      cardId={sp.cardId ?? ''}
+      cardId={cardId}
       lyricHint={sp.hint ?? null}
     />
   )

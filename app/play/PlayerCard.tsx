@@ -23,6 +23,12 @@ import { CrownedWinnerOverlay } from '@/components/stage/CrownedWinnerOverlay'
 import { debounce } from '@/lib/debounce'
 import { toEvaluatorPattern } from '@/lib/bingo-evaluator'
 import { roomCodeFromGame } from '@/types/database-extras'
+import {
+  browserPlayerIdentifier,
+  getOrCreateBrowserSessionId,
+  getStoredCardIdForGame,
+  setStoredPlayerCardId,
+} from '@/lib/bingo/player-card-session'
 import { FeatureGate } from '@/components/FeatureGate'
 import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display'
 import { PlayerAudioGate } from '@/components/play/PlayerAudioGate'
@@ -252,7 +258,7 @@ export function PlayView({
         .from('cards')
         .select('player_name, player_identifier, grid_data')
         .eq('id', cardId)
-        .single()
+        .maybeSingle()
 
       if (cancelled) return
 
@@ -263,19 +269,85 @@ export function PlayView({
         setLoading(false)
         return
       }
+
       if (!card) {
-        setError('Card not found. Check the link or join again.')
-        setLoading(false)
-        return
+        // Prefer a card already stored for this game (host/join resume).
+        const storedId = getStoredCardIdForGame(gameId)
+        if (storedId && storedId !== cardId) {
+          const params = new URLSearchParams(window.location.search)
+          params.set('cardId', storedId)
+          params.set('gameId', gameId)
+          window.location.replace(`/play/${gameId}?${params.toString()}`)
+          return
+        }
+
+        setLoadHint('Card missing — creating a new board…')
+        const { data: gameRow } = await supabase
+          .from('games')
+          .select('code, room_code, status')
+          .eq('id', gameId)
+          .maybeSingle()
+
+        if (cancelled) return
+
+        if (!gameRow) {
+          setError('Game not found. Check the link or join again.')
+          setLoading(false)
+          return
+        }
+        if ((gameRow as { status?: string }).status === 'ended') {
+          setError('This game has ended. Join a new lobby from the host.')
+          setLoading(false)
+          return
+        }
+
+        const roomCode = roomCodeFromGame(gameRow as { code?: string | null; room_code?: string | null })
+        const sessionId = getOrCreateBrowserSessionId()
+        const playerIdentifier = browserPlayerIdentifier(sessionId)
+        try {
+          const res = await fetch('/api/bingo/generate-card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              gameCode: roomCode,
+              username: `Player-${sessionId.slice(0, 6)}`,
+              playerIdentifier,
+              resumeCardId: storedId || undefined,
+            }),
+          })
+          const data = (await res.json()) as {
+            ok?: boolean
+            cardId?: string
+            gameId?: string
+            error?: string
+          }
+          if (!data.ok || !data.cardId) {
+            setError(data.error ?? 'Could not create a bingo card for this game.')
+            setLoading(false)
+            return
+          }
+          setStoredPlayerCardId(data.gameId ?? gameId, data.cardId)
+          const params = new URLSearchParams(window.location.search)
+          params.set('cardId', data.cardId)
+          params.set('gameId', data.gameId ?? gameId)
+          window.location.replace(`/play/${data.gameId ?? gameId}?${params.toString()}`)
+          return
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Could not create a bingo card.')
+          setLoading(false)
+          return
+        }
       }
+
       setPlayerName(card.player_name)
       setProfileIdentifier((card.player_identifier ?? '').trim())
+      setStoredPlayerCardId(gameId, cardId)
 
       const { data: game, error: gameError } = await supabase
         .from('games')
         .select('mode, grid_size, status, code, room_code, hide_song_titles, current_song_id, clip_seconds, crossfade_seconds')
         .eq('id', gameId)
-        .single()
+        .maybeSingle()
 
       if (cancelled) return
 
@@ -284,18 +356,21 @@ export function PlayView({
         setLoading(false)
         return
       }
-      if (game) {
-        setGameMode(normalizeWinPattern(game.mode))
-        setGridSize(game.grid_size === 4 ? 4 : 5)
-        if (game.status) setGameStatus(game.status as GameStatus)
-        setGameCode(roomCodeFromGame(game))
-        setHideSongTitles(!!(game as { hide_song_titles?: boolean }).hide_song_titles)
-        setActiveSongId((game as { current_song_id?: string | null }).current_song_id ?? null)
-        const cs = (game as { clip_seconds?: number | null }).clip_seconds
-        if (typeof cs === 'number' && cs >= 10) setClipSeconds(cs)
-        const xf = (game as { crossfade_seconds?: number | null }).crossfade_seconds
-        if (typeof xf === 'number' && xf >= 0) setCrossfadeSeconds(xf)
+      if (!game) {
+        setError('Game not found. Check the link or join again.')
+        setLoading(false)
+        return
       }
+      setGameMode(normalizeWinPattern(game.mode))
+      setGridSize(game.grid_size === 4 ? 4 : 5)
+      if (game.status) setGameStatus(game.status as GameStatus)
+      setGameCode(roomCodeFromGame(game))
+      setHideSongTitles(!!(game as { hide_song_titles?: boolean }).hide_song_titles)
+      setActiveSongId((game as { current_song_id?: string | null }).current_song_id ?? null)
+      const cs = (game as { clip_seconds?: number | null }).clip_seconds
+      if (typeof cs === 'number' && cs >= 10) setClipSeconds(cs)
+      const xf = (game as { crossfade_seconds?: number | null }).crossfade_seconds
+      if (typeof xf === 'number' && xf >= 0) setCrossfadeSeconds(xf)
 
       const { data: playedRows } = await supabase
         .from('played_songs')

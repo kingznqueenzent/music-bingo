@@ -124,10 +124,13 @@ export function HostPlayerBoardPanel({
         .from('cards')
         .select('grid_data')
         .eq('id', id)
-        .single()
+        .maybeSingle()
 
-      if (cardError || !card) {
-        throw new Error(cardError?.message ?? 'Could not load your board.')
+      if (cardError) {
+        throw new Error(cardError.message)
+      }
+      if (!card) {
+        throw new Error('Could not load your board.')
       }
 
       const gridJson = card.grid_data
@@ -317,8 +320,8 @@ export function HostPlayerBoardPanel({
         .from('games')
         .select('current_song_id')
         .eq('id', gameId)
-        .single()
-      setActiveSongId((game as { current_song_id?: string | null })?.current_song_id ?? null)
+        .maybeSingle()
+      setActiveSongId((game as { current_song_id?: string | null } | null)?.current_song_id ?? null)
 
       const { data: playedRows } = await supabase
         .from('played_songs')

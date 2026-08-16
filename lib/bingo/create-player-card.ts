@@ -157,9 +157,12 @@ export async function createPlayerBingoCard(
     .from('games')
     .select('id, playlist_id, status, grid_size, tier, entry_fee_cents, host_id')
     .or(roomCodeLookupFilter(code))
-    .single()
+    .maybeSingle()
 
-  if (gameError || !game) {
+  if (gameError) {
+    return { ok: false, error: `Could not load game (${gameError.message}).`, status: 500 }
+  }
+  if (!game) {
     return { ok: false, error: 'Game not found. Check the code.', status: 404 }
   }
   if (game.status === 'ended') {

@@ -34,7 +34,7 @@ export async function PlayPageContent({ gameId, cardId, lyricHint = null }: Play
   let sponsors: GameSponsor[] = []
 
   try {
-    const { data: game } = await supabase.from('games').select('*').eq('id', gameId).single()
+    const { data: game } = await supabase.from('games').select('*').eq('id', gameId).maybeSingle()
     if (game && wl) {
       logoUrl = game.logo_url ?? null
       venueDisplayName = game.venue_display_name ?? null

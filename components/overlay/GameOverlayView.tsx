@@ -42,7 +42,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
 
   useEffect(() => {
     async function load() {
-      const { data: g } = await supabase.from('games').select('*').eq('id', gameId).single()
+      const { data: g } = await supabase.from('games').select('*').eq('id', gameId).maybeSingle()
       if (g) setGame(g as Game)
       if (g?.playlist_id) {
         const { data: s } = await supabase
