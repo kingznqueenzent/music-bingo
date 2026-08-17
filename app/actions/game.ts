@@ -36,76 +36,98 @@ export async function createGame(
   youtubeUrls: string[],
   options: GameCreateOptions = {}
 ) {
-  const supabase = createClient()
-  const gridSize = options.gridSize ?? 5
-  const tier = options.tier ?? 'free'
-  const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
-
-  const { data: playlist, error: playlistError } = await supabase
-    .from('playlists')
-    .insert({ name: playlistName })
-    .select('id')
-    .single()
-
-  if (playlistError || !playlist) {
-    return { error: playlistError?.message ?? 'Failed to create playlist' }
-  }
-
-  const raw = youtubeUrls
-    .map((url) => {
-      const id = extractYoutubeId(url)
-      return id
-        ? {
-            playlist_id: playlist.id,
-            source: 'youtube' as const,
-            youtube_id: id,
-            file_url: null,
-            title: null,
-          }
-        : null
+  try {
+    console.log('[createGame] Creating game with tracks:', {
+      count: youtubeUrls.length,
+      name: playlistName,
+      gridSize: options.gridSize ?? 5,
+      tier: options.tier ?? 'free',
     })
-    .filter(Boolean) as { playlist_id: string; source: 'youtube'; youtube_id: string; file_url: null; title: string | null }[]
 
-  const orderedRaw = options.randomShuffle ? shuffleArray(raw) : raw
-  const songs = orderedRaw.map((s, i) => ({ ...s, position: i }))
+    const supabase = createClient()
+    const gridSize = options.gridSize ?? 5
+    const tier = options.tier ?? 'free'
+    const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
 
-  if (songs.length < minSongs) {
-    await supabase.from('playlists').delete().eq('id', playlist.id)
-    return {
-      error: `Please add at least ${minSongs} YouTube links for a ${gridSize}×${gridSize} grid (got ${songs.length}).`,
+    const { data: playlist, error: playlistError } = await supabase
+      .from('playlists')
+      .insert({ name: playlistName })
+      .select('id')
+      .single()
+
+    if (playlistError || !playlist) {
+      console.error('[createGame] playlist insert failed:', playlistError)
+      return { error: playlistError?.message ?? 'Failed to create playlist' }
     }
+
+    const raw = youtubeUrls
+      .map((url) => {
+        const id = extractYoutubeId(url)
+        return id
+          ? {
+              playlist_id: playlist.id,
+              source: 'youtube' as const,
+              youtube_id: id,
+              file_url: null,
+              title: null,
+            }
+          : null
+      })
+      .filter(Boolean) as {
+      playlist_id: string
+      source: 'youtube'
+      youtube_id: string
+      file_url: null
+      title: string | null
+    }[]
+
+    const orderedRaw = options.randomShuffle ? shuffleArray(raw) : raw
+    const songs = orderedRaw.map((s, i) => ({ ...s, position: i }))
+
+    if (songs.length < minSongs) {
+      await supabase.from('playlists').delete().eq('id', playlist.id)
+      return {
+        error: `Please add at least ${minSongs} YouTube links for a ${gridSize}×${gridSize} grid (got ${songs.length}).`,
+      }
+    }
+
+    const { data: insertedSongs, error: songsError } = await supabase
+      .from('playlist_songs')
+      .insert(songs)
+      .select('id, youtube_id')
+    if (songsError || !insertedSongs?.length) {
+      console.error('[createGame] playlist_songs insert failed:', songsError)
+      await supabase.from('playlists').delete().eq('id', playlist.id)
+      return { error: songsError?.message ?? 'Failed to insert songs' }
+    }
+
+    // Resolve YouTube titles in the background — do not block room creation on noembed latency.
+    void fillYoutubeTitles(supabase, insertedSongs).catch(() => {})
+
+    const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
+    const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
+
+    const roomResult = await insertGameOrReuseLobby(supabase, {
+      playlist_id: playlist.id,
+      status: 'lobby',
+      grid_size: gridSize,
+      clip_seconds: clipSeconds,
+      crossfade_seconds: crossfadeSeconds,
+      tier,
+      logo_url: options.logoUrl ?? null,
+      mode: normalizeWinPattern(options.winPattern),
+    })
+
+    if (roomResult.error) {
+      console.error('[createGame] room insert failed:', roomResult.error)
+      return { error: roomResult.error }
+    }
+    console.log('[createGame] ok', { gameId: roomResult.game?.id, code: roomResult.code })
+    return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
+  } catch (err) {
+    console.error('[createGame] unexpected error:', err)
+    return { error: err instanceof Error ? err.message : 'Could not create game.' }
   }
-
-  const { data: insertedSongs, error: songsError } = await supabase
-    .from('playlist_songs')
-    .insert(songs)
-    .select('id, youtube_id')
-  if (songsError || !insertedSongs?.length) {
-    await supabase.from('playlists').delete().eq('id', playlist.id)
-    return { error: songsError?.message ?? 'Failed to insert songs' }
-  }
-
-  // Resolve YouTube titles in the background — do not block room creation on noembed latency.
-  void fillYoutubeTitles(supabase, insertedSongs).catch(() => {})
-
-  const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
-  const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
-
-  const roomResult = await insertGameOrReuseLobby(supabase, {
-    playlist_id: playlist.id,
-    status: 'lobby',
-    grid_size: gridSize,
-    clip_seconds: clipSeconds,
-    crossfade_seconds: crossfadeSeconds,
-    tier,
-    logo_url: options.logoUrl ?? null,
-    mode: normalizeWinPattern(options.winPattern),
-  })
-
-  if (roomResult.error) {
-    return { error: roomResult.error }
-  }
-  return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
 }
 
 type CatalogSongRow = {
@@ -144,110 +166,130 @@ export async function createGameFromMediaLibrary(
   songIds: string[],
   options: GameCreateOptions = {}
 ) {
-  const supabase = createClient()
-  const access = await checkMediaLibraryAccessForClient(supabase)
-  if (!access.allowed) {
-    return { error: mediaLibraryBlockedMessage() }
-  }
+  try {
+    console.log('[createGameFromMediaLibrary] Creating game with tracks:', {
+      count: songIds.length,
+      name: playlistName,
+      gridSize: options.gridSize ?? 5,
+      tier: options.tier ?? 'pro',
+    })
 
-  const gridSize = options.gridSize ?? 5
-  const tier = options.tier ?? 'pro'
-  const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
-
-  const uniqueIds = [...new Set(songIds)]
-  if (uniqueIds.length < minSongs) {
-    return {
-      error: `Select at least ${minSongs} tracks for a ${gridSize}×${gridSize} grid (selected ${uniqueIds.length} unique).`,
+    const supabase = createClient()
+    const access = await checkMediaLibraryAccessForClient(supabase)
+    if (!access.allowed) {
+      return { error: mediaLibraryBlockedMessage() }
     }
-  }
 
-  const { rows: catalogRows, error: catalogError } = await fetchSongsByIds(supabase, uniqueIds)
-  if (catalogError || !catalogRows.length) {
-    return { error: catalogError ?? 'Could not load catalog tracks.' }
-  }
+    const gridSize = options.gridSize ?? 5
+    const tier = options.tier ?? 'pro'
+    const minSongs = gridSize === 5 ? MIN_SONGS_5X5 : MIN_SONGS_4X4
 
-  const byId = new Map(catalogRows.map((s) => [s.id, s]))
-  const ordered = uniqueIds.map((id) => byId.get(id)).filter(Boolean) as CatalogSongRow[]
-
-  const seenKeys = new Set<string>()
-  const playable = ordered.filter((s) => {
-    const mediaUrl = s.media_url?.trim() || null
-    const youtubeUrl = s.youtube_url?.trim() || null
-    if (!mediaUrl && !youtubeUrl) return false
-    const key = `${(s.title || '').toLowerCase()}|${(s.artist || '').toLowerCase()}|${mediaUrl || youtubeUrl}`
-    if (seenKeys.has(key)) return false
-    seenKeys.add(key)
-    return true
-  })
-
-  if (playable.length < minSongs) {
-    return {
-      error: `Only ${playable.length} playable tracks (with media or YouTube URL) after filtering; need ${minSongs}.`,
+    const uniqueIds = [...new Set(songIds)]
+    if (uniqueIds.length < minSongs) {
+      return {
+        error: `Select at least ${minSongs} tracks for a ${gridSize}×${gridSize} grid (selected ${uniqueIds.length} unique).`,
+      }
     }
-  }
 
-  const queue = options.randomShuffle ? shuffleArray(playable) : playable
+    const { rows: catalogRows, error: catalogError } = await fetchSongsByIds(supabase, uniqueIds)
+    if (catalogError || !catalogRows.length) {
+      console.error('[createGameFromMediaLibrary] catalog load failed:', catalogError)
+      return { error: catalogError ?? 'Could not load catalog tracks.' }
+    }
 
-  const { data: playlist, error: playlistError } = await supabase
-    .from('playlists')
-    .insert({ name: playlistName })
-    .select('id')
-    .single()
+    const byId = new Map(catalogRows.map((s) => [s.id, s]))
+    const ordered = uniqueIds.map((id) => byId.get(id)).filter(Boolean) as CatalogSongRow[]
 
-  if (playlistError || !playlist) {
-    return { error: playlistError?.message ?? 'Failed to create playlist' }
-  }
+    const seenKeys = new Set<string>()
+    const playable = ordered.filter((s) => {
+      const mediaUrl = s.media_url?.trim() || null
+      const youtubeUrl = s.youtube_url?.trim() || null
+      if (!mediaUrl && !youtubeUrl) return false
+      const key = `${(s.title || '').toLowerCase()}|${(s.artist || '').toLowerCase()}|${mediaUrl || youtubeUrl}`
+      if (seenKeys.has(key)) return false
+      seenKeys.add(key)
+      return true
+    })
 
-  const songs = queue.map((s, index) => {
-    const youtubeId = s.youtube_url ? extractYoutubeId(s.youtube_url) : null
-    const mediaUrl = s.media_url?.trim() || null
-    const title = s.artist ? `${s.title} — ${s.artist}` : s.title
-    if (youtubeId && !mediaUrl) {
+    if (playable.length < minSongs) {
+      return {
+        error: `Only ${playable.length} playable tracks (with media or YouTube URL) after filtering; need ${minSongs}.`,
+      }
+    }
+
+    const queue = options.randomShuffle ? shuffleArray(playable) : playable
+
+    const { data: playlist, error: playlistError } = await supabase
+      .from('playlists')
+      .insert({ name: playlistName })
+      .select('id')
+      .single()
+
+    if (playlistError || !playlist) {
+      console.error('[createGameFromMediaLibrary] playlist insert failed:', playlistError)
+      return { error: playlistError?.message ?? 'Failed to create playlist' }
+    }
+
+    const songs = queue.map((s, index) => {
+      const youtubeId = s.youtube_url ? extractYoutubeId(s.youtube_url) : null
+      const mediaUrl = s.media_url?.trim() || null
+      const title = s.artist ? `${s.title} — ${s.artist}` : s.title
+      if (youtubeId && !mediaUrl) {
+        return {
+          playlist_id: playlist.id,
+          source: 'youtube' as const,
+          youtube_id: youtubeId,
+          file_url: null,
+          audio_url: null,
+          title,
+          position: index,
+        }
+      }
       return {
         playlist_id: playlist.id,
-        source: 'youtube' as const,
+        source: 'local' as const,
         youtube_id: youtubeId,
-        file_url: null,
-        audio_url: null,
+        file_url: mediaUrl,
+        audio_url: mediaUrl,
         title,
         position: index,
       }
+    })
+
+    const { error: songsError } = await supabase.from('playlist_songs').insert(songs)
+    if (songsError) {
+      console.error('[createGameFromMediaLibrary] songs insert failed:', songsError)
+      await supabase.from('playlists').delete().eq('id', playlist.id)
+      return { error: songsError.message }
     }
-    return {
+
+    const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
+    const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
+
+    const roomResult = await insertGameOrReuseLobby(supabase, {
       playlist_id: playlist.id,
-      source: 'local' as const,
-      youtube_id: youtubeId,
-      file_url: mediaUrl,
-      audio_url: mediaUrl,
-      title,
-      position: index,
+      status: 'lobby',
+      grid_size: gridSize,
+      clip_seconds: clipSeconds,
+      crossfade_seconds: crossfadeSeconds,
+      tier,
+      logo_url: options.logoUrl ?? null,
+      mode: normalizeWinPattern(options.winPattern),
+    })
+
+    if (roomResult.error) {
+      console.error('[createGameFromMediaLibrary] room insert failed:', roomResult.error)
+      return { error: roomResult.error }
     }
-  })
-
-  const { error: songsError } = await supabase.from('playlist_songs').insert(songs)
-  if (songsError) {
-    await supabase.from('playlists').delete().eq('id', playlist.id)
-    return { error: songsError.message }
+    console.log('[createGameFromMediaLibrary] ok', {
+      gameId: roomResult.game?.id,
+      code: roomResult.code,
+    })
+    return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
+  } catch (err) {
+    console.error('[createGameFromMediaLibrary] unexpected error:', err)
+    return { error: err instanceof Error ? err.message : 'Could not create game.' }
   }
-
-  const clipSeconds = Math.min(120, Math.max(10, options.clipSeconds ?? 20))
-  const crossfadeSeconds = Math.min(10, Math.max(0, options.crossfadeSeconds ?? 0))
-
-  const roomResult = await insertGameOrReuseLobby(supabase, {
-    playlist_id: playlist.id,
-    status: 'lobby',
-    grid_size: gridSize,
-    clip_seconds: clipSeconds,
-    crossfade_seconds: crossfadeSeconds,
-    tier,
-    logo_url: options.logoUrl ?? null,
-    mode: normalizeWinPattern(options.winPattern),
-  })
-
-  if (roomResult.error) {
-    return { error: roomResult.error }
-  }
-  return { game: roomResult.game, code: roomResult.code, reused: roomResult.reused }
 }
 
 /** Host: create a game from a saved theme (themes + theme_songs) */

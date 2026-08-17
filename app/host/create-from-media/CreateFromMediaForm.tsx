@@ -101,7 +101,8 @@ function CreateFromMediaFormInner() {
     return n
   }, [selected, items])
 
-  const canSubmit = playableSelected >= minSongs && name.trim().length > 0
+  const tracksNeeded = Math.max(0, minSongs - playableSelected)
+  const canSubmit = playableSelected >= minSongs
 
   async function loadLibrary() {
     setLoadError('')
@@ -169,19 +170,36 @@ function CreateFromMediaFormInner() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitError('')
-    if (!canSubmit) return
+
+    const playableIds = [...selected].filter((id) => {
+      const song = items.find((s) => s.id === id)
+      return song && songHasPlayableSource(song)
+    })
+
+    console.log('Creating game with tracks:', {
+      count: playableIds.length,
+      minSongs,
+      gridSize,
+      name: name.trim() || 'Media Bingo',
+      trackIds: playableIds,
+    })
+
+    if (playableIds.length < minSongs) {
+      setSubmitError(
+        `Select at least ${minSongs} playable tracks for a ${gridSize}×${gridSize} card (selected ${playableIds.length}).`
+      )
+      return
+    }
+
     setLoading(true)
     try {
-      const playableIds = [...selected].filter((id) => {
-        const song = items.find((s) => s.id === id)
-        return song && songHasPlayableSource(song)
-      })
       const result = await createGameFromMediaLibrary(name.trim() || 'Media Bingo', playableIds, {
         gridSize,
         tier,
         randomShuffle,
         winPattern,
       })
+      console.log('createGameFromMediaLibrary result:', result)
       if (result.error) {
         setSubmitError(withSupabaseKeyHint(result.error))
         return
@@ -192,6 +210,7 @@ function CreateFromMediaFormInner() {
       }
       setSubmitError('Game was created but no room id was returned. Refresh and try again.')
     } catch (err) {
+      console.error('Create game failed:', err)
       setSubmitError(err instanceof Error ? err.message : 'Could not create game. Try again.')
     } finally {
       setLoading(false)
@@ -407,11 +426,31 @@ function CreateFromMediaFormInner() {
         ) : null}
       </div>
 
-      {submitError ? <p className="text-red-300 text-sm">{submitError}</p> : null}
+      {submitError ? (
+        <p className="text-red-300 text-sm rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3" role="alert">
+          {submitError}
+        </p>
+      ) : null}
+
+      <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-slate-300">
+        {canSubmit ? (
+          <p className="text-[#00FF66]">
+            Ready — {playableSelected} playable tracks selected (need {minSongs} for {gridSize}×{gridSize}).
+          </p>
+        ) : (
+          <p className="text-amber-300" role="status">
+            Select {tracksNeeded} more playable track{tracksNeeded === 1 ? '' : 's'} to create a{' '}
+            {gridSize}×{gridSize} game ({playableSelected}/{minSongs} selected).
+          </p>
+        )}
+        {!name.trim() ? (
+          <p className="text-white/40 text-xs mt-1">Playlist name optional — defaults to “Media Bingo”.</p>
+        ) : null}
+      </div>
 
       <button
         type="submit"
-        disabled={loading || !canSubmit}
+        disabled={loading}
         className="w-full rounded-full bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-xl font-semibold py-4 px-8 shadow-xl shadow-emerald-500/40 transition-transform hover:scale-[1.02] disabled:hover:scale-100"
       >
         {loading ? 'Creating…' : 'Create game & get link'}

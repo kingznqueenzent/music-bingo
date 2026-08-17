@@ -48,6 +48,12 @@ export function HostCreateForm() {
       .map((url, i) => ({ index: i + 1, url, id: parseYoutubeId(url) }))
   }, [urlsText])
 
+  const validUrlCount = useMemo(
+    () => parsedSongs.filter((s) => !!s.id).length,
+    [parsedSongs]
+  )
+  const tracksNeeded = Math.max(0, minSongs - validUrlCount)
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -55,18 +61,32 @@ export function HostCreateForm() {
       .split(/[\n\r]+/)
       .map((u) => u.trim())
       .filter(Boolean)
-    if (urls.length < minSongs) {
-      setError(`Add at least ${minSongs} YouTube links for a ${gridSize}×${gridSize} grid (got ${urls.length}).`)
+    const validUrls = urls.filter((u) => !!parseYoutubeId(u))
+
+    console.log('Creating game with tracks:', {
+      rawCount: urls.length,
+      validCount: validUrls.length,
+      minSongs,
+      gridSize,
+      name: name || 'Music Bingo',
+      urls: validUrls,
+    })
+
+    if (validUrls.length < minSongs) {
+      setError(
+        `Add at least ${minSongs} valid YouTube links for a ${gridSize}×${gridSize} grid (got ${validUrls.length} valid of ${urls.length} lines).`
+      )
       return
     }
     setLoading(true)
     try {
-      const result = await createGame(name || 'Music Bingo', urls, {
+      const result = await createGame(name || 'Music Bingo', validUrls, {
         gridSize,
         tier,
         randomShuffle,
         winPattern,
       })
+      console.log('createGame result:', result)
       if (result.error) {
         setError(withSupabaseKeyHint(result.error))
         return
@@ -77,6 +97,7 @@ export function HostCreateForm() {
       }
       setError('Game was created but no room id was returned. Refresh and try again.')
     } catch (err) {
+      console.error('Create game failed:', err)
       setError(err instanceof Error ? err.message : 'Could not create game. Try again.')
     } finally {
       setLoading(false)
@@ -177,11 +198,27 @@ export function HostCreateForm() {
           </div>
         )}
       </div>
-      {error ? <p className="text-red-300">{error}</p> : null}
+      {error ? (
+        <p className="text-red-300 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-white/70">
+        {validUrlCount >= minSongs ? (
+          <p className="text-[#00FF66]">
+            Ready — {validUrlCount} valid YouTube links (need {minSongs} for {gridSize}×{gridSize}).
+          </p>
+        ) : (
+          <p className="text-amber-300" role="status">
+            Add {tracksNeeded} more valid YouTube link{tracksNeeded === 1 ? '' : 's'} ({validUrlCount}/
+            {minSongs}).
+          </p>
+        )}
+      </div>
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-full lg-neon-btn text-xl py-4 px-8 disabled:hover:scale-100"
+        className="w-full rounded-full lg-neon-btn text-xl py-4 px-8 disabled:hover:scale-100 disabled:opacity-60"
       >
         {loading ? 'Creating…' : 'Create game & get link'}
       </button>
