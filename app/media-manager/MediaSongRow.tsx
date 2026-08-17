@@ -162,7 +162,14 @@ function MediaSongRowInner({
                 inputClassName="text-white/70"
                 onSave={(next) => onInlineFieldSave(s.id, 'artist', next)}
               />
-              <p className="text-[10px] text-white/30 tabular-nums">{formatDuration(fullDur)}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[10px] text-white/30 tabular-nums">{formatDuration(fullDur)}</p>
+                {s.genre ? (
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#00FF66]/80 border border-[#00FF66]/25 rounded px-1.5 py-0.5">
+                    {s.genre}
+                  </span>
+                ) : null}
+              </div>
             </>
           )}
 

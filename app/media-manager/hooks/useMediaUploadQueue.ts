@@ -13,6 +13,13 @@ import {
   fetchAutoCategory,
   mapAutoCategoryToFormFields,
 } from '@/lib/media/apply-auto-category-to-track'
+import {
+  detectGenreFromText,
+  inferGenreFromThemeName,
+  libraryGenreToThemeGenre,
+  normalizeGenreLabel,
+  type LibraryGenre,
+} from '@/lib/media/detect-genre'
 import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
 import type { GameTier } from '@/lib/tiers'
 import {
@@ -67,7 +74,17 @@ async function insertSongRow(
   const { error: insertError } = await supabase.from('songs').insert([payload])
   if (!insertError) return
 
+  // Pre-migration: songs.genre may not exist yet.
+  if (payload.genre != null && /genre|column|schema cache/i.test(insertError.message)) {
+    const { genre: _genre, ...withoutGenre } = payload
+    const retry = await supabase.from('songs').insert([withoutGenre])
+    if (!retry.error) return
+    if (!res.ok) throw new Error(body.error ?? retry.error.message)
+    throw new Error(retry.error.message)
+  }
+
   if (!res.ok) throw new Error(body.error ?? insertError.message)
+  throw new Error(insertError.message)
 }
 
 async function insertMediaLibraryBestEffort(
@@ -104,14 +121,25 @@ async function buildSongPayload(
   storagePath: string,
   ext: 'mp3' | 'mp4',
   uploadThemeId: string,
+  uploadGenre: string,
   themes: ThemeLike[]
 ): Promise<SongInsertPayload> {
   const selectedThemeId = uploadThemeId.trim() || null
+  const selectedGenre =
+    uploadGenre.trim() && uploadGenre !== 'auto'
+      ? normalizeGenreLabel(uploadGenre)
+      : null
   const meta = await extractMediaMetadata(file)
   let title = meta.title
   let artist = meta.artist
   let year = meta.year
   let themeId = selectedThemeId
+  let genre: string | null =
+    selectedGenre && selectedGenre !== 'Other'
+      ? selectedGenre
+      : meta.genre && meta.genre !== 'Other'
+        ? meta.genre
+        : detectGenreFromText(file.name, meta.title, meta.artist)
 
   if (!selectedThemeId) {
     const auto = await fetchAutoCategory(file.name)
@@ -121,8 +149,27 @@ async function buildSongPayload(
       if (!artist) artist = filled.artist || null
       if (!year) year = filled.year || null
       themeId = filled.theme_id || null
+      if (!genre && filled.theme_name) {
+        genre = inferGenreFromThemeName(filled.theme_name)
+      }
+    }
+  } else if (!genre) {
+    const themeName = themes.find((t) => t.id === selectedThemeId)?.name
+    genre = inferGenreFromThemeName(themeName)
+  }
+
+  // When host picked a genre but no theme, try to land on a matching decade theme.
+  if (!themeId && genre && genre !== 'Other' && year) {
+    const auto = await fetchAutoCategory(
+      `${file.name} ${libraryGenreToThemeGenre(genre as LibraryGenre)}`
+    )
+    if (auto) {
+      const filled = mapAutoCategoryToFormFields(auto, themes)
+      themeId = filled.theme_id || null
     }
   }
+
+  if (!genre) genre = 'Other'
 
   const fileDurationSec = await probeMediaDuration(file)
 
@@ -131,6 +178,7 @@ async function buildSongPayload(
     artist,
     year,
     theme_id: themeId,
+    genre,
     media_url: mediaUrl,
     storage_path: storagePath,
     media_type: ext === 'mp4' ? 'video' : 'audio',
@@ -148,6 +196,7 @@ export function useMediaUploadQueue({
   supabase,
   themes,
   uploadThemeId,
+  uploadGenre = 'auto',
   onBatchComplete,
   onError,
   trackQuota,
@@ -155,6 +204,8 @@ export function useMediaUploadQueue({
   supabase: SupabaseClient
   themes: ThemeLike[]
   uploadThemeId: string
+  /** `auto` = detect from metadata/filename; otherwise a library genre label. */
+  uploadGenre?: string
   onBatchComplete: () => void
   onError: (message: string) => void
   trackQuota?: TrackQuotaGate
@@ -167,6 +218,8 @@ export function useMediaUploadQueue({
   itemsRef.current = items
   const themeIdRef = useRef(uploadThemeId)
   themeIdRef.current = uploadThemeId
+  const genreRef = useRef(uploadGenre)
+  genreRef.current = uploadGenre
   const themesRef = useRef(themes)
   themesRef.current = themes
   const trackQuotaRef = useRef(trackQuota)
@@ -213,6 +266,7 @@ export function useMediaUploadQueue({
           uploaded.path,
           uploaded.ext,
           themeIdRef.current,
+          genreRef.current,
           themesRef.current
         )
 

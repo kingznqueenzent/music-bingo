@@ -1,10 +1,13 @@
 import { parseBlob } from 'music-metadata'
+import { normalizeGenreLabel } from '@/lib/media/detect-genre'
 import { cleanSongTitle, parseArtistTitle } from '@/lib/songAutoCategorizer'
 
 export type ExtractedMediaMeta = {
   title: string
   artist: string | null
   year: number | null
+  /** Normalized library genre from ID3 genre tag when present. */
+  genre: string | null
   /** True when title/artist came from ID3 (or container tags), not filename. */
   fromTags: boolean
 }
@@ -17,6 +20,7 @@ export async function extractMediaMetadata(file: File): Promise<ExtractedMediaMe
   let title = fromName.title || file.name.replace(/\.[^.]+$/, '')
   let artist = fromName.artist
   let year: number | null = null
+  let genre: string | null = null
   let fromTags = false
 
   try {
@@ -42,9 +46,13 @@ export async function extractMediaMetadata(file: File): Promise<ExtractedMediaMe
       const y = Number.parseInt(String(common.date).slice(0, 4), 10)
       if (Number.isFinite(y) && y >= 1900 && y <= 2100) year = y
     }
+    const tagGenre = common.genre?.find((g) => g?.trim())?.trim()
+    if (tagGenre) {
+      genre = normalizeGenreLabel(tagGenre)
+    }
   } catch {
     // Filename fallback already applied
   }
 
-  return { title, artist, year, fromTags }
+  return { title, artist, year, genre, fromTags }
 }

@@ -16,6 +16,11 @@ import {
   type BatchThemeFilter,
 } from '@/app/media-manager/MediaManagerFilterBar'
 import type { CatalogSong } from '@/app/media-manager/types'
+import {
+  LIBRARY_GENRE_FILTERS,
+  type LibraryGenreFilterId,
+  songMatchesGenreFilter,
+} from '@/lib/media/detect-genre'
 import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { type GameTier, TIER_FEATURE_LABELS } from '@/lib/tiers'
@@ -63,6 +68,7 @@ function CreateFromMediaFormInner() {
   const [name, setName] = useState('')
   const [search, setSearch] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
+  const [genreFilter, setGenreFilter] = useState<LibraryGenreFilterId>('all')
   const [gridSize, setGridSize] = useState<4 | 5>(5)
   const [tier, setTier] = useState<GameTier>('pro')
   const [randomShuffle, setRandomShuffle] = useState(false)
@@ -80,15 +86,26 @@ function CreateFromMediaFormInner() {
       list = list.filter((s) => s.theme_id === themeFromUrl)
     }
     const byTheme = filterSongsByBatchTheme(list, themeNameById, batchFilter) as CatalogSongListItem[]
+    const byGenre =
+      genreFilter === 'all'
+        ? byTheme
+        : byTheme.filter((s) =>
+            songMatchesGenreFilter(
+              s,
+              s.theme_id ? themeNameById.get(s.theme_id) : null,
+              genreFilter
+            )
+          )
     const q = search.trim().toLowerCase()
-    if (!q) return byTheme
-    return byTheme.filter((s) => {
+    if (!q) return byGenre
+    return byGenre.filter((s) => {
       const title = s.title.toLowerCase()
       const artist = (s.artist ?? '').toLowerCase()
+      const genre = (s.genre ?? '').toLowerCase()
       const theme = (s.theme_id ? themeNameById.get(s.theme_id) ?? '' : '').toLowerCase()
-      return title.includes(q) || artist.includes(q) || theme.includes(q)
+      return title.includes(q) || artist.includes(q) || theme.includes(q) || genre.includes(q)
     })
-  }, [items, search, batchFilter, themeNameById, themeFromUrl])
+  }, [items, search, batchFilter, genreFilter, themeNameById, themeFromUrl])
 
   const selectedThemeName = themeFromUrl ? themeNameById.get(themeFromUrl) ?? null : null
 
@@ -337,6 +354,28 @@ function CreateFromMediaFormInner() {
           spellCheck={false}
         />
 
+        <div className="flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Genre filter">
+          {LIBRARY_GENRE_FILTERS.map((pill) => {
+            const active = genreFilter === pill.id
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setGenreFilter(pill.id)}
+                className={`rounded-lg px-3 py-2 min-h-10 text-sm font-medium border transition-colors touch-manipulation ${
+                  active
+                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
+                    : 'bg-slate-800/60 border-slate-600 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {pill.label}
+              </button>
+            )
+          })}
+        </div>
+
         <div className="flex flex-wrap gap-2 mb-3" role="group" aria-label="Theme filter">
           {BATCH_THEME_PILLS.map((pill) => {
             const active = batchFilter === pill.id
@@ -377,8 +416,9 @@ function CreateFromMediaFormInner() {
             onClear={() => {
               setSearch('')
               setBatchFilter('all')
+              setGenreFilter('all')
             }}
-            message="No catalog tracks match your search or theme filter."
+            message="No catalog tracks match your search or genre filter."
           />
         ) : (
           <ul className="max-h-[min(28rem,55dvh)] overflow-y-auto overscroll-contain space-y-1 -mx-1 px-1">

@@ -27,6 +27,8 @@ function buildUpdatePayload(body: Record<string, unknown>): Record<string, unkno
     artist: body.artist !== undefined ? (body.artist ? String(body.artist) : null) : undefined,
     year: body.year !== undefined ? (body.year != null ? Number(body.year) : null) : undefined,
     theme_id: body.theme_id !== undefined ? (body.theme_id ? String(body.theme_id) : null) : undefined,
+    genre:
+      body.genre !== undefined ? (body.genre ? String(body.genre).trim() : null) : undefined,
     media_url: body.media_url !== undefined ? (body.media_url ? String(body.media_url) : null) : undefined,
     storage_path:
       body.storage_path !== undefined ? (body.storage_path ? String(body.storage_path) : null) : undefined,

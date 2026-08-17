@@ -1,11 +1,13 @@
 'use client'
 
 import { Search, SlidersHorizontal, X } from 'lucide-react'
+import {
+  LIBRARY_GENRE_FILTERS,
+  type LibraryGenreFilterId,
+} from '@/lib/media/detect-genre'
 import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
 
-const BG = 'var(--lg-canvas)'
-const SURFACE = 'var(--lg-surface)'
 const NEON = 'var(--lg-neon)'
 
 export type BatchThemeFilter = 'all' | 'country' | 'rock' | 'billboard'
@@ -22,6 +24,8 @@ export type MediaManagerFilterBarProps = {
   onSearchChange: (value: string) => void
   batchFilter: BatchThemeFilter
   onBatchFilterChange: (value: BatchThemeFilter) => void
+  genreFilter: LibraryGenreFilterId
+  onGenreFilterChange: (value: LibraryGenreFilterId) => void
   selectedThemeId: string
   onThemeChange: (themeId: string) => void
   themes: CatalogTheme[]
@@ -37,6 +41,8 @@ export function MediaManagerFilterBar({
   onSearchChange,
   batchFilter,
   onBatchFilterChange,
+  genreFilter,
+  onGenreFilterChange,
   selectedThemeId,
   onThemeChange,
   themes,
@@ -107,6 +113,31 @@ export function MediaManagerFilterBar({
       </div>
 
       <div className="space-y-2">
+        <p className="text-[10px] uppercase tracking-wider text-gray-500">Genre</p>
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Genre filters">
+          {LIBRARY_GENRE_FILTERS.map((pill) => {
+            const active = genreFilter === pill.id
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onGenreFilterChange(pill.id)}
+                className={`px-3 py-2 min-h-10 rounded-lg text-xs font-semibold border transition-colors touch-manipulation ${
+                  active
+                    ? 'border-[var(--lg-neon)]/60 bg-[var(--lg-neon)]/10 text-[var(--lg-neon)]'
+                    : 'border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'
+                }`}
+              >
+                {pill.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-wider text-gray-500">Quick filters</p>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Batch theme filters">
           {BATCH_THEME_PILLS.map((pill) => {
@@ -137,6 +168,7 @@ export function MediaManagerFilterBar({
           <>
             Showing <span style={{ color: NEON }}>{resultCount}</span> of {totalCount} tracks
             {searchQuery.trim() ? ' · search active' : ''}
+            {genreFilter !== 'all' ? ` · ${genreFilter === 'other' ? 'other' : genreFilter} genre` : ''}
             {batchFilter !== 'all' ? ` · ${batchFilter} filter` : ''}
             {selectedThemeId ? ' · theme selected' : ''}
           </>

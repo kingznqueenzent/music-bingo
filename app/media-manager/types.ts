@@ -10,6 +10,8 @@ export type CatalogSong = {
   artist: string | null
   year: number | null
   theme_id: string | null
+  /** Library genre tag (Reggae, Dancehall, Afrobeats, Hip-Hop, R&B, Other). */
+  genre?: string | null
   media_type: string
   media_url: string | null
   storage_path?: string | null
@@ -24,6 +26,7 @@ export type SongUpdatePayload = {
   artist: string | null
   year: number | null
   theme_id: string | null
+  genre?: string | null
   media_url: string | null
   storage_path?: string | null
   youtube_url: string | null
@@ -38,6 +41,7 @@ export type SongInsertPayload = {
   artist: string | null
   year: number | null
   theme_id: string | null
+  genre?: string | null
   media_url: string
   storage_path: string
   media_type: 'audio' | 'video'

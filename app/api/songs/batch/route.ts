@@ -22,6 +22,7 @@ type BatchSongInput = {
   artist?: string | null
   year?: number | null
   theme_id?: string | null
+  genre?: string | null
   youtube_url?: string | null
   media_url?: string | null
   start_time_sec?: number
@@ -53,6 +54,7 @@ export async function POST(request: NextRequest) {
     artist: row.artist ? String(row.artist).trim() : null,
     year: row.year != null ? Number(row.year) : null,
     theme_id: row.theme_id ? String(row.theme_id) : null,
+    genre: row.genre != null && String(row.genre).trim() ? String(row.genre).trim() : null,
     youtube_url: row.youtube_url ? String(row.youtube_url).trim() : null,
     media_url: row.media_url ? String(row.media_url).trim() : null,
     start_time_sec: Number(row.start_time_sec ?? 0),

@@ -1,35 +1,18 @@
 import {
   decadeLabelFromYear,
   themeNameFromYearAndGenre,
-  type DecadeGenre7070,
 } from '@/lib/decade-theme-catalog'
+import {
+  detectGenreFromText,
+  libraryGenreToThemeGenre,
+  type LibraryGenre,
+} from '@/lib/media/detect-genre'
 
 export interface AutoCategoryResult {
   theme_name: string | null
   year: number | null
   artist: string | null
   cleanTitle: string
-}
-
-/** Map filename/title keywords to LyricGrid genre labels. */
-const KEYWORD_GENRE_MAP: Record<string, DecadeGenre7070 | 'Afrobeats' | 'Rock' | 'Dance'> = {
-  country: 'Country',
-  'r&b': 'R&B',
-  rnb: 'R&B',
-  soul: 'R&B',
-  throwback: 'R&B',
-  'hip-hop': 'Hip-Hop',
-  hiphop: 'Hip-Hop',
-  rap: 'Hip-Hop',
-  reggae: 'Reggae',
-  dancehall: 'Dancehall Reggae',
-  soca: 'Dancehall Reggae',
-  funk: 'Funk',
-  pop: 'Pop',
-  afrobeats: 'Afrobeats',
-  afro: 'Afrobeats',
-  rock: 'Rock',
-  dance: 'Dance',
 }
 
 const DECADE_KEYWORDS = ['50s', '60s', '70s', '80s', '90s', '2000s', '2010s', '2020s'] as const
@@ -56,11 +39,9 @@ export function parseArtistTitle(cleanTitle: string): { artist: string | null; t
 }
 
 function matchGenreFromKeywords(text: string): string | null {
-  const lower = text.toLowerCase()
-  for (const [keyword, genre] of Object.entries(KEYWORD_GENRE_MAP)) {
-    if (lower.includes(keyword)) return genre
-  }
-  return null
+  const library = detectGenreFromText(text)
+  if (!library) return null
+  return libraryGenreToThemeGenre(library as LibraryGenre)
 }
 
 function matchDecadeFromKeywords(text: string): string | null {

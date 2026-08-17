@@ -19,6 +19,7 @@ import {
   type TrackQuotaGate,
   type UploadQueueItem,
 } from './hooks/useMediaUploadQueue'
+import { LIBRARY_GENRES } from '@/lib/media/detect-genre'
 import type { CatalogTheme } from './types'
 
 const SURFACE = 'var(--lg-surface)'
@@ -31,6 +32,8 @@ export type MediaUploadDropzoneProps = {
   themes: CatalogTheme[]
   uploadThemeId: string
   onUploadThemeIdChange: (id: string) => void
+  uploadGenre: string
+  onUploadGenreChange: (genre: string) => void
   onUploaded: () => void
   onError: (message: string) => void
   themeCounts?: Record<string, number>
@@ -63,6 +66,8 @@ export function MediaUploadDropzone({
   themes,
   uploadThemeId,
   onUploadThemeIdChange,
+  uploadGenre,
+  onUploadGenreChange,
   onUploaded,
   onError,
   themeCounts,
@@ -88,6 +93,7 @@ export function MediaUploadDropzone({
     supabase,
     themes,
     uploadThemeId,
+    uploadGenre,
     onBatchComplete: onUploaded,
     onError,
     trackQuota,
@@ -126,6 +132,31 @@ export function MediaUploadDropzone({
           disabled={running}
           aria-label="Target theme for uploads"
         />
+      </div>
+
+      <div>
+        <label
+          htmlFor="upload-genre"
+          className="block text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-2 px-1"
+        >
+          Genre tag
+        </label>
+        <select
+          id="upload-genre"
+          value={uploadGenre}
+          onChange={(e) => onUploadGenreChange(e.target.value)}
+          disabled={running}
+          aria-label="Target genre for uploads"
+          className="w-full rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white min-h-11 disabled:opacity-50"
+        >
+          <option value="auto">Auto-detect from file / filename</option>
+          {LIBRARY_GENRES.map((g) => (
+            <option key={g} value={g}>
+              {g}
+            </option>
+          ))}
+          <option value="Other">Other</option>
+        </select>
       </div>
 
       <motion.div

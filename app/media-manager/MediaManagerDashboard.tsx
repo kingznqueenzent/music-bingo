@@ -41,6 +41,7 @@ import { MediaManagerUpgradeWall } from './MediaManagerUpgradeWall'
 import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { TrackQuotaUpgradeModal } from '@/components/media/TrackQuotaUpgradeModal'
+import type { LibraryGenreFilterId } from '@/lib/media/detect-genre'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = 'var(--lg-canvas)'
@@ -64,6 +65,7 @@ function buildUpdatePayload(form: Partial<CatalogSong>): SongUpdatePayload {
         ? null
         : Number(form.year),
     theme_id: form.theme_id ? String(form.theme_id).trim() : null,
+    genre: form.genre != null && String(form.genre).trim() ? String(form.genre).trim() : null,
     media_url: mediaUrl,
     storage_path: form.storage_path?.trim() || null,
     youtube_url: youtubeUrl,
@@ -181,9 +183,11 @@ function MediaManagerDashboardInner() {
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [batchFilter, setBatchFilter] = useState<BatchThemeFilter>('all')
+  const [libraryGenreFilter, setLibraryGenreFilter] = useState<LibraryGenreFilterId>('all')
   const [selectedThemeFilter, setSelectedThemeFilter] = useState(themeFromUrl)
   const [selectedGenreFilter, setSelectedGenreFilter] = useState('')
   const [uploadThemeId, setUploadThemeId] = useState(themeFromUrl)
+  const [uploadGenre, setUploadGenre] = useState('auto')
   const [removingDupes, setRemovingDupes] = useState(false)
   const [cleaningUnassigned, setCleaningUnassigned] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
@@ -231,7 +235,7 @@ function MediaManagerDashboardInner() {
 
   useEffect(() => {
     setDisplayLimit(PAGE_SIZE)
-  }, [searchQuery, batchFilter, selectedThemeFilter, selectedGenreFilter, libraryView])
+  }, [searchQuery, batchFilter, selectedThemeFilter, selectedGenreFilter, libraryGenreFilter, libraryView])
 
   const themeNameById = useMemo(() => new Map(themes.map((t) => [t.id, t.name])), [themes])
 
@@ -248,6 +252,7 @@ function MediaManagerDashboardInner() {
       libraryView,
       selectedThemeFilter,
       selectedGenreFilter,
+      libraryGenreFilter,
       searchQuery: '',
     })
     const byBatch = filterSongsByBatchTheme(byFilters, themeNameById, batchFilter)
@@ -256,6 +261,7 @@ function MediaManagerDashboardInner() {
     songs,
     selectedThemeFilter,
     selectedGenreFilter,
+    libraryGenreFilter,
     batchFilter,
     searchQuery,
     themeNameById,
@@ -274,6 +280,7 @@ function MediaManagerDashboardInner() {
     searchQuery.trim() !== '' ||
     selectedThemeFilter !== '' ||
     selectedGenreFilter !== '' ||
+    libraryGenreFilter !== 'all' ||
     batchFilter !== 'all' ||
     libraryView === 'uncategorized'
 
@@ -282,6 +289,17 @@ function MediaManagerDashboardInner() {
     if (next !== 'all') {
       setSelectedThemeFilter('')
       setSelectedGenreFilter('')
+      setLibraryGenreFilter('all')
+      setLibraryView('all')
+    }
+  }, [])
+
+  const handleLibraryGenreFilterChange = useCallback((next: LibraryGenreFilterId) => {
+    setLibraryGenreFilter(next)
+    setBatchFilter('all')
+    setSelectedGenreFilter('')
+    if (next !== 'all') {
+      setSelectedThemeFilter('')
       setLibraryView('all')
     }
   }, [])
@@ -290,6 +308,7 @@ function MediaManagerDashboardInner() {
     setSelectedThemeFilter(themeId)
     setBatchFilter('all')
     setSelectedGenreFilter('')
+    setLibraryGenreFilter('all')
     setLibraryView('all')
   }, [])
 
@@ -297,6 +316,7 @@ function MediaManagerDashboardInner() {
     setLibraryView((v) => (v === 'uncategorized' ? 'all' : 'uncategorized'))
     setSelectedThemeFilter('')
     setSelectedGenreFilter('')
+    setLibraryGenreFilter('all')
   }, [])
 
   const handleSelectTheme = useCallback((themeId: string) => {
@@ -309,16 +329,19 @@ function MediaManagerDashboardInner() {
       setLibraryView((v) => (v === 'uncategorized' ? 'all' : 'uncategorized'))
       setSelectedThemeFilter('')
       setSelectedGenreFilter('')
+      setLibraryGenreFilter('all')
       return
     }
     setLibraryView('all')
     setBatchFilter('all')
+    setLibraryGenreFilter('all')
     setSelectedThemeFilter((prev) => (prev === themeId ? '' : themeId))
   }, [])
 
   const handleSelectGenre = useCallback((genreLabel: string) => {
     setLibraryView('all')
     setSelectedGenreFilter(genreLabel)
+    setLibraryGenreFilter('all')
     setBatchFilter('all')
     if (genreLabel) setSelectedThemeFilter('')
   }, [])
@@ -748,6 +771,8 @@ function MediaManagerDashboardInner() {
         onSearchChange={setSearchInput}
         batchFilter={batchFilter}
         onBatchFilterChange={handleBatchFilterChange}
+        genreFilter={libraryGenreFilter}
+        onGenreFilterChange={handleLibraryGenreFilterChange}
         selectedThemeId={selectedThemeFilter}
         onThemeChange={handleThemeDropdownChange}
         themes={themes}
@@ -761,6 +786,7 @@ function MediaManagerDashboardInner() {
           setBatchFilter('all')
           setSelectedThemeFilter('')
           setSelectedGenreFilter('')
+          setLibraryGenreFilter('all')
           setLibraryView('all')
         }}
       />
@@ -778,7 +804,10 @@ function MediaManagerDashboardInner() {
             <MediaManagerFilterTabs
               libraryView={libraryView}
               allTracksActive={
-                libraryView === 'all' && !selectedThemeFilter && !selectedGenreFilter
+                libraryView === 'all' &&
+                !selectedThemeFilter &&
+                !selectedGenreFilter &&
+                libraryGenreFilter === 'all'
               }
               totalCount={songs.length}
               uncategorizedCount={themeCounts.uncategorized}
@@ -787,6 +816,7 @@ function MediaManagerDashboardInner() {
                 setLibraryView('all')
                 setSelectedThemeFilter('')
                 setSelectedGenreFilter('')
+                setLibraryGenreFilter('all')
               }}
               onToggleUncategorized={showUncategorizedOnly}
             />
@@ -808,6 +838,8 @@ function MediaManagerDashboardInner() {
             themes={themes}
             uploadThemeId={uploadThemeId}
             onUploadThemeIdChange={setUploadThemeId}
+            uploadGenre={uploadGenre}
+            onUploadGenreChange={setUploadGenre}
             onUploaded={() => void refetch()}
             onError={setError}
             themeCounts={themeCounts.counts}
@@ -838,6 +870,7 @@ function MediaManagerDashboardInner() {
             {(libraryView === 'uncategorized' ||
               selectedThemeFilter ||
               selectedGenreFilter ||
+              libraryGenreFilter !== 'all' ||
               batchFilter !== 'all' ||
               searchQuery.trim()) && (
               <p className="text-[11px] text-white/35 px-1">
@@ -845,7 +878,7 @@ function MediaManagerDashboardInner() {
                 {selectedThemeFilter && selectedThemeFilter !== 'uncategorized'
                   ? 'Theme filter · '
                   : ''}
-                {selectedGenreFilter ? 'Genre filter · ' : ''}
+                {selectedGenreFilter || libraryGenreFilter !== 'all' ? 'Genre filter · ' : ''}
                 {batchFilter !== 'all' ? `${batchFilter} batch · ` : ''}
                 {searchQuery.trim() ? 'Search · ' : ''}
                 {displayedSongs.length} of {filteredSongs.length} shown
@@ -877,6 +910,7 @@ function MediaManagerDashboardInner() {
                       setBatchFilter('all')
                       setSelectedThemeFilter('')
                       setSelectedGenreFilter('')
+                      setLibraryGenreFilter('all')
                       setLibraryView('all')
                     }}
                   />

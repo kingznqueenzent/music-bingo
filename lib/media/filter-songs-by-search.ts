@@ -9,6 +9,7 @@ export function buildSongSearchHaystack(
   return [
     song.title ?? '',
     song.artist ?? '',
+    song.genre ?? '',
     theme,
     song.media_url ?? '',
     song.youtube_url ?? '',

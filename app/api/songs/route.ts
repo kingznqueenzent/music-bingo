@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
         artist: body.artist ? String(body.artist).trim() : null,
         year: body.year != null ? Number(body.year) : null,
         theme_id: body.theme_id ? String(body.theme_id) : null,
+        genre: body.genre != null && String(body.genre).trim() ? String(body.genre).trim() : null,
         youtube_url: body.youtube_url ? String(body.youtube_url).trim() : null,
         media_url: body.media_url ? String(body.media_url).trim() : null,
         storage_path: body.storage_path ? String(body.storage_path).trim() : null,
@@ -92,6 +93,35 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    // Soft-fail genre until migration is applied on the project.
+    if (body.genre != null && /genre|column|schema cache/i.test(error.message)) {
+      const { data: fallback, error: fallbackError } = await supabase
+        .from('songs')
+        .insert([
+          {
+            title: String(body.title ?? '').trim(),
+            artist: body.artist ? String(body.artist).trim() : null,
+            year: body.year != null ? Number(body.year) : null,
+            theme_id: body.theme_id ? String(body.theme_id) : null,
+            youtube_url: body.youtube_url ? String(body.youtube_url).trim() : null,
+            media_url: body.media_url ? String(body.media_url).trim() : null,
+            storage_path: body.storage_path ? String(body.storage_path).trim() : null,
+            start_time_sec: Number(body.start_time_sec ?? 0),
+            duration_sec: Number(body.duration_sec ?? 35),
+            file_duration_sec:
+              body.file_duration_sec != null && body.file_duration_sec !== ''
+                ? Number(body.file_duration_sec)
+                : null,
+            media_type: body.youtube_url ? 'youtube' : String(body.media_type ?? 'audio'),
+          },
+        ])
+        .select()
+        .single()
+      if (fallbackError) return NextResponse.json({ error: fallbackError.message }, { status: 500 })
+      return NextResponse.json({ song: fallback })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ song: data })
 }
