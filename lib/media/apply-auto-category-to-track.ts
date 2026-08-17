@@ -27,17 +27,25 @@ export function mapAutoCategoryToFormFields(
   }
 }
 
+const AUTO_CATEGORY_TIMEOUT_MS = 12_000
+
 /** Client-side: call host API to auto-categorize a raw filename/title. */
 export async function fetchAutoCategory(rawTitle: string): Promise<AutoCategoryResult | null> {
-  const res = await fetch('/api/songs/auto-categorize', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title: rawTitle }),
-  })
+  try {
+    const res = await fetch('/api/songs/auto-categorize', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: rawTitle }),
+      signal: AbortSignal.timeout(AUTO_CATEGORY_TIMEOUT_MS),
+    })
 
-  if (!res.ok) return null
+    if (!res.ok) return null
 
-  const body = (await res.json()) as { results?: AutoCategoryResult[] }
-  return body.results?.[0] ?? null
+    const body = (await res.json()) as { results?: AutoCategoryResult[] }
+    return body.results?.[0] ?? null
+  } catch (e) {
+    console.warn('[fetchAutoCategory] skipped:', e instanceof Error ? e.message : e)
+    return null
+  }
 }

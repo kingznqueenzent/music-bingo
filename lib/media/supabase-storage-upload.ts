@@ -14,6 +14,21 @@ export const MEDIA_BUCKET =
 
 export const MAX_UPLOAD_MB = 100
 
+/** MIME types accepted by the media bucket / upload path (plus browser variants). */
+export const MEDIA_ALLOWED_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/wave',
+  'audio/aac',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/m4a',
+  'video/mp4',
+  'application/octet-stream',
+] as const
+
 export type ValidMediaFile = {
   ext: 'mp3' | 'mp4'
 }
@@ -27,6 +42,15 @@ export function validateMediaFile(file: File): ValidMediaFile | { error: string 
     return { error: `File too large. Max ${MAX_UPLOAD_MB} MB.` }
   }
   return { ext }
+}
+
+/** Prefer a real Content-Type; browsers often send empty or octet-stream for MP3. */
+export function resolveMediaContentType(file: File, ext: 'mp3' | 'mp4'): string {
+  const raw = (file.type || '').trim().toLowerCase()
+  if (raw && raw !== 'application/octet-stream') {
+    return raw
+  }
+  return ext === 'mp3' ? 'audio/mpeg' : 'video/mp4'
 }
 
 export type DirectStorageUploadResult = {
@@ -50,20 +74,35 @@ export async function uploadMediaToStorage(
 
   const bucket = options?.bucket ?? MEDIA_BUCKET
   const path = buildSanitizedStoragePath(file.name, validated.ext)
-  const contentType = file.type || (validated.ext === 'mp3' ? 'audio/mpeg' : 'video/mp4')
+  const contentType = resolveMediaContentType(file, validated.ext)
 
-  const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
-    contentType,
-    upsert: false,
-    cacheControl: '3600',
-  })
+  try {
+    console.info('[uploadMediaToStorage]', {
+      name: file.name,
+      size: file.size,
+      contentType,
+      path,
+      bucket,
+    })
 
-  if (uploadError) {
-    throw new Error(uploadError.message || 'Storage upload failed')
+    const { error: uploadError } = await supabase.storage.from(bucket).upload(path, file, {
+      contentType,
+      upsert: false,
+      cacheControl: '3600',
+    })
+
+    if (uploadError) {
+      console.error('[uploadMediaToStorage] storage error', uploadError)
+      throw new Error(uploadError.message || 'Storage upload failed')
+    }
+
+    const publicUrl = await resolveStorageUrl(supabase, bucket, path)
+    return { path, publicUrl, ext: validated.ext, bucket }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Storage upload failed'
+    console.error('[uploadMediaToStorage] failed', { path, bucket, message })
+    throw e instanceof Error ? e : new Error(message)
   }
-
-  const publicUrl = await resolveStorageUrl(supabase, bucket, path)
-  return { path, publicUrl, ext: validated.ext, bucket }
 }
 
 /** Prefer public URL; fall back to a 1-year signed URL for private buckets. */

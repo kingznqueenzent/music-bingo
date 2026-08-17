@@ -13,6 +13,8 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "100mb",
     },
+    /** Avoid silent truncation of large FormData when the proxy clones the body. */
+    proxyClientMaxBodySize: "100mb",
   },
   images: {
     formats: ["image/avif", "image/webp"],

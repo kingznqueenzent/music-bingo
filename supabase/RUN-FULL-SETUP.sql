@@ -259,9 +259,30 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.media_library TO anon, authentica
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.leaderboard TO anon, authenticated;
 
 -- ========== 7. STORAGE BUCKET (media) – safe to re-run ==========
-insert into storage.buckets (id, name, public)
-values ('media', 'media', true)
-on conflict (id) do nothing;
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'media',
+  'media',
+  true,
+  104857600,
+  array[
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/wave',
+    'audio/aac',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/m4a',
+    'video/mp4',
+    'application/octet-stream'
+  ]
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 do $$
 begin

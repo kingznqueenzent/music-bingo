@@ -375,12 +375,31 @@ export function useMediaUploadQueue({
       setRunning(true)
 
       let anyOk = false
-      for (const item of next) {
-        const ok = await processItem(item)
-        if (ok) anyOk = true
+      let failCount = 0
+      try {
+        for (const item of next) {
+          const ok = await processItem(item)
+          if (ok) anyOk = true
+          else failCount += 1
+        }
+      } finally {
+        setRunning(false)
       }
 
-      setRunning(false)
+      if (failCount > 0) {
+        const firstFailed = itemsRef.current.find(
+          (it) => batchIds.includes(it.id) && it.status === 'error'
+        )
+        const detail = firstFailed?.error ? ` ${firstFailed.error}` : ''
+        onError(
+          failCount === next.length
+            ? `All ${failCount} upload(s) failed.${detail}`
+            : `${failCount} of ${next.length} upload(s) failed.${detail}`
+        )
+      } else if (anyOk) {
+        onError('')
+      }
+
       if (anyOk) onBatchComplete()
     },
     [onError, onBatchComplete, processItem]
@@ -399,9 +418,19 @@ export function useMediaUploadQueue({
       onError('')
       const pending = { ...item, status: 'pending' as const, error: null }
       patchItem(id, { status: 'pending', error: null })
-      const ok = await processItem(pending)
-      setRunning(false)
-      if (ok) onBatchComplete()
+      let ok = false
+      try {
+        ok = await processItem(pending)
+      } finally {
+        setRunning(false)
+      }
+      if (!ok) {
+        const err =
+          itemsRef.current.find((it) => it.id === id)?.error ?? 'Upload failed'
+        onError(err)
+        return
+      }
+      onBatchComplete()
     },
     [running, onError, onBatchComplete, patchItem, processItem]
   )
@@ -412,13 +441,21 @@ export function useMediaUploadQueue({
     setRunning(true)
     onError('')
     let anyOk = false
-    for (const item of failed) {
-      const pending = { ...item, status: 'pending' as const, error: null }
-      patchItem(item.id, { status: 'pending', error: null })
-      const ok = await processItem(pending)
-      if (ok) anyOk = true
+    let failCount = 0
+    try {
+      for (const item of failed) {
+        const pending = { ...item, status: 'pending' as const, error: null }
+        patchItem(item.id, { status: 'pending', error: null })
+        const ok = await processItem(pending)
+        if (ok) anyOk = true
+        else failCount += 1
+      }
+    } finally {
+      setRunning(false)
     }
-    setRunning(false)
+    if (failCount > 0) {
+      onError(`${failCount} retry(ies) still failed. Check the queue for details.`)
+    }
     if (anyOk) onBatchComplete()
   }, [running, onError, onBatchComplete, patchItem, processItem])
 

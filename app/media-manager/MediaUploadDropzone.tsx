@@ -104,6 +104,15 @@ export function MediaUploadDropzone({
       ? Math.round(((batchStats.completed + batchStats.error) / batchStats.total) * 100)
       : 0
 
+  /** 1-based index of the file currently uploading (or next pending). */
+  const uploadingFileNumber =
+    batchStats.total > 0
+      ? Math.min(
+          batchStats.completed + batchStats.error + (batchStats.uploading > 0 ? 1 : 0),
+          batchStats.total
+        ) || 1
+      : 0
+
   return (
     <section className="space-y-3 min-w-0">
       {quotaLabel ? (
@@ -212,8 +221,12 @@ export function MediaUploadDropzone({
           <div className="flex flex-col items-center gap-3 text-gray-300 w-full max-w-md mx-auto">
             <Loader2 className="w-10 h-10 animate-spin" style={{ color: NEON }} />
             <p className="text-sm font-medium text-white">
-              Uploading {batchStats.completed} of {batchStats.total} file
-              {batchStats.total === 1 ? '' : 's'}…
+              Uploading file {uploadingFileNumber} of {batchStats.total}…
+            </p>
+            <p className="text-[11px] text-white/50 tabular-nums">
+              {batchStats.completed} done
+              {batchStats.error > 0 ? ` · ${batchStats.error} failed` : ''}
+              {batchStats.pending > 0 ? ` · ${batchStats.pending} waiting` : ''}
             </p>
             <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
               <div

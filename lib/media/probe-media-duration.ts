@@ -1,3 +1,6 @@
+/** Default max wait for browser media element metadata (avoids forever-pending uploads). */
+const PROBE_TIMEOUT_MS = 8_000
+
 /** Probe local MP3/MP4 duration in the browser before upload. */
 export function probeMediaDuration(file: File): Promise<number | null> {
   return new Promise((resolve) => {
@@ -7,17 +10,27 @@ export function probeMediaDuration(file: File): Promise<number | null> {
     const el = document.createElement(isVideo ? 'video' : 'audio')
     el.preload = 'metadata'
 
-    const cleanup = () => URL.revokeObjectURL(url)
+    let settled = false
+    const finish = (value: number | null) => {
+      if (settled) return
+      settled = true
+      window.clearTimeout(timer)
+      URL.revokeObjectURL(url)
+      el.removeAttribute('src')
+      el.load()
+      resolve(value)
+    }
+
+    const timer = window.setTimeout(() => {
+      console.warn('[probeMediaDuration] timed out after', PROBE_TIMEOUT_MS, 'ms for', file.name)
+      finish(null)
+    }, PROBE_TIMEOUT_MS)
 
     el.onloadedmetadata = () => {
-      cleanup()
       const seconds = el.duration
-      resolve(Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds) : null)
+      finish(Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds) : null)
     }
-    el.onerror = () => {
-      cleanup()
-      resolve(null)
-    }
+    el.onerror = () => finish(null)
 
     el.src = url
   })

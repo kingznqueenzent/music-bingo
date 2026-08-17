@@ -841,7 +841,10 @@ function MediaManagerDashboardInner() {
             uploadGenre={uploadGenre}
             onUploadGenreChange={setUploadGenre}
             onUploaded={() => void refetch()}
-            onError={setError}
+            onError={(message) => {
+              setError(message)
+              if (message.trim()) showToast('error', message)
+            }}
             themeCounts={themeCounts.counts}
             trackQuota={trackQuotaGate}
             quotaLabel={hostTier.label}
