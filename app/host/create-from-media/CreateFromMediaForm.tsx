@@ -80,7 +80,8 @@ function CreateFromMediaFormInner() {
 
   const minSongs = gridSize === 5 ? MIN_5X5 : MIN_4X4
 
-  const filteredItems = useMemo(() => {
+  /** Matches search/genre/theme filters — may include metadata-only (no media) rows. */
+  const matchedItems = useMemo(() => {
     let list = items as CatalogSong[]
     if (themeFromUrl) {
       list = list.filter((s) => s.theme_id === themeFromUrl)
@@ -106,6 +107,13 @@ function CreateFromMediaFormInner() {
       return title.includes(q) || artist.includes(q) || theme.includes(q) || genre.includes(q)
     })
   }, [items, search, batchFilter, genreFilter, themeNameById, themeFromUrl])
+
+  // Host create only lists playable tracks — Reggae/etc. theme seeds often have titles but no media/YouTube.
+  const filteredItems = useMemo(
+    () => matchedItems.filter(songHasPlayableSource),
+    [matchedItems]
+  )
+  const matchedUnplayableCount = matchedItems.length - filteredItems.length
 
   const selectedThemeName = themeFromUrl ? themeNameById.get(themeFromUrl) ?? null : null
 
@@ -411,35 +419,46 @@ function CreateFromMediaFormInner() {
         ) : null}
 
         {!loadingList && items.length > 0 && filteredItems.length === 0 ? (
-          <LibrarySearchEmpty
-            query={search}
-            onClear={() => {
-              setSearch('')
-              setBatchFilter('all')
-              setGenreFilter('all')
-            }}
-            message="No catalog tracks match your search or genre filter."
-          />
+          <div className="space-y-3">
+            <LibrarySearchEmpty
+              query={search || (genreFilter !== 'all' ? String(genreFilter) : '')}
+              onClear={() => {
+                setSearch('')
+                setBatchFilter('all')
+                setGenreFilter('all')
+              }}
+              message={
+                matchedUnplayableCount > 0
+                  ? `Found ${matchedUnplayableCount} catalog title${matchedUnplayableCount === 1 ? '' : 's'} with no audio or YouTube link — they can’t be used for a game yet.`
+                  : 'No playable tracks match your search or genre filter.'
+              }
+            />
+            {matchedUnplayableCount > 0 ? (
+              <p className="text-slate-500 text-sm text-center px-4 pb-2">
+                Attach files or YouTube URLs in{' '}
+                <Link href="/media-manager" className="text-emerald-400 hover:underline">
+                  Media Manager
+                </Link>
+                , then refresh this list.
+              </p>
+            ) : null}
+          </div>
         ) : (
           <ul className="max-h-[min(28rem,55dvh)] overflow-y-auto overscroll-contain space-y-1 -mx-1 px-1">
             {filteredItems.map((item) => {
-              const playable = songHasPlayableSource(item)
               const label = item.artist ? `${item.title} — ${item.artist}` : item.title
               const theme = item.theme_id ? themeNameById.get(item.theme_id) : null
               return (
                 <li
                   key={item.id}
-                  className={`flex items-center gap-2 py-2.5 px-3 rounded-lg hover:bg-slate-800/50 min-w-0 ${
-                    !playable ? 'opacity-50' : ''
-                  }`}
+                  className="flex items-center gap-2 py-2.5 px-3 rounded-lg hover:bg-slate-800/50 min-w-0"
                 >
                   <label className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={selected.has(item.id)}
                       onChange={() => toggle(item.id)}
-                      disabled={!playable}
-                      className="rounded border-slate-500 text-emerald-500 focus:ring-emerald-500 shrink-0 disabled:opacity-40 min-h-5 min-w-5"
+                      className="rounded border-slate-500 text-emerald-500 focus:ring-emerald-500 shrink-0 min-h-5 min-w-5"
                     />
                     <span className="flex-1 min-w-0">
                       <span className="text-slate-200 block truncate" title={label}>
@@ -449,9 +468,7 @@ function CreateFromMediaFormInner() {
                         <span className="text-slate-500 text-xs truncate block">{theme}</span>
                       ) : null}
                     </span>
-                    <span className="text-slate-500 text-xs shrink-0 uppercase">
-                      {playable ? item.media_type : 'no media'}
-                    </span>
+                    <span className="text-slate-500 text-xs shrink-0 uppercase">{item.media_type}</span>
                   </label>
                 </li>
               )
@@ -460,8 +477,11 @@ function CreateFromMediaFormInner() {
         )}
         {filteredItems.length > 0 ? (
           <p className="text-slate-500 text-xs mt-3">
-            Showing {filteredItems.length} of {items.length} catalog tracks
-            {search.trim() || batchFilter !== 'all' ? ' (filtered)' : ''}
+            Showing {filteredItems.length} playable track{filteredItems.length === 1 ? '' : 's'}
+            {matchedUnplayableCount > 0
+              ? ` · hid ${matchedUnplayableCount} with no media`
+              : ` of ${playableCount} playable in catalog`}
+            {search.trim() || batchFilter !== 'all' || genreFilter !== 'all' ? ' (filtered)' : ''}
           </p>
         ) : null}
       </div>
