@@ -29,7 +29,9 @@ export function KingzVideoGallery() {
           Video Highlights
         </h2>
         <p className="text-[#b0b0b0] mt-4 max-w-xl mx-auto">
-          Cinematic recaps from weddings, galas, and live sets.
+          {VIDEO_GALLERY.some((video) => video.embedUrl)
+            ? 'Cinematic recaps from weddings, galas, and live sets.'
+            : 'Coming soon — performance videos will appear here. Watch us live on TikTok and YouTube in the meantime.'}
         </p>
       </div>
 

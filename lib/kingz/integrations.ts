@@ -15,6 +15,10 @@ export const PATREON_URL = siteConfig.support.patreon as string
 
 export const SOCIAL = siteConfig.social
 
+/**
+ * Selected YouTube embeds — leave empty until official video IDs/URLs are supplied.
+ * Do not invent embed URLs. Wire into KingzLivestreams / KingzSocialEmbeds when ready.
+ */
 export const YOUTUBE_EMBEDS = {
   weddingHighlight: '',
   corporateGala: '',
@@ -30,7 +34,15 @@ export const INSTAGRAM_LINKS = {
 
 export const TIKTOK_LINKS = {
   profile: siteConfig.social.tiktok,
-  djSetClip: siteConfig.social.tiktok,
+  /** Specific clip embeds — empty until a confirmed TikTok video URL is supplied */
+  djSetClip: '',
+} as const
+
+/** OWN — handle from config; profile href only when `social.own` is a confirmed share URL */
+export const OWN_PLATFORM = {
+  handle: siteConfig.social.ownHandle || 'kingznqueenzent',
+  profileUrl: siteConfig.social.own || '',
+  platformHome: siteConfig.social.ownPlatformHome || 'https://www.iown.app/',
 } as const
 
 /** True when empty string or #paste- placeholder */

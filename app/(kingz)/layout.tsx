@@ -2,6 +2,9 @@ import type { Metadata } from 'next'
 import { Playfair_Display, Lato } from 'next/font/google'
 import siteConfig from '@/config/site-config'
 import { KINGZ_CONTACT } from '@/lib/kingz/data'
+import { buildUpcomingEventsJsonLd } from '@/lib/kingz/events'
+import { getServiceAreaSchemaPlaces } from '@/lib/kingz/service-area'
+import { KINGZ_SOCIAL_URLS } from '@/lib/kingz/social'
 import '@/styles/kingz.css'
 
 const playfair = Playfair_Display({
@@ -76,8 +79,9 @@ export const metadata: Metadata = {
 }
 
 /**
- * Organization + WebSite only — verified fields.
- * No LocalBusiness street address, phone, ratings, awards, or invented geo.
+ * Organization + WebSite + confirmed upcoming Event nodes.
+ * No LocalBusiness street address, phone, ratings, awards, invented geo,
+ * ticket offers, or organizer invention beyond verified Kingz performer credit.
  */
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -98,7 +102,10 @@ const jsonLd = {
       image: `${siteUrl}${siteConfig.assets.logo.main}`,
       ...(KINGZ_CONTACT.email ? { email: KINGZ_CONTACT.email } : {}),
       ...(KINGZ_CONTACT.phone ? { telephone: KINGZ_CONTACT.phone } : {}),
+      areaServed: getServiceAreaSchemaPlaces(),
       sameAs: [
+        KINGZ_SOCIAL_URLS.tiktok,
+        KINGZ_SOCIAL_URLS.youtube,
         KINGZ_CONTACT.twitch,
         KINGZ_CONTACT.kick,
         siteConfig.merch.etsyStore,
@@ -119,6 +126,7 @@ const jsonLd = {
       publisher: { '@id': `${siteUrl}/#organization` },
       inLanguage: 'en-CA',
     },
+    ...buildUpcomingEventsJsonLd(siteUrl),
   ],
 }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sendVenueBookingEmail } from '@/lib/send-venue-booking-email'
+import { sendKingzContactEmail } from '@/lib/kingz/send-contact-email'
 
 type Body = {
   name?: string
@@ -7,6 +7,7 @@ type Body = {
   phone?: string
   message?: string
   preferredDate?: string
+  eventType?: string
 }
 
 export async function POST(req: Request) {
@@ -19,35 +20,41 @@ export async function POST(req: Request) {
 
   const name = body.name?.trim() ?? ''
   const email = body.email?.trim() ?? ''
-  const phone = body.phone?.trim() ?? ''
+  const phone = body.phone?.trim() || undefined
   const message = body.message?.trim() ?? ''
+  const preferredDate = body.preferredDate?.trim() || undefined
+  const eventType = body.eventType?.trim() || undefined
 
-  if (!name || !email || !phone || !message) {
+  if (!name || !email || !message) {
     return NextResponse.json(
-      { ok: false, error: 'Name, email, phone, and message are required.' },
+      { ok: false, error: 'Name, email, and message are required.' },
       { status: 400 }
     )
   }
 
-  const dateLine = body.preferredDate?.trim()
-    ? `Preferred date: ${body.preferredDate}`
-    : ''
-
-  const notes = [message, dateLine, `Reply to: ${email}`, `Phone: ${phone}`]
-    .filter(Boolean)
-    .join('\n\n')
-
-  const emailResult = await sendVenueBookingEmail({
-    venueName: name,
-    contact: `${email} | ${phone}`,
-    packageId: 'kingz-inquiry',
-    packageLabel: 'Kingz & Queenz Booking Inquiry',
-    notes,
+  const emailResult = await sendKingzContactEmail({
+    name,
+    email,
+    phone,
+    message,
+    preferredDate,
+    eventType,
   })
+
+  if (!emailResult.ok) {
+    console.warn('[kingz_contact] email failed:', emailResult.error)
+    return NextResponse.json(
+      {
+        ok: false,
+        emailed: false,
+        error: 'Unable to send your inquiry right now. Please try again later.',
+      },
+      { status: 503 }
+    )
+  }
 
   return NextResponse.json({
     ok: true,
-    emailed: emailResult.ok,
-    emailError: emailResult.error,
+    emailed: true,
   })
 }

@@ -1,12 +1,32 @@
+import { Youtube, Twitch, Music2, Radio, Instagram, Facebook, Globe } from 'lucide-react'
 import { KINGZ_CONTACT, NAV_LINKS } from '@/lib/kingz/data'
 import { ETSY_STORE_URL, PATREON_URL, BUY_ME_A_COFFEE_URL, integrationHref } from '@/lib/kingz/integrations'
+import {
+  getConfirmedSocialChannels,
+  getOwnChannelState,
+  type KingzSocialKey,
+} from '@/lib/kingz/social'
 import { KingzLogo } from './KingzLogo'
+
+const SOCIAL_ICONS: Partial<Record<KingzSocialKey, typeof Youtube>> = {
+  youtube: Youtube,
+  twitch: Twitch,
+  tiktok: Music2,
+  kick: Radio,
+  instagram: Instagram,
+  facebook: Facebook,
+  own: Globe,
+  mixcloud: Music2,
+  soundcloud: Music2,
+}
 
 export function KingzFooter() {
   const year = new Date().getFullYear()
   const etsy = integrationHref(ETSY_STORE_URL)
   const bmc = integrationHref(BUY_ME_A_COFFEE_URL)
   const patreon = integrationHref(PATREON_URL)
+  const socialChannels = getConfirmedSocialChannels()
+  const own = getOwnChannelState()
 
   return (
     <footer className="bg-[#050505] border-t border-[rgba(212,175,55,0.25)] pt-16 pb-10 px-6" role="contentinfo">
@@ -17,7 +37,8 @@ export function KingzFooter() {
               <KingzLogo size="footer" variant="full" lazy />
             </div>
             <p className="text-[#b0b0b0] text-sm leading-relaxed">
-              Kingz &amp; Queenz Entertainment — premium DJ experiences with DJ Merci &amp; DJ Liz.
+              Kingz &amp; Queenz Entertainment — Brantford-based DJ experiences with DJ Merci &amp; DJ Liz,
+              available throughout Southern Ontario.
             </p>
           </div>
 
@@ -107,7 +128,7 @@ export function KingzFooter() {
                     rel="noopener noreferrer"
                     className="kingz-footer-link text-[#8b5cb8] hover:text-[#D4AF37] transition-colors"
                   >
-                    Patreon
+                    Become Royalty
                   </a>
                 </li>
               )}
@@ -115,29 +136,33 @@ export function KingzFooter() {
           </div>
 
           <div>
-            <h3 className="kingz-heading text-[#D4AF37] text-sm mb-4 uppercase tracking-widest">Live</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <a
-                  href={KINGZ_CONTACT.twitch}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="kingz-footer-link text-[#D4AF37] hover:text-[#f5d276] transition-colors"
-                >
-                  Twitch
-                </a>
-              </li>
-              <li>
-                <a
-                  href={KINGZ_CONTACT.kick}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="kingz-footer-link text-[#D4AF37] hover:text-[#f5d276] transition-colors"
-                >
-                  Kick
-                </a>
-              </li>
+            <h3 className="kingz-heading text-[#D4AF37] text-sm mb-4 uppercase tracking-widest">Live &amp; Social</h3>
+            {/* Mobile-friendly: 2-col grid of large touch targets, not a tiny icon strip */}
+            <ul className="grid grid-cols-2 gap-2 sm:gap-3">
+              {socialChannels.map((channel) => {
+                const Icon = SOCIAL_ICONS[channel.key] || Globe
+                return (
+                  <li key={channel.key}>
+                    <a
+                      href={channel.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={channel.ariaLabel}
+                      className="flex items-center gap-2 min-h-11 px-3 py-2 rounded-md border border-[rgba(212,175,55,0.2)] text-[#D4AF37] hover:bg-[rgba(212,175,55,0.08)] hover:border-[rgba(212,175,55,0.4)] transition-colors touch-manipulation text-sm"
+                    >
+                      <Icon className="h-5 w-5 shrink-0" aria-hidden />
+                      <span>{channel.label}</span>
+                    </a>
+                  </li>
+                )
+              })}
             </ul>
+            {!own.verified ? (
+              <p className="mt-3 text-xs text-[#8a8a8a] flex items-center gap-1.5">
+                <Globe className="h-3.5 w-3.5 text-[#D4AF37] shrink-0" aria-hidden />
+                OWN @{own.handle}
+              </p>
+            ) : null}
           </div>
         </div>
 

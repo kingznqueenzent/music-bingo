@@ -1,20 +1,14 @@
 'use client'
 
 import Image from 'next/image'
-import { KINGZ_CONTACT, TRUST_METRICS, HERO_BACKGROUND } from '@/lib/kingz/data'
-import { buildPlatformCtas } from '@/lib/kingz/merch'
+import { TRUST_METRICS, HERO_BACKGROUND } from '@/lib/kingz/data'
+import { KINGZ_SOCIAL_URLS } from '@/lib/kingz/social'
 import { KingzCtaAction } from './KingzIntegrationLink'
 import { KingzLogo } from './KingzLogo'
 import { useKingzHeroAnimation } from './useKingzGsap'
 
-const PRIMARY_CTAS = ['Book Now', 'Shop Merch', 'Support Us'] as const
-const SECONDARY_CTAS = ['Buy Us a Coffee', 'Become Royalty'] as const
-
 export function KingzHero() {
   const ref = useKingzHeroAnimation<HTMLElement>()
-  const all = buildPlatformCtas()
-  const primary = PRIMARY_CTAS.map((label) => all.find((c) => c.label === label)).filter(Boolean)
-  const secondary = SECONDARY_CTAS.map((label) => all.find((c) => c.label === label)).filter(Boolean)
 
   return (
     <section
@@ -66,25 +60,31 @@ export function KingzHero() {
           className="kingz-pulse-banner inline-flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1 px-4 py-2 sm:px-5 sm:py-3 mb-8 sm:mb-10 rounded-lg border border-[#D4AF37]/40 bg-[#050505]/80 text-sm text-[#f5d276] max-w-full"
         >
           <span className="w-full sm:w-auto">Catch us LIVE on</span>
-          <a
-            href={KINGZ_CONTACT.kick}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center min-h-11 px-1 font-semibold underline hover:text-[#f9e8b0] transition-colors touch-manipulation"
-          >
-            Kick.com/kingznqueenzent
-          </a>
-          <span className="hidden sm:inline" aria-hidden>
-            ·
-          </span>
-          <a
-            href={KINGZ_CONTACT.twitch}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center min-h-11 px-1 font-semibold underline hover:text-[#f9e8b0] transition-colors touch-manipulation"
-          >
-            Twitch.tv/kingznqueenzent
-          </a>
+          {KINGZ_SOCIAL_URLS.kick ? (
+            <a
+              href={KINGZ_SOCIAL_URLS.kick}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center min-h-11 px-1 font-semibold underline hover:text-[#f9e8b0] transition-colors touch-manipulation"
+            >
+              Kick.com/kingznqueenzent
+            </a>
+          ) : null}
+          {KINGZ_SOCIAL_URLS.kick && KINGZ_SOCIAL_URLS.twitch ? (
+            <span className="hidden sm:inline" aria-hidden>
+              ·
+            </span>
+          ) : null}
+          {KINGZ_SOCIAL_URLS.twitch ? (
+            <a
+              href={KINGZ_SOCIAL_URLS.twitch}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center min-h-11 px-1 font-semibold underline hover:text-[#f9e8b0] transition-colors touch-manipulation"
+            >
+              Twitch.tv/kingznqueenzent
+            </a>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 sm:gap-6 mb-8 sm:mb-10">
@@ -96,34 +96,22 @@ export function KingzHero() {
           ))}
         </div>
 
-        {/* Primary mobile CTAs — full-width stack for easy taps */}
         <div
           data-hero-cta
           className="kingz-hero-cta-primary flex flex-col sm:flex-row flex-wrap gap-3 justify-center md:justify-start w-full max-w-md sm:max-w-3xl mx-auto md:mx-0"
         >
-          {primary.map((cta) =>
-            cta ? (
-              <KingzCtaAction
-                key={cta.label}
-                {...cta}
-                className="w-full sm:w-auto justify-center text-sm touch-manipulation"
-              />
-            ) : null
-          )}
-        </div>
-        <div
-          data-hero-cta
-          className="mt-3 flex flex-col sm:flex-row flex-wrap gap-3 justify-center md:justify-start w-full max-w-md sm:max-w-3xl mx-auto md:mx-0"
-        >
-          {secondary.map((cta) =>
-            cta ? (
-              <KingzCtaAction
-                key={cta.label}
-                {...cta}
-                className="w-full sm:w-auto justify-center text-sm touch-manipulation"
-              />
-            ) : null
-          )}
+          <KingzCtaAction
+            label="Check Availability"
+            scrollTo="booking"
+            variant="gold"
+            className="w-full sm:w-auto justify-center text-sm touch-manipulation"
+          />
+          <KingzCtaAction
+            label="View Packages"
+            scrollTo="packages"
+            variant="outline"
+            className="w-full sm:w-auto justify-center text-sm touch-manipulation"
+          />
         </div>
       </div>
 

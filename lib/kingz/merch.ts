@@ -1,6 +1,6 @@
 /**
  * Royal Collection (Etsy) + support CTAs.
- * Support tips → Buy Me a Coffee. Monthly memberships → Patreon (when URL is set).
+ * Support tips → Buy Me a Coffee. Monthly memberships → Patreon.
  * No on-site recurring billing. No invented Patreon tiers or prices.
  */
 
@@ -45,12 +45,11 @@ export function buildPlatformCtas(): CtaAction[] {
     { label: 'Buy Us a Coffee', href: BUY_ME_A_COFFEE_URL, variant: 'glass', external: true },
     { label: 'Book Now', scrollTo: 'booking', variant: 'gold' },
     { label: 'Book an Event', scrollTo: 'booking', variant: 'gold' },
-    // Empty href → Coming Soon until official Patreon URL is in site-config
     {
       label: 'Become Royalty',
-      href: PATREON_URL || '',
+      href: PATREON_URL,
       variant: 'purple',
-      external: Boolean(PATREON_URL),
+      external: true,
     },
   ]
 }

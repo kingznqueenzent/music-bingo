@@ -20,6 +20,9 @@ export const KINGZ_CONTACT = {
   youtube: siteConfig.social.youtube,
   mixcloud: siteConfig.social.mixcloud,
   soundcloud: siteConfig.social.soundcloud,
+  /** OWN profile/share URL — empty until verified (see lib/kingz/social.ts) */
+  own: siteConfig.social.own,
+  ownHandle: siteConfig.social.ownHandle,
 } as const
 
 export const NAV_LINKS = [
@@ -27,6 +30,8 @@ export const NAV_LINKS = [
   { id: 'about', label: 'About' },
   { id: 'team', label: 'DJs' },
   { id: 'services', label: 'Services' },
+  { id: 'events', label: 'Events' },
+  { id: 'packages', label: 'Packages' },
   { id: 'videos', label: 'Videos' },
   { id: 'merch', label: 'Royal Collection' },
   { id: 'support', label: 'Support' },
@@ -50,7 +55,8 @@ export const SERVICES = [
   {
     icon: '💍',
     title: 'Wedding DJ',
-    description: 'Ceremony through reception — curated playlists, MC services, and moments your guests will remember.',
+    description:
+      'Ceremony through reception for Brantford and Southern Ontario weddings — curated playlists, MC services, and moments your guests will remember.',
   },
   {
     icon: '🏢',
@@ -143,9 +149,12 @@ export type KingzTrack = {
 
 export const MUSIC_PLAYLIST: KingzTrack[] = []
 
+import { getAppearanceBlockedDates } from '@/lib/kingz/events'
+
 export const BOOKING_AVAILABILITY = {
   availableDays: [3, 4, 5, 6, 0] as number[],
-  blockedDates: [] as string[],
+  /** Festival / appearance dates — not open for private bookings */
+  blockedDates: getAppearanceBlockedDates() as string[],
 }
 
 export const HERO_BACKGROUND = siteConfig.assets.images.heroBg

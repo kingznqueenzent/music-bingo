@@ -7,7 +7,7 @@ import { KingzCtaStrip } from './KingzCtaStrip'
 import { useKingzReveal } from './useKingzGsap'
 
 /**
- * Support ecosystem — Buy Me a Coffee (live) + Become Royalty / Patreon (Coming Soon until official URL).
+ * Support ecosystem — Buy Me a Coffee (live) + Become Royalty / Patreon (live).
  * No fake membership tiers, prices, or on-site recurring billing.
  */
 export function KingzSupportDJs() {
@@ -24,7 +24,7 @@ export function KingzSupportDJs() {
             Become Royalty
           </h2>
           <p className="text-[#b0b0b0] mt-4 max-w-2xl mx-auto">
-            Support DJ Merci &amp; DJ Liz — tip the next set today, or join monthly when Patreon opens.
+            Support DJ Merci &amp; DJ Liz — tip the next set today, or become royalty on Patreon.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export function KingzSupportDJs() {
             <p className="text-[#8b5cb8] text-xs uppercase tracking-[0.25em] mb-2">Monthly membership</p>
             <h3 className="kingz-heading text-2xl text-[#D4AF37] mb-3">Become Royalty</h3>
             <p className="text-[#b0b0b0] text-sm leading-relaxed mb-4 flex-1">
-              Patreon will host monthly memberships for Kingz &amp; Queenz Entertainment.
+              Monthly memberships for Kingz &amp; Queenz Entertainment are on Patreon.
               Memberships are not sold on this website.
             </p>
             {!patreonLive ? (
@@ -77,7 +77,7 @@ export function KingzSupportDJs() {
               <p className="text-[#b0b0b0] text-xs mb-6">Join on Patreon when you are ready.</p>
             )}
             <KingzIntegrationLink
-              href={PATREON_URL || ''}
+              href={PATREON_URL}
               label="Become Royalty"
               variant="purple"
               className="uppercase tracking-[0.08em] text-sm w-full sm:w-auto"
@@ -108,8 +108,9 @@ export function KingzSupportDJs() {
           />
           <KingzCtaAction
             label="Become Royalty"
-            href={PATREON_URL || ''}
+            href={PATREON_URL}
             variant="purple"
+            external
             className="uppercase tracking-[0.08em] text-sm"
           />
         </div>

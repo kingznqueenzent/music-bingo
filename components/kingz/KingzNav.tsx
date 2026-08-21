@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { Menu, X } from 'lucide-react'
 import { NAV_LINKS } from '@/lib/kingz/data'
 import { KingzLogo } from './KingzLogo'
-import { StaffHeaderActions } from '@/components/layout/StaffHeaderActions'
 import { ResponsiveMenu } from '@/components/ui/menu/ResponsiveMenu'
 
 export function KingzNav() {
@@ -96,13 +95,14 @@ export function KingzNav() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Single StaffHeaderActions instance — responsive chrome only via CSS */}
-          <StaffHeaderActions
-            loginFrom="/host"
-            showAdminLabel
-            loginClassName="text-xs sm:text-sm text-[#f5f5f5]/50 hover:text-[#D4AF37]/90 transition-colors whitespace-nowrap min-h-12 inline-flex items-center"
-            menuButtonClassName="inline-flex items-center justify-center gap-2 min-h-12 min-w-12 lg:min-w-0 lg:h-12 lg:px-4 rounded-xl border border-[#D4AF37]/35 bg-[#D4AF37]/5 text-[#D4AF37] hover:border-[#D4AF37]/70 hover:bg-[#D4AF37]/10 active:bg-[#D4AF37]/15 transition-colors touch-manipulation shadow-sm"
-          />
+          <button
+            type="button"
+            onClick={() => scrollTo('booking')}
+            className="kingz-btn-gold !w-auto shrink-0 text-xs sm:text-sm px-3 sm:px-4 min-h-11 touch-manipulation"
+            aria-label="Book — check availability"
+          >
+            Book
+          </button>
           <button
             type="button"
             className="lg:hidden inline-flex items-center justify-center min-h-12 min-w-12 rounded-xl text-[#D4AF37] border border-transparent hover:border-[#D4AF37]/25 active:bg-[#D4AF37]/10 touch-manipulation"
@@ -141,6 +141,15 @@ export function KingzNav() {
               </li>
             )
           })}
+          <li className="pt-2">
+            <button
+              type="button"
+              onClick={() => scrollTo('booking')}
+              className="kingz-btn-gold w-full justify-center touch-manipulation"
+            >
+              Check Availability
+            </button>
+          </li>
         </ul>
       </ResponsiveMenu>
     </header>

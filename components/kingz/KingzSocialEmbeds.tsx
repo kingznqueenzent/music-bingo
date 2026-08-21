@@ -1,15 +1,20 @@
 'use client'
 
+import { Youtube, Music2 } from 'lucide-react'
 import { YOUTUBE_EMBEDS, INSTAGRAM_LINKS, TIKTOK_LINKS, integrationHref } from '@/lib/kingz/integrations'
+import { KINGZ_SOCIAL_URLS } from '@/lib/kingz/social'
 import { useKingzReveal } from './useKingzGsap'
 
 /**
  * Social video embed placeholders.
- * Paste embed URLs in lib/kingz/integrations.ts when ready.
+ * Paste selected embed URLs in lib/kingz/integrations.ts when ready — never invent video IDs.
  */
 export function KingzSocialEmbeds() {
   const ref = useKingzReveal<HTMLElement>()
   const btsEmbed = integrationHref(YOUTUBE_EMBEDS.behindTheScenes)
+  const youtubeChannel = KINGZ_SOCIAL_URLS.youtube
+  const tiktokProfile = integrationHref(TIKTOK_LINKS.profile) || KINGZ_SOCIAL_URLS.tiktok
+  const instagramProfile = integrationHref(INSTAGRAM_LINKS.profile)
 
   return (
     <section ref={ref} className="kingz-section bg-[#0d0d14]" aria-labelledby="social-embeds-heading">
@@ -19,7 +24,6 @@ export function KingzSocialEmbeds() {
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* YOUTUBE EMBED — paste URL in lib/kingz/integrations.ts → YOUTUBE_EMBEDS.behindTheScenes */}
           <div data-kingz-reveal className="kingz-glass overflow-hidden aspect-video flex items-center justify-center">
             {btsEmbed ? (
               <iframe
@@ -31,51 +35,63 @@ export function KingzSocialEmbeds() {
                 loading="lazy"
               />
             ) : (
-              <p className="text-[#b0b0b0] text-sm text-center px-6">
-                YouTube embed — configure <code className="text-[#8b5cb8]">YOUTUBE_EMBEDS.behindTheScenes</code> in{' '}
-                <code className="text-[#8b5cb8]">lib/kingz/integrations.ts</code>
-              </p>
+              <div className="text-center px-6 space-y-4">
+                <Youtube className="h-8 w-8 text-[#D4AF37] mx-auto" aria-hidden />
+                <p className="text-[#b0b0b0] text-sm">
+                  Selected YouTube embeds will appear here when official video URLs are configured.
+                </p>
+                {youtubeChannel ? (
+                  <a
+                    href={youtubeChannel}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Kingz & Queenz on YouTube"
+                    className="kingz-btn-gold inline-flex items-center justify-center gap-2 min-h-11 touch-manipulation"
+                  >
+                    <Youtube className="h-5 w-5" aria-hidden />
+                    Watch on YouTube
+                  </a>
+                ) : null}
+              </div>
             )}
           </div>
 
           <div data-kingz-reveal className="space-y-4">
-            {/* INSTAGRAM — paste profile or reel link in lib/kingz/integrations.ts → INSTAGRAM_LINKS */}
             <div className="kingz-glass p-6">
               <h3 className="kingz-heading text-lg text-[#f5f5f5] mb-2">Instagram</h3>
-              <p className="text-[#b0b0b0] text-sm mb-4">
-                Embed reel: paste oEmbed or link in INSTAGRAM_LINKS.merchReel
-              </p>
-              {integrationHref(INSTAGRAM_LINKS.profile) ? (
+              {instagramProfile ? (
                 <a
-                  href={integrationHref(INSTAGRAM_LINKS.profile)}
+                  href={instagramProfile}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="kingz-btn-outline text-sm"
+                  aria-label="Kingz & Queenz on Instagram"
+                  className="kingz-btn-outline text-sm inline-flex items-center min-h-11 touch-manipulation"
                 >
                   View on Instagram
                 </a>
               ) : (
-                <span className="text-[#b0b0b0] text-xs">INSTAGRAM_LINKS.profile not configured</span>
+                <span className="text-[#b0b0b0] text-xs">Instagram profile link coming soon</span>
               )}
             </div>
 
-            {/* TIKTOK — paste profile or video link in lib/kingz/integrations.ts → TIKTOK_LINKS */}
             <div className="kingz-glass p-6">
               <h3 className="kingz-heading text-lg text-[#f5f5f5] mb-2">TikTok</h3>
               <p className="text-[#b0b0b0] text-sm mb-4">
-                Embed blockquote or link: TIKTOK_LINKS.djSetClip
+                Follow live clips and sets on our official TikTok.
               </p>
-              {integrationHref(TIKTOK_LINKS.profile) ? (
+              {tiktokProfile ? (
                 <a
-                  href={integrationHref(TIKTOK_LINKS.profile)}
+                  href={tiktokProfile}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="kingz-btn-purple text-sm"
+                  aria-label="Kingz & Queenz on TikTok"
+                  className="kingz-btn-purple text-sm inline-flex items-center justify-center gap-2 min-h-11 touch-manipulation"
                 >
+                  <Music2 className="h-4 w-4" aria-hidden />
                   View on TikTok
                 </a>
               ) : (
-                <span className="text-[#b0b0b0] text-xs">TIKTOK_LINKS.profile not configured</span>
+                <span className="text-[#b0b0b0] text-xs">TikTok profile link coming soon</span>
               )}
             </div>
           </div>

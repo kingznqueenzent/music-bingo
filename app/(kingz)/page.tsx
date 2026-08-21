@@ -2,6 +2,9 @@ import { KingzNav } from '@/components/kingz/KingzNav'
 import { KingzHero } from '@/components/kingz/KingzHero'
 import { KingzAbout } from '@/components/kingz/KingzAbout'
 import { KingzServices } from '@/components/kingz/KingzServices'
+import { KingzFeaturedEvent } from '@/components/kingz/KingzFeaturedEvent'
+import { KingzServiceArea } from '@/components/kingz/KingzServiceArea'
+import { KingzWeddingPackages } from '@/components/kingz/KingzWeddingPackages'
 import { KingzGallery } from '@/components/kingz/KingzGallery'
 import { KingzVideoGallery } from '@/components/kingz/KingzVideoGallery'
 import { KingzTeam } from '@/components/kingz/KingzTeam'
@@ -21,10 +24,13 @@ export default function KingzHomePage() {
       </a>
       <KingzNav />
       <KingzPageClient>
-        <main id="main-content" className="kingz-page-enter">
+        <main id="main-content" className="kingz-page-enter pb-24 md:pb-0">
           <KingzHero />
           <KingzAbout />
           <KingzServices />
+          <KingzFeaturedEvent />
+          <KingzServiceArea />
+          <KingzWeddingPackages />
           <KingzTeam />
           <KingzGallery />
           <KingzVideoGallery />

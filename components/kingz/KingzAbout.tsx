@@ -23,11 +23,12 @@ export function KingzAbout() {
             <div className="space-y-4 text-[#d4d4d4] leading-relaxed">
               <p>
                 Born from a shared passion for music and unforgettable nights, Kingz &amp; Queenz Entertainment
-                delivers premium DJ experiences for weddings, corporate events, parties, and livestreams.
+                is a Brantford-based DJ duo delivering premium experiences for weddings, corporate events,
+                parties, and livestreams.
               </p>
               <p>
-                Founded by DJ Liz and DJ Merci, our duo brings complementary styles and professional excellence.
-                Every event receives the royal treatment.
+                Founded by DJ Liz and DJ Merci, our duo brings complementary styles and professional excellence
+                to celebrations across Southern Ontario. Every event receives the royal treatment.
               </p>
             </div>
           </div>

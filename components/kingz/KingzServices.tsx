@@ -15,7 +15,8 @@ export function KingzServices() {
         </h2>
         <div className="kingz-deco-divider max-w-xs mx-auto" aria-hidden />
         <p className="mt-6 text-[#b0b0b0] max-w-2xl mx-auto">
-          Tailored entertainment for every occasion — delivered with Vegas-level production and Apple-level polish.
+          Tailored entertainment for every occasion — from Brantford weddings to corporate events across
+          Southern Ontario, delivered with Vegas-level production and Apple-level polish.
         </p>
       </div>
 

@@ -2,6 +2,8 @@
 
 import { useState, useMemo } from 'react'
 import { BOOKING_AVAILABILITY } from '@/lib/kingz/data'
+import { SERVICE_AREA, SERVICE_AREA_BOOKING_CITIES } from '@/lib/kingz/service-area'
+import { KINGZ_PREFILL_DATE_KEY, notifyKingzPrefill } from '@/lib/kingz/wedding-packages'
 import { useKingzReveal } from './useKingzGsap'
 
 function formatDateKey(year: number, month: number, day: number) {
@@ -50,20 +52,25 @@ export function KingzBooking() {
   const confirmBooking = () => {
     setShowModal(false)
     if (selected) {
-      sessionStorage.setItem('kingz-prefill-date', selected)
+      sessionStorage.setItem(KINGZ_PREFILL_DATE_KEY, selected)
+      notifyKingzPrefill()
     }
     document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })
   }
 
   return (
     <section id="booking" ref={ref} className="kingz-section bg-[#1a1a1a]" aria-labelledby="booking-heading">
-      <div className="kingz-container max-w-lg mx-auto">
+      <div className="kingz-container max-w-xl mx-auto">
         <div className="text-center mb-10" data-kingz-reveal>
           <div className="kingz-deco-bar mx-auto mb-6" aria-hidden />
           <h2 id="booking-heading" className="kingz-heading text-3xl font-semibold text-[#D4AF37] mb-3">
             Check Availability
           </h2>
           <p className="text-[#b0b0b0] text-sm">Wed–Sun available · Select a date to begin booking</p>
+          <p className="mt-3 text-[#d4d4d4] text-sm leading-relaxed">{SERVICE_AREA.bookingNote}</p>
+          <p className="mt-2 text-[#b0b0b0] text-xs tracking-[0.04em] leading-relaxed">
+            {SERVICE_AREA_BOOKING_CITIES}
+          </p>
         </div>
 
         <div data-kingz-reveal className="kingz-card p-6">

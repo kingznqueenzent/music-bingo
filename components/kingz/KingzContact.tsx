@@ -2,6 +2,14 @@
 
 import { useState, useEffect, type FormEvent } from 'react'
 import { KINGZ_CONTACT } from '@/lib/kingz/data'
+import {
+  CUSTOM_EVENT_PREFILL,
+  KINGZ_PREFILL_DATE_KEY,
+  KINGZ_PREFILL_EVENT,
+  KINGZ_PREFILL_EVENT_TYPE_KEY,
+  KINGZ_PREFILL_MESSAGE_KEY,
+  KINGZ_PREFILL_PACKAGE_KEY,
+} from '@/lib/kingz/wedding-packages'
 import { useKingzReveal } from './useKingzGsap'
 
 type FormState = {
@@ -10,7 +18,18 @@ type FormState = {
   phone: string
   message: string
   preferredDate: string
+  eventType: string
+  selectedPackage: string
 }
+
+const EVENT_TYPES = [
+  'Wedding',
+  'Corporate',
+  'Private party',
+  'Livestream',
+  CUSTOM_EVENT_PREFILL,
+  'Other',
+] as const
 
 const initial: FormState = {
   name: '',
@@ -18,6 +37,8 @@ const initial: FormState = {
   phone: '',
   message: '',
   preferredDate: '',
+  eventType: '',
+  selectedPackage: '',
 }
 
 export function KingzContact() {
@@ -28,16 +49,35 @@ export function KingzContact() {
   const [statusMsg, setStatusMsg] = useState('')
 
   useEffect(() => {
-    const prefill = sessionStorage.getItem('kingz-prefill-message')
-    if (prefill) {
-      setForm((f) => ({ ...f, message: prefill }))
-      sessionStorage.removeItem('kingz-prefill-message')
+    const applyPrefill = () => {
+      const prefill = sessionStorage.getItem(KINGZ_PREFILL_MESSAGE_KEY)
+      const date = sessionStorage.getItem(KINGZ_PREFILL_DATE_KEY)
+      const eventType = sessionStorage.getItem(KINGZ_PREFILL_EVENT_TYPE_KEY)
+      const selectedPackage = sessionStorage.getItem(KINGZ_PREFILL_PACKAGE_KEY)
+
+      if (!prefill && !date && !eventType && !selectedPackage) return
+
+      setForm((f) => ({
+        ...f,
+        ...(prefill ? { message: prefill } : {}),
+        ...(date ? { preferredDate: date } : {}),
+        ...(eventType ? { eventType } : {}),
+        ...(selectedPackage
+          ? { selectedPackage }
+          : eventType === CUSTOM_EVENT_PREFILL
+            ? { selectedPackage: '' }
+            : {}),
+      }))
+
+      if (prefill) sessionStorage.removeItem(KINGZ_PREFILL_MESSAGE_KEY)
+      if (date) sessionStorage.removeItem(KINGZ_PREFILL_DATE_KEY)
+      if (eventType) sessionStorage.removeItem(KINGZ_PREFILL_EVENT_TYPE_KEY)
+      if (selectedPackage) sessionStorage.removeItem(KINGZ_PREFILL_PACKAGE_KEY)
     }
-    const date = sessionStorage.getItem('kingz-prefill-date')
-    if (date) {
-      setForm((f) => ({ ...f, preferredDate: date }))
-      sessionStorage.removeItem('kingz-prefill-date')
-    }
+
+    applyPrefill()
+    window.addEventListener(KINGZ_PREFILL_EVENT, applyPrefill)
+    return () => window.removeEventListener(KINGZ_PREFILL_EVENT, applyPrefill)
   }, [])
 
   const validate = () => {
@@ -55,13 +95,28 @@ export function KingzContact() {
     if (!validate()) return
     setStatus('loading')
     try {
+      const packageLine = form.selectedPackage.trim()
+      const messageWithPackage =
+        packageLine && !form.message.includes(packageLine)
+          ? `${form.message.trim()}\n\nSelected package: ${packageLine}`
+          : form.message
+
       const res = await fetch('/api/kingz-contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          message: messageWithPackage,
+          preferredDate: form.preferredDate,
+          eventType: form.eventType,
+        }),
       })
-      const data = (await res.json()) as { ok?: boolean; error?: string }
-      if (!res.ok || !data.ok) throw new Error(data.error ?? 'Failed to send')
+      const data = (await res.json()) as { ok?: boolean; emailed?: boolean; error?: string }
+      if (!res.ok || !data.ok || data.emailed === false) {
+        throw new Error(data.error ?? 'Failed to send')
+      }
       setStatus('success')
       setStatusMsg('Thank you! We will be in touch within 24 hours.')
       setForm(initial)
@@ -77,8 +132,11 @@ export function KingzContact() {
         <div className="text-center mb-12">
           <div className="kingz-deco-bar mx-auto mb-6" aria-hidden />
           <h2 id="contact-heading" className="kingz-heading text-3xl lg:text-4xl font-semibold text-[#D4AF37]">
-            Get In Touch
+            Check Availability
           </h2>
+          <p className="text-[#b0b0b0] mt-4 max-w-xl mx-auto text-sm">
+            Tell us your date and event details. We will confirm whether we are available and follow up about booking.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 max-w-5xl mx-auto">
@@ -87,7 +145,7 @@ export function KingzContact() {
             onSubmit={onSubmit}
             className="kingz-card p-8 space-y-5"
             noValidate
-            aria-label="Contact form"
+            aria-label="Availability and booking request"
           >
             <div>
               <label htmlFor="kingz-name" className="kingz-heading block text-[#D4AF37] text-sm mb-2">
@@ -135,7 +193,7 @@ export function KingzContact() {
             </div>
             <div>
               <label htmlFor="kingz-preferred-date" className="kingz-heading block text-[#D4AF37] text-sm mb-2">
-                Preferred Date
+                Event date
               </label>
               <input
                 id="kingz-preferred-date"
@@ -145,6 +203,38 @@ export function KingzContact() {
                 onChange={(e) => setForm((f) => ({ ...f, preferredDate: e.target.value }))}
               />
             </div>
+            <div>
+              <label htmlFor="kingz-event-type" className="kingz-heading block text-[#D4AF37] text-sm mb-2">
+                Event type
+              </label>
+              <select
+                id="kingz-event-type"
+                className="kingz-input"
+                value={form.eventType}
+                onChange={(e) => setForm((f) => ({ ...f, eventType: e.target.value }))}
+              >
+                <option value="">Select an event type</option>
+                {EVENT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {form.selectedPackage ? (
+              <div>
+                <label htmlFor="kingz-selected-package" className="kingz-heading block text-[#D4AF37] text-sm mb-2">
+                  Selected package
+                </label>
+                <input
+                  id="kingz-selected-package"
+                  className="kingz-input"
+                  value={form.selectedPackage}
+                  readOnly
+                  aria-readonly="true"
+                />
+              </div>
+            ) : null}
             <div>
               <label htmlFor="kingz-message" className="kingz-heading block text-[#D4AF37] text-sm mb-2">
                 Message <span className="text-[#ef4444]">*</span>
@@ -161,7 +251,7 @@ export function KingzContact() {
             </div>
 
             <button type="submit" className="kingz-btn-gold w-full" disabled={status === 'loading'}>
-              {status === 'loading' ? 'Sending…' : 'Send Inquiry'}
+              {status === 'loading' ? 'Sending…' : 'Request Booking'}
             </button>
 
             {status === 'success' && (
@@ -203,7 +293,7 @@ export function KingzContact() {
                 ) : null}
                 {!KINGZ_CONTACT.phone && !KINGZ_CONTACT.email ? (
                   <li className="text-[#b0b0b0] text-sm">
-                    Use the inquiry form — contact details will be published here when available.
+                    Use the booking form — contact details will be published here when available.
                   </li>
                 ) : null}
               </ul>
