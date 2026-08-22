@@ -71,9 +71,38 @@ body {
 }
 
 /* Meld Studio / OBS browser sources — /overlay routes use a transparent canvas */
+.overlay-canvas,
 html.overlay-route,
 body.overlay-route {
+  --bg-deep: #050014;
+  --bg-purple: #1a0b2e;
+  --gold: #FFD700;
+  --gold-glow: rgba(255, 215, 0, 0.5);
+  --magenta: #FF00FF;
+  --cyan: #00FFFF;
+  --chrome: #E8E9EB;
+  --font-main: var(--font-montserrat), 'Montserrat', sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-main);
   background: transparent !important;
+  color: #fff;
+}
+
+.disco-text {
+  font-weight: 900;
+  text-transform: uppercase;
+  background: linear-gradient(to bottom, #fff, var(--chrome, #E8E9EB), #888);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+}
+
+.gold-accent {
+  color: var(--gold, #FFD700);
+  text-shadow: 0 0 15px var(--gold-glow, rgba(255, 215, 0, 0.5));
 }
 
 /* Faster taps on mobile: avoids double-tap-zoom wait when combined with viewport width=device-width */

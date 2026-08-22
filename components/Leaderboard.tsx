@@ -18,10 +18,10 @@ export type LeaderboardProps = {
 }
 
 function rankStyles(rank: number, overlay: boolean): string {
-  if (rank === 1) return overlay ? 'text-[#FFD700]' : 'text-amber-300'
-  if (rank === 2) return overlay ? 'text-[#C0C0C0]' : 'text-slate-300'
-  if (rank === 3) return overlay ? 'text-[#CD7F32]' : 'text-orange-400/90'
-  return overlay ? 'text-[#00FF66]/80' : 'text-amber-400/80'
+  if (rank === 1) return overlay ? 'gold-accent' : 'text-amber-300'
+  if (rank === 2) return overlay ? 'text-[var(--chrome)]' : 'text-slate-300'
+  if (rank === 3) return overlay ? 'text-[var(--magenta)]' : 'text-orange-400/90'
+  return overlay ? 'text-[var(--cyan)]/80' : 'text-amber-400/80'
 }
 
 export function Leaderboard({
@@ -73,25 +73,25 @@ export function Leaderboard({
     subtitle ?? (overlay ? 'Top players · live' : `Top ${limit} by wins, then score`)
 
   const shellClass = overlay
-    ? 'rounded-xl border-2 border-[#00FF66]/35 bg-black/45 backdrop-blur-xl shadow-2xl'
+    ? 'rounded-xl border-2 border-[var(--cyan)]/35 bg-[var(--bg-deep)]/45 backdrop-blur-xl shadow-2xl'
     : 'rounded-2xl border-2 border-amber-500/40 bg-slate-900/90 shadow-2xl'
 
   return (
     <div className={className}>
       <div className={`flex items-center gap-2 mb-3 ${overlay ? 'justify-center' : ''}`}>
         <Trophy
-          className={`shrink-0 ${overlay ? 'w-6 h-6 text-[#FFD700]' : 'w-7 h-7 text-amber-400'}`}
+          className={`shrink-0 ${overlay ? 'w-6 h-6 gold-accent' : 'w-7 h-7 text-amber-400'}`}
           aria-hidden
         />
         <div className={overlay ? 'text-center' : ''}>
           <h2
             className={`font-black tracking-tight ${
-              overlay ? 'text-2xl md:text-4xl text-[#00FF66]' : 'text-2xl md:text-3xl text-white'
+              overlay ? 'disco-text text-2xl md:text-4xl' : 'text-2xl md:text-3xl text-white'
             }`}
           >
             {title}
           </h2>
-          <p className={`text-sm mt-0.5 ${overlay ? 'text-[#00FF66]/70' : 'text-slate-400'}`}>{defaultSubtitle}</p>
+          <p className={`text-sm mt-0.5 ${overlay ? 'text-[var(--cyan)]/70' : 'text-slate-400'}`}>{defaultSubtitle}</p>
         </div>
       </div>
 
@@ -106,7 +106,7 @@ export function Leaderboard({
         ) : rows.length === 0 ? (
           <div
             className={`py-16 px-6 text-center text-lg ${
-              overlay ? 'text-[#00FF66]/60' : 'text-slate-500'
+              overlay ? 'text-[var(--cyan)]/60' : 'text-slate-500'
             }`}
           >
             No scores yet. Win a round to claim your spot!
@@ -114,7 +114,7 @@ export function Leaderboard({
         ) : (
           <ul
             className={`divide-y ${
-              overlay ? 'divide-[#00FF66]/15 max-h-[min(60vh,480px)]' : 'divide-slate-700/80 max-h-[70dvh]'
+              overlay ? 'divide-[var(--magenta)]/20 max-h-[min(60vh,480px)]' : 'divide-slate-700/80 max-h-[70dvh]'
             } overflow-y-auto overscroll-contain`}
           >
             {rows.map((p, i) => {
@@ -125,7 +125,7 @@ export function Leaderboard({
                   className={`flex items-center gap-3 px-4 py-3 md:px-6 md:py-4 ${
                     overlay
                       ? i % 2 === 0
-                        ? 'bg-[#00FF66]/[0.04]'
+                        ? 'bg-[var(--cyan)]/[0.04]'
                         : 'bg-transparent'
                       : 'bg-slate-800/30 hover:bg-slate-800/50 transition-colors'
                   }`}
@@ -138,24 +138,24 @@ export function Leaderboard({
                   <div className="flex-1 min-w-0">
                     <p
                       className={`font-bold truncate ${
-                        overlay ? 'text-lg md:text-xl text-[#00FF66]' : 'text-base md:text-xl text-white'
+                        overlay ? 'text-lg md:text-xl text-[var(--cyan)]' : 'text-base md:text-xl text-white'
                       }`}
                     >
                       {formatStatsUsername(p.username)}
                     </p>
-                    <p className={`text-xs ${overlay ? 'text-[#00FF66]/50' : 'text-slate-500'}`}>
+                    <p className={`text-xs ${overlay ? 'text-[var(--chrome)]/50' : 'text-slate-500'}`}>
                       {p.games_played} game{p.games_played !== 1 ? 's' : ''} played
                     </p>
                   </div>
                   <div className="text-right shrink-0 tabular-nums">
                     <p
                       className={`font-bold text-sm md:text-base ${
-                        overlay ? 'text-[#FFD700]' : 'text-amber-300'
+                        overlay ? 'gold-accent' : 'text-amber-300'
                       }`}
                     >
                       {p.wins} W
                     </p>
-                    <p className={`text-xs ${overlay ? 'text-[#00FF66]/80' : 'text-slate-400'}`}>
+                    <p className={`text-xs ${overlay ? 'text-[var(--magenta)]/80' : 'text-slate-400'}`}>
                       {p.score.toLocaleString()} pts
                     </p>
                   </div>
@@ -168,7 +168,7 @@ export function Leaderboard({
 
       {updatedAt && !loading && !error ? (
         <p
-          className={`text-xs mt-3 text-center ${overlay ? 'text-[#00FF66]/50' : 'text-slate-500'}`}
+          className={`text-xs mt-3 text-center ${overlay ? 'text-[var(--chrome)]/50' : 'text-slate-500'}`}
         >
           Updated {updatedAt.toLocaleTimeString()}
           {live ? ' · live' : ''}

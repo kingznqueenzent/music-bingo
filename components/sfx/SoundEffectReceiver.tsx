@@ -20,10 +20,10 @@ export function SfxBounceFlash({ label, variant = 'stage' }: SfxBounceFlashProps
       aria-live="polite"
     >
       <div
-        className={`rounded-2xl border-2 px-6 py-3 font-black uppercase tracking-wider shadow-[0_0_40px_rgba(0,255,102,0.45)] ${
+        className={`rounded-2xl border-2 px-6 py-3 font-black uppercase tracking-wider ${
           isOverlay
-            ? 'border-[#00FF66]/60 bg-black/70 text-[#00FF66] text-lg backdrop-blur-md'
-            : 'border-[#00FF66] bg-[#121212]/95 text-[#00FF66] text-xl md:text-2xl'
+            ? 'border-[var(--magenta)]/70 bg-[var(--bg-deep)]/70 text-[var(--cyan)] text-lg backdrop-blur-md shadow-[0_0_40px_var(--gold-glow)]'
+            : 'border-[#00FF66] bg-[#121212]/95 text-[#00FF66] text-xl md:text-2xl shadow-[0_0_40px_rgba(0,255,102,0.45)]'
         }`}
       >
         🔊 {label}
