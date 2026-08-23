@@ -51,6 +51,59 @@ function isMarkedAt(
   return id != null && markedSongIds.has(id)
 }
 
+function buildPatternLines(size: number): {
+  rows: number[][]
+  cols: number[][]
+  diags: number[][]
+  corners: number[]
+  all: number[]
+} {
+  const rows = Array.from({ length: size }, (_, r) =>
+    Array.from({ length: size }, (_, c) => r * size + c)
+  )
+  const cols = Array.from({ length: size }, (_, c) =>
+    Array.from({ length: size }, (_, r) => r * size + c)
+  )
+  const diags = [
+    Array.from({ length: size }, (_, i) => i * size + i),
+    Array.from({ length: size }, (_, i) => (i + 1) * size - 1 - i),
+  ]
+  const corners = [0, size - 1, size * (size - 1), size * size - 1]
+  const all = Array.from({ length: size * size }, (_, i) => i)
+  return { rows, cols, diags, corners, all }
+}
+
+/**
+ * Positions that complete the win for `mode` given current marks.
+ * Returns null when no winning line/pattern is present.
+ * Used by host verification UI to highlight H/V/diagonal (or corners / blackout / X).
+ */
+export function getWinningPositions(
+  markedSongIds: Set<string>,
+  cells: { position: number; playlist_song_id: string }[],
+  size: number,
+  mode: WinPattern
+): number[] | null {
+  const positionToSong = new Map(cells.map((c) => [c.position, c.playlist_song_id]))
+  const isMarked = (pos: number) => isMarkedAt(pos, markedSongIds, positionToSong, size)
+  const isLineComplete = (positions: number[]) => positions.every((p) => isMarked(p))
+  const { rows, cols, diags, corners, all } = buildPatternLines(size)
+
+  if (mode === 'blackout') {
+    return isLineComplete(all) ? all : null
+  }
+  if (mode === 'corners') {
+    return isLineComplete(corners) ? corners : null
+  }
+  if (mode === 'x') {
+    return diags.every((line) => isLineComplete(line)) ? [...new Set(diags.flat())] : null
+  }
+  for (const line of [...rows, ...cols, ...diags]) {
+    if (isLineComplete(line)) return line
+  }
+  return null
+}
+
 /** Player UI: marks on card must match this pattern for BINGO! to enable. */
 export function hasWinningPatternFromMarks(
   markedSongIds: Set<string>,
@@ -58,34 +111,5 @@ export function hasWinningPatternFromMarks(
   size: number,
   mode: WinPattern
 ): boolean {
-  const positionToSong = new Map(cells.map((c) => [c.position, c.playlist_song_id]))
-  const isMarked = (pos: number) => isMarkedAt(pos, markedSongIds, positionToSong, size)
-  const isLineComplete = (positions: number[]) => positions.every((p) => isMarked(p))
-
-  const cellCount = size * size
-  const ROWS = Array.from({ length: size }, (_, r) =>
-    Array.from({ length: size }, (_, c) => r * size + c)
-  )
-  const COLS = Array.from({ length: size }, (_, c) =>
-    Array.from({ length: size }, (_, r) => r * size + c)
-  )
-  const DIAGS: number[][] = [
-    Array.from({ length: size }, (_, i) => i * size + i),
-    Array.from({ length: size }, (_, i) => (i + 1) * size - 1 - i),
-  ]
-
-  if (mode === 'blackout') {
-    return Array.from({ length: cellCount }, (_, i) => i).every((p) => isMarked(p))
-  }
-  if (mode === 'corners') {
-    const corners = [0, size - 1, size * (size - 1), size * size - 1]
-    return corners.every((p) => isMarked(p))
-  }
-  if (mode === 'x') {
-    return DIAGS.every((line) => isLineComplete(line))
-  }
-  for (const line of [...ROWS, ...COLS, ...DIAGS]) {
-    if (isLineComplete(line)) return true
-  }
-  return false
+  return getWinningPositions(markedSongIds, cells, size, mode) != null
 }

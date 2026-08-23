@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { verifyBingo, verifyBingoWithMarks } from '@/app/actions/verify'
-import { notifyHostWin } from '@/lib/game-session'
+import { notifyHostWin, recordBingoClaimDecision } from '@/lib/game-session'
 import { recordGameHistoryWin } from '@/lib/game-history'
 import { triggerWinnerCelebration } from '@/lib/trigger-winner-celebration'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
@@ -80,6 +80,13 @@ export async function POST(request: NextRequest) {
         cardId: targetCardId,
         playerName,
         playerIdentifier: card?.player_identifier ?? null,
+      })
+      void recordBingoClaimDecision(supabase, gameId, {
+        status: 'approved',
+        cardId: targetCardId,
+        playerName,
+        playerIdentifier: card?.player_identifier ?? null,
+        pattern: normalizeWinPattern(game?.mode),
       })
       // Archive winners / participation for host Past Games tab (best-effort).
       void recordGameHistoryWin(supabase, { gameId, winnerName: playerName })

@@ -30,11 +30,20 @@ export type BingoClaimVerificationModalProps = {
   cells: ClaimMatrixCell[]
   valid: boolean
   validationError?: string | null
+  /** ISO claim timestamp for host audit. */
+  claimedAt?: string | null
   approveLoading?: boolean
   rejectLoading?: boolean
   onApprove: () => void
   onReject: () => void
   onDismiss: () => void
+}
+
+function formatClaimTime(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
 }
 
 /** High-priority host modal when a player taps CALL BINGO. */
@@ -47,6 +56,7 @@ export function BingoClaimVerificationModal({
   cells,
   valid,
   validationError,
+  claimedAt,
   approveLoading = false,
   rejectLoading = false,
   onApprove,
@@ -58,6 +68,7 @@ export function BingoClaimVerificationModal({
   const busy = approveLoading || rejectLoading
   const patternLabel = PATTERN_LABELS[String(pattern)] ?? String(pattern)
   const sorted = [...cells].sort((a, b) => a.position - b.position)
+  const timeLabel = formatClaimTime(claimedAt)
 
   return (
     <div
@@ -78,11 +89,10 @@ export function BingoClaimVerificationModal({
             <h2 id="bingo-claim-verify-title" className="text-xl sm:text-2xl font-black text-white truncate">
               {playerName || 'Player'}
             </h2>
-            <p className="text-slate-400 text-sm mt-0.5">
-              Pattern: {patternLabel}
-              <span className="text-slate-600 font-mono text-xs ml-2">
-                Card {cardId.slice(0, 8)}…
-              </span>
+            <p className="text-slate-400 text-sm mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span>Pattern: {patternLabel}</span>
+              <span className="text-slate-600 font-mono text-xs">Card {cardId.slice(0, 8)}…</span>
+              {timeLabel ? <span className="text-slate-500 text-xs">· {timeLabel}</span> : null}
             </p>
           </div>
           <button
@@ -142,7 +152,8 @@ export function BingoClaimVerificationModal({
               })}
             </div>
             <p className="text-[11px] text-slate-500 mt-2">
-              Green = called + marked · Red = marked but not called · Amber = called only · Neon = winning line
+              Neon = winning line · Green = called + marked · Red = marked but not called · Amber =
+              called only
             </p>
           </div>
 
@@ -154,7 +165,7 @@ export function BingoClaimVerificationModal({
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-[#00FF66] hover:bg-green-300 disabled:opacity-40 disabled:cursor-not-allowed text-[#121212] font-bold py-3.5 text-sm sm:text-base transition-colors touch-manipulation min-h-12"
             >
               {approveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {approveLoading ? 'Approving…' : 'Approve (Trigger Win Animation)'}
+              {approveLoading ? 'Approving…' : 'Approve Bingo'}
             </button>
             <button
               type="button"
@@ -163,7 +174,7 @@ export function BingoClaimVerificationModal({
               className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-red-500/60 bg-red-500/15 hover:bg-red-500/25 disabled:opacity-50 text-red-200 font-semibold py-3 text-sm transition-colors touch-manipulation min-h-12"
             >
               {rejectLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-              {rejectLoading ? 'Rejecting…' : 'Reject (False Alarm)'}
+              {rejectLoading ? 'Rejecting…' : 'Reject Claim'}
             </button>
             {!valid ? (
               <p className="text-center text-xs text-slate-500">

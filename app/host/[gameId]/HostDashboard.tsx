@@ -42,13 +42,11 @@ import {
 } from '@/lib/supabase-realtime'
 import { resolveWheelSegments, pickWheelSegmentIndex } from '@/lib/stage-prize-wheel'
 import { getLevelFromXp } from '@/lib/xp-levels'
-import { toEvaluatorPattern, verifyBingoFromCells } from '@/lib/bingo-evaluator'
 import { getWinProgress } from '@/lib/bingo/player-progress'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
-import {
-  BingoClaimVerificationModal,
-  type ClaimMatrixCell,
-} from '@/components/host/BingoClaimVerificationModal'
+import { BingoClaimVerificationModal } from '@/components/host/BingoClaimVerificationModal'
+import { EMPTY_HOST_CLAIM_MODAL, useHostClaims } from '@/hooks/useHostClaims'
+import { recordBingoClaimDecision } from '@/lib/game-session'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSoundboard } from '@/components/host/HostSoundboard'
 import { HostConfirmModal } from '@/components/host/HostConfirmModal'
@@ -137,27 +135,7 @@ export function HostDashboard({
     verified: false,
     markedPlaylistSongIds: [],
   })
-  const [claimModal, setClaimModal] = useState<{
-    open: boolean
-    playerName: string
-    cardId: string
-    pattern: string
-    valid: boolean
-    validationError: string | null
-    markedPlaylistSongIds: string[]
-    cells: ClaimMatrixCell[]
-    gridSize: 4 | 5
-  }>({
-    open: false,
-    playerName: '',
-    cardId: '',
-    pattern: 'LINE',
-    valid: false,
-    validationError: null,
-    markedPlaylistSongIds: [],
-    cells: [],
-    gridSize: 5,
-  })
+  const [claimModal, setClaimModal] = useState(EMPTY_HOST_CLAIM_MODAL)
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
   const [claimRejectLoading, setClaimRejectLoading] = useState(false)
   const [celebrationRefireLoading, setCelebrationRefireLoading] = useState(false)
@@ -326,100 +304,54 @@ export function HostDashboard({
     void refreshPlayerBoards()
   }, [refreshPlayerBoards, playerCount])
 
+  const pauseAutoAdvanceForClaim = useCallback(() => {
+    if (autoAdvanceTimerRef.current || autoAdvanceIntervalRef.current) {
+      if (autoAdvanceTimerRef.current) {
+        clearTimeout(autoAdvanceTimerRef.current)
+        autoAdvanceTimerRef.current = null
+      }
+      if (autoAdvanceIntervalRef.current) {
+        clearInterval(autoAdvanceIntervalRef.current)
+        autoAdvanceIntervalRef.current = null
+      }
+      setAutoAdvanceCountdown(null)
+    }
+  }, [])
+
+  const calledPlaylistSongIds = useMemo(
+    () => played.map((p) => p.playlist_song_id),
+    [played]
+  )
+  const claimGridSize: 4 | 5 = game?.grid_size === 4 ? 4 : 5
+  const { buildClaimModal } = useHostClaims({
+    supabase,
+    gridSize: claimGridSize,
+    calledPlaylistSongIds,
+    songs,
+    onClaimInterrupt: pauseAutoAdvanceForClaim,
+    playChime: true,
+  })
+
   const handleBingoClaim = useCallback(
     async (payload: BingoClaimPayload) => {
-      const pattern = toEvaluatorPattern(String(payload.pattern))
-      const calledIds = played.map((p) => p.playlist_song_id)
-      const calledSet = new Set(calledIds)
-      const markedSet = new Set(payload.markedPlaylistSongIds ?? [])
-      const gridSizeLocal: 4 | 5 = game?.grid_size === 4 ? 4 : 5
-
-      const { data: cells } = await supabase
-        .from('card_cells')
-        .select('position, playlist_song_id')
-        .eq('card_id', payload.cardId)
-        .order('position')
-
-      let boardCells = cells ?? []
-      if (boardCells.length === 0) {
-        const { data: card } = await supabase
-          .from('cards')
-          .select('grid_data')
-          .eq('id', payload.cardId)
-          .single()
-        const grid = Array.isArray(card?.grid_data) ? card.grid_data : []
-        boardCells = grid
-          .map((cell, idx) => {
-            const c = cell as { position?: number; playlist_song_id?: string; track_id?: string }
-            const songId = c.playlist_song_id ?? c.track_id
-            if (!songId) return null
-            return { position: c.position ?? idx, playlist_song_id: songId }
-          })
-          .filter(Boolean) as { position: number; playlist_song_id: string }[]
-      }
-
-      const result = verifyBingoFromCells(
-        boardCells,
-        payload.markedPlaylistSongIds,
-        calledIds,
-        pattern,
-        gridSizeLocal
-      )
-      const winning = new Set(result.winningPositions ?? [])
-
-      const songIds = [...new Set(boardCells.map((c) => c.playlist_song_id))]
-      const titleById = new Map<string, string>()
-      for (const s of songs) {
-        if (songIds.includes(s.id)) {
-          titleById.set(s.id, playlistSongLabel(s))
-        }
-      }
-      const missing = songIds.filter((id) => !titleById.has(id))
-      if (missing.length > 0) {
-        const { data: extra } = await supabase
-          .from('playlist_songs')
-          .select('id, title, youtube_id')
-          .in('id', missing)
-        for (const row of extra ?? []) {
-          titleById.set(row.id, row.title || row.youtube_id || '—')
-        }
-      }
-
-      const matrix: ClaimMatrixCell[] = boardCells.map((c) => ({
-        position: c.position,
-        title: titleById.get(c.playlist_song_id) ?? null,
-        called: calledSet.has(c.playlist_song_id),
-        marked: markedSet.has(c.playlist_song_id),
-        winning: winning.has(c.position),
-      }))
-
-      setClaimModal({
-        open: true,
-        playerName: payload.playerName ?? 'Player',
-        cardId: payload.cardId,
-        pattern,
-        valid: result.valid,
-        validationError: result.error ?? null,
-        markedPlaylistSongIds: [...(payload.markedPlaylistSongIds ?? [])],
-        cells: matrix,
-        gridSize: gridSizeLocal,
-      })
-
+      const next = await buildClaimModal(payload)
+      if (!next) return
+      setClaimModal(next)
       // Keep prize-wheel circle payload ready for after approve.
       setWinnersCircle({
         open: false,
-        playerName: payload.playerName ?? 'Player',
-        cardId: payload.cardId,
-        pattern,
-        verified: result.valid,
-        markedPlaylistSongIds: [...(payload.markedPlaylistSongIds ?? [])],
+        playerName: next.playerName,
+        cardId: next.cardId,
+        pattern: next.pattern,
+        verified: next.valid,
+        markedPlaylistSongIds: next.markedPlaylistSongIds,
       })
       pushWinnerAlert({
-        playerName: payload.playerName ?? 'Player',
-        cardId: payload.cardId,
+        playerName: next.playerName,
+        cardId: next.cardId,
       })
     },
-    [game?.grid_size, played, pushWinnerAlert, songs, supabase]
+    [buildClaimModal, pushWinnerAlert]
   )
 
   useEffect(() => {
@@ -1038,7 +970,7 @@ export function HostDashboard({
           level,
           levelTitle,
         })
-        setClaimModal((c) => ({ ...c, open: false }))
+        setClaimModal(EMPTY_HOST_CLAIM_MODAL)
         setWinnersCircle((w) => ({
           ...w,
           open: true,
@@ -1075,9 +1007,16 @@ export function HostDashboard({
         playerName: claimModal.playerName,
         reason: claimModal.validationError || 'Host marked this as a false alarm.',
       })
+      void recordBingoClaimDecision(supabase, gameId, {
+        status: 'rejected',
+        cardId,
+        playerName: claimModal.playerName,
+        reason: claimModal.validationError || 'Host marked this as a false alarm.',
+        pattern: String(claimModal.pattern),
+      })
       playChannelRef.current?.send({
         type: 'broadcast',
-        event: 'bingo_claim_decision',
+        event: 'bingo_rejected',
         payload: {
           cardId,
           status: 'rejected',
@@ -1085,7 +1024,7 @@ export function HostDashboard({
           reason: claimModal.validationError || 'Host marked this as a false alarm.',
         },
       })
-      setClaimModal((c) => ({ ...c, open: false }))
+      setClaimModal(EMPTY_HOST_CLAIM_MODAL)
       setVerifyBingoSuccess(`Rejected claim from ${claimModal.playerName}.`)
     } catch (e) {
       setActionError(String(e))
@@ -1153,11 +1092,12 @@ export function HostDashboard({
         cells={claimModal.cells}
         valid={claimModal.valid}
         validationError={claimModal.validationError}
+        claimedAt={claimModal.claimedAt}
         approveLoading={winConfirmLoading}
         rejectLoading={claimRejectLoading}
         onApprove={() => void handleConfirmWinFromCircle()}
         onReject={() => void handleRejectClaim()}
-        onDismiss={() => setClaimModal((c) => ({ ...c, open: false }))}
+        onDismiss={() => setClaimModal(EMPTY_HOST_CLAIM_MODAL)}
       />
       <WinnersCircle
         open={winnersCircle.open}

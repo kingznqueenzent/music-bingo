@@ -717,6 +717,31 @@ export function PlayView({
       )
       .on(
         'broadcast',
+        { event: 'bingo_approved' },
+        (payload: { payload?: { cardId?: string } }) => {
+          if (payload?.payload?.cardId === cardId) {
+            setBingoMessage(null)
+            setShowWinModal(true)
+            triggerHaptic('success')
+            setCelebrationName(playerName)
+            setCelebrationOpen(true)
+            window.setTimeout(() => setCelebrationOpen(false), 14000)
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'bingo_rejected' },
+        (payload: { payload?: { cardId?: string; reason?: string | null } }) => {
+          if (payload?.payload?.cardId === cardId) {
+            triggerHaptic('error')
+            setBingoMessage('rejected')
+            window.setTimeout(() => setBingoMessage(null), 6000)
+          }
+        }
+      )
+      .on(
+        'broadcast',
         { event: 'host_shoutout' },
         (payload: { payload?: { kind?: string; message?: string } }) => {
           const p = payload?.payload
@@ -822,6 +847,7 @@ export function PlayView({
         playerName,
         pattern,
         markedPlaylistSongIds: marked,
+        claimedAt: new Date().toISOString(),
       })
 
       const claimRes = await fetch('/api/claim-bingo', {

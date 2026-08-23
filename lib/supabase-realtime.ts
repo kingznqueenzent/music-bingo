@@ -53,6 +53,8 @@ export type BingoClaimPayload = {
   playerName?: string | null
   pattern: EvaluatorPattern | string
   markedPlaylistSongIds: string[]
+  /** ISO timestamp when the player claimed (from game_events or client). */
+  claimedAt?: string | null
 }
 
 export type HostShoutoutPayload = {
@@ -157,6 +159,9 @@ export function subscribeHostGameChannel(
               markedPlaylistSongIds: Array.isArray(p.markedPlaylistSongIds)
                 ? (p.markedPlaylistSongIds as string[])
                 : [],
+              claimedAt:
+                (p.claimedAt as string | null | undefined) ??
+                ((payload.new as { created_at?: string }).created_at ?? null),
             })
           }
         }
@@ -248,6 +253,8 @@ export async function broadcastBingoClaimDecision(
   payload: BingoClaimDecisionPayload
 ): Promise<void> {
   await broadcastOnChannel(supabase, playChannelName(gameId), 'bingo_claim_decision', payload)
+  const decisionEvent = payload.status === 'approved' ? 'bingo_approved' : 'bingo_rejected'
+  await broadcastOnChannel(supabase, playChannelName(gameId), decisionEvent, payload)
   if (payload.status === 'approved') {
     await broadcastOnChannel(supabase, playChannelName(gameId), 'bingo_verified', {
       cardId: payload.cardId,

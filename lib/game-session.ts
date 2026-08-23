@@ -24,7 +24,13 @@ export type GameByCode = {
   logo_url: string | null
 }
 
-export type GameEventType = 'bingo_win' | 'prize_claim' | 'board_update' | 'bingo_claim'
+export type GameEventType =
+  | 'bingo_win'
+  | 'prize_claim'
+  | 'board_update'
+  | 'bingo_claim'
+  | 'bingo_approved'
+  | 'bingo_rejected'
 
 /** Base44 getGameByCode — load active session by room code. */
 export async function getGameByCode(
@@ -185,6 +191,46 @@ export async function notifyHostBingoClaim(
     // Older DBs without bingo_claim in the check constraint — still ok; realtime broadcast covers host.
     if (
       /game_events|schema cache|does not exist|bingo_claim|check constraint|violates/i.test(
+        error.message
+      )
+    ) {
+      return { ok: true }
+    }
+    return { ok: false, error: error.message }
+  }
+  return { ok: true }
+}
+
+/** Persist host approve/reject of a CALL BINGO claim for audit + realtime. */
+export async function recordBingoClaimDecision(
+  supabase: SupabaseClient,
+  gameId: string,
+  input: {
+    status: 'approved' | 'rejected'
+    cardId: string
+    playerName?: string | null
+    playerIdentifier?: string | null
+    reason?: string | null
+    pattern?: string | null
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  const event_type: GameEventType =
+    input.status === 'approved' ? 'bingo_approved' : 'bingo_rejected'
+  const { error } = await supabase.from('game_events').insert({
+    game_id: gameId,
+    event_type,
+    payload: {
+      cardId: input.cardId,
+      playerId: input.playerIdentifier ?? null,
+      playerName: input.playerName ?? null,
+      reason: input.reason ?? null,
+      pattern: input.pattern ?? null,
+      decidedAt: new Date().toISOString(),
+    } satisfies Json,
+  })
+  if (error) {
+    if (
+      /game_events|schema cache|does not exist|bingo_approved|bingo_rejected|check constraint|violates/i.test(
         error.message
       )
     ) {
