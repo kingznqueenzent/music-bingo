@@ -9,12 +9,14 @@ import {
   AlertCircle,
   RotateCcw,
   X,
+  Play,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { MEDIA_BUCKET, MAX_UPLOAD_MB } from '@/lib/media/supabase-storage-upload'
 import { ThemeSelect } from './ThemeSelect'
 import {
   MAX_UPLOAD_FILES,
+  UPLOAD_GENRE_UNTAGGED,
   useMediaUploadQueue,
   type TrackQuotaGate,
   type UploadQueueItem,
@@ -32,8 +34,6 @@ export type MediaUploadDropzoneProps = {
   themes: CatalogTheme[]
   uploadThemeId: string
   onUploadThemeIdChange: (id: string) => void
-  uploadGenre: string
-  onUploadGenreChange: (genre: string) => void
   onUploaded: () => void
   onError: (message: string) => void
   themeCounts?: Record<string, number>
@@ -44,6 +44,8 @@ export type MediaUploadDropzoneProps = {
 
 function statusLabel(item: UploadQueueItem): string {
   switch (item.status) {
+    case 'staged':
+      return 'Ready'
     case 'pending':
       return 'Pending'
     case 'uploading':
@@ -59,15 +61,51 @@ function statusClass(status: UploadQueueItem['status']): string {
   if (status === 'completed') return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
   if (status === 'error') return 'text-red-300 border-red-500/30 bg-red-500/10'
   if (status === 'uploading') return 'text-[#00FF66] border-[#00FF66]/30 bg-[#00FF66]/10'
+  if (status === 'staged') return 'text-[#00FF66]/80 border-[#00FF66]/20 bg-[#00FF66]/5'
   return 'text-gray-400 border-white/10 bg-white/5'
+}
+
+function GenreSelect({
+  id,
+  value,
+  onChange,
+  disabled,
+  compact,
+}: {
+  id?: string
+  value: string
+  onChange: (genre: string) => void
+  disabled?: boolean
+  compact?: boolean
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      aria-label="Genre"
+      className={
+        compact
+          ? 'w-full min-w-[7.5rem] rounded-lg border border-white/15 bg-black/40 px-2 py-1.5 text-[11px] text-white min-h-9 disabled:opacity-50'
+          : 'w-full rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white min-h-11 disabled:opacity-50'
+      }
+    >
+      <option value={UPLOAD_GENRE_UNTAGGED}>Select Genre</option>
+      {LIBRARY_GENRES.map((g) => (
+        <option key={g} value={g}>
+          {g}
+        </option>
+      ))}
+      <option value="Other">Other</option>
+    </select>
+  )
 }
 
 export function MediaUploadDropzone({
   themes,
   uploadThemeId,
   onUploadThemeIdChange,
-  uploadGenre,
-  onUploadGenreChange,
   onUploaded,
   onError,
   themeCounts,
@@ -81,10 +119,15 @@ export function MediaUploadDropzone({
 
   const {
     items,
+    stagedItems,
     stats,
     batchStats,
     running,
     enqueueFiles,
+    startUpload,
+    setItemGenre,
+    removeStagedItem,
+    clearStaged,
     retryItem,
     retryAllFailed,
     clearFinished,
@@ -93,7 +136,6 @@ export function MediaUploadDropzone({
     supabase,
     themes,
     uploadThemeId,
-    uploadGenre,
     onBatchComplete: onUploaded,
     onError,
     trackQuota,
@@ -104,7 +146,6 @@ export function MediaUploadDropzone({
       ? Math.round(((batchStats.completed + batchStats.error) / batchStats.total) * 100)
       : 0
 
-  /** 1-based index of the file currently uploading (or next pending). */
   const uploadingFileNumber =
     batchStats.total > 0
       ? Math.min(
@@ -112,6 +153,8 @@ export function MediaUploadDropzone({
           batchStats.total
         ) || 1
       : 0
+
+  const historyItems = items.filter((it) => it.status !== 'staged')
 
   return (
     <section className="space-y-3 min-w-0">
@@ -141,31 +184,6 @@ export function MediaUploadDropzone({
           disabled={running}
           aria-label="Target theme for uploads"
         />
-      </div>
-
-      <div>
-        <label
-          htmlFor="upload-genre"
-          className="block text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-2 px-1"
-        >
-          Genre tag
-        </label>
-        <select
-          id="upload-genre"
-          value={uploadGenre}
-          onChange={(e) => onUploadGenreChange(e.target.value)}
-          disabled={running}
-          aria-label="Target genre for uploads"
-          className="w-full rounded-xl border border-white/15 bg-black/40 px-3 py-2.5 text-sm text-white min-h-11 disabled:opacity-50"
-        >
-          <option value="auto">Auto-detect from file / filename</option>
-          {LIBRARY_GENRES.map((g) => (
-            <option key={g} value={g}>
-              {g}
-            </option>
-          ))}
-          <option value="Other">Other</option>
-        </select>
       </div>
 
       <motion.div
@@ -257,13 +275,89 @@ export function MediaUploadDropzone({
               Drop MP3 / MP4 files or browse
             </p>
             <p className="text-xs text-white/40">
-              Up to {MAX_UPLOAD_FILES} files at a time · max {MAX_UPLOAD_MB} MB each
+              Preview genres before upload · up to {MAX_UPLOAD_FILES} files · max {MAX_UPLOAD_MB} MB
+              each
             </p>
           </>
         )}
       </motion.div>
 
-      {items.length > 0 ? (
+      {stagedItems.length > 0 && !running ? (
+        <div
+          className="rounded-xl border border-[#00FF66]/20 p-3 space-y-3"
+          style={{ backgroundColor: SURFACE }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[10px] uppercase tracking-wider text-white/40">
+              Upload preview · {stagedItems.length} file{stagedItems.length === 1 ? '' : 's'}
+            </p>
+            <button
+              type="button"
+              onClick={clearStaged}
+              className="inline-flex items-center gap-1.5 text-xs text-white/40 hover:text-white min-h-9 px-2"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear
+            </button>
+          </div>
+
+          <ul className="max-h-72 overflow-y-auto overscroll-contain space-y-2 pr-0.5">
+            {stagedItems.map((item) => (
+              <li
+                key={item.id}
+                className="rounded-lg border border-white/5 bg-black/20 px-3 py-2.5 space-y-2"
+              >
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate font-medium">
+                      {item.title || item.file.name}
+                    </p>
+                    <p className="text-[11px] text-white/45 truncate mt-0.5">
+                      {item.artist?.trim() || 'Unknown artist'}
+                      <span className="text-white/25"> · </span>
+                      {(item.file.size / (1024 * 1024)).toFixed(1)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeStagedItem(item.id)}
+                    className="shrink-0 p-1.5 rounded-lg text-white/35 hover:text-white hover:bg-white/10 min-h-9 min-w-9 touch-manipulation"
+                    aria-label={`Remove ${item.title || item.file.name}`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div>
+                  <label
+                    htmlFor={`staged-genre-${item.id}`}
+                    className="block text-[10px] uppercase tracking-wider text-white/35 mb-1"
+                  >
+                    Genre
+                  </label>
+                  <GenreSelect
+                    id={`staged-genre-${item.id}`}
+                    value={item.genre}
+                    onChange={(g) => setItemGenre(item.id, g)}
+                    compact
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <button
+            type="button"
+            onClick={() => void startUpload()}
+            disabled={atQuotaCap}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[#00FF66]/50 bg-[#00FF66]/15 px-4 py-3 text-sm font-semibold text-[#00FF66] hover:bg-[#00FF66]/25 disabled:opacity-50 min-h-12 touch-manipulation"
+          >
+            <Play className="w-4 h-4" />
+            Start Upload ({stagedItems.length})
+          </button>
+        </div>
+      ) : null}
+
+      {historyItems.length > 0 ? (
         <div
           className="rounded-xl border border-white/5 p-3 space-y-2"
           style={{ backgroundColor: SURFACE }}
@@ -298,7 +392,7 @@ export function MediaUploadDropzone({
           </div>
 
           <ul className="max-h-56 overflow-y-auto overscroll-contain space-y-1.5 pr-0.5">
-            {items.map((item) => (
+            {historyItems.map((item) => (
               <li
                 key={item.id}
                 className="flex items-start gap-2 rounded-lg border border-white/5 bg-black/20 px-3 py-2 min-h-11"
@@ -313,7 +407,7 @@ export function MediaUploadDropzone({
                     <p className="text-[11px] text-white/40 truncate mt-0.5">{item.storagePath}</p>
                   ) : (
                     <p className="text-[11px] text-white/40 mt-0.5">
-                      {(item.file.size / (1024 * 1024)).toFixed(1)} MB
+                      {item.genre || 'Untagged'} · {(item.file.size / (1024 * 1024)).toFixed(1)} MB
                     </p>
                   )}
                 </div>

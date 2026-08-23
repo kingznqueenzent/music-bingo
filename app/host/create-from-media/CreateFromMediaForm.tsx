@@ -18,6 +18,7 @@ import {
 import type { CatalogSong } from '@/app/media-manager/types'
 import {
   LIBRARY_GENRE_FILTERS,
+  countUntaggedSongs,
   type LibraryGenreFilterId,
   songMatchesGenreFilter,
 } from '@/lib/media/detect-genre'
@@ -107,6 +108,8 @@ function CreateFromMediaFormInner() {
       return title.includes(q) || artist.includes(q) || theme.includes(q) || genre.includes(q)
     })
   }, [items, search, batchFilter, genreFilter, themeNameById, themeFromUrl])
+
+  const untaggedCount = useMemo(() => countUntaggedSongs(items), [items])
 
   // Host create only lists playable tracks — Reggae/etc. theme seeds often have titles but no media/YouTube.
   const filteredItems = useMemo(
@@ -365,6 +368,7 @@ function CreateFromMediaFormInner() {
         <div className="flex flex-wrap gap-2 mb-3" role="tablist" aria-label="Genre filter">
           {LIBRARY_GENRE_FILTERS.map((pill) => {
             const active = genreFilter === pill.id
+            const showBadge = pill.id === 'other' && untaggedCount > 0
             return (
               <button
                 key={pill.id}
@@ -372,13 +376,21 @@ function CreateFromMediaFormInner() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setGenreFilter(pill.id)}
-                className={`rounded-lg px-3 py-2 min-h-10 text-sm font-medium border transition-colors touch-manipulation ${
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 min-h-10 text-sm font-medium border transition-colors touch-manipulation ${
                   active
                     ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300'
                     : 'bg-slate-800/60 border-slate-600 text-slate-300 hover:border-slate-500'
                 }`}
               >
                 {pill.label}
+                {showBadge ? (
+                  <span
+                    className="tabular-nums rounded-md px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                    aria-label={`${untaggedCount} untagged tracks`}
+                  >
+                    {untaggedCount}
+                  </span>
+                ) : null}
               </button>
             )
           })}

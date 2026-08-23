@@ -31,13 +31,16 @@ import type { CatalogTheme, SongInsertPayload } from '../types'
 
 export const MAX_UPLOAD_FILES = 20
 
+/** Empty string in UI = "Select Genre" / Untagged. */
+export const UPLOAD_GENRE_UNTAGGED = ''
+
 export type TrackQuotaGate = {
   tier: GameTier
   catalogCount: number
   onQuotaBlocked: (message: string) => void
 }
 
-export type UploadItemStatus = 'pending' | 'uploading' | 'completed' | 'error'
+export type UploadItemStatus = 'staged' | 'pending' | 'uploading' | 'completed' | 'error'
 
 export type UploadQueueItem = {
   id: string
@@ -47,6 +50,9 @@ export type UploadQueueItem = {
   mediaUrl: string | null
   storagePath: string | null
   title: string | null
+  artist: string | null
+  /** Library genre label, or '' for Select Genre / Untagged. */
+  genre: string
 }
 
 type ThemeLike = Pick<CatalogTheme, 'id' | 'name'>
@@ -115,31 +121,45 @@ async function insertMediaLibraryBestEffort(
   }
 }
 
+/**
+ * Build songs insert payload. `itemGenre` is the host's per-file picker value
+ * ('' = Untagged / leave null unless auto-detect finds something when no explicit pick).
+ */
 async function buildSongPayload(
   file: File,
   mediaUrl: string,
   storagePath: string,
   ext: 'mp3' | 'mp4',
   uploadThemeId: string,
-  uploadGenre: string,
+  itemGenre: string,
   themes: ThemeLike[]
 ): Promise<SongInsertPayload> {
   const selectedThemeId = uploadThemeId.trim() || null
-  const selectedGenre =
-    uploadGenre.trim() && uploadGenre !== 'auto'
-      ? normalizeGenreLabel(uploadGenre)
+  const picked =
+    itemGenre.trim() && itemGenre !== 'auto'
+      ? normalizeGenreLabel(itemGenre)
       : null
   const meta = await extractMediaMetadata(file)
   let title = meta.title
   let artist = meta.artist
   let year = meta.year
   let themeId = selectedThemeId
-  let genre: string | null =
-    selectedGenre && selectedGenre !== 'Other'
-      ? selectedGenre
-      : meta.genre && meta.genre !== 'Other'
+
+  // Explicit picker wins; otherwise ID3 / filename detect; empty picker → null (Untagged).
+  let genre: string | null = null
+  if (picked && picked !== 'Other') {
+    genre = picked
+  } else if (picked === 'Other') {
+    genre = 'Other'
+  } else if (!itemGenre.trim()) {
+    // Select Genre / Untagged — keep null unless we later infer from theme only for routing.
+    genre = null
+  } else {
+    genre =
+      meta.genre && meta.genre !== 'Other'
         ? meta.genre
         : detectGenreFromText(file.name, meta.title, meta.artist)
+  }
 
   if (!selectedThemeId) {
     const auto = await fetchAutoCategory(file.name)
@@ -149,11 +169,11 @@ async function buildSongPayload(
       if (!artist) artist = filled.artist || null
       if (!year) year = filled.year || null
       themeId = filled.theme_id || null
-      if (!genre && filled.theme_name) {
+      if (!genre && itemGenre.trim() && filled.theme_name) {
         genre = inferGenreFromThemeName(filled.theme_name)
       }
     }
-  } else if (!genre) {
+  } else if (!genre && itemGenre.trim()) {
     const themeName = themes.find((t) => t.id === selectedThemeId)?.name
     genre = inferGenreFromThemeName(themeName)
   }
@@ -169,7 +189,8 @@ async function buildSongPayload(
     }
   }
 
-  if (!genre) genre = 'Other'
+  // Persist null for Untagged (missing genre), not forced "Other".
+  if (genre === 'Other' && !itemGenre.trim()) genre = null
 
   const fileDurationSec = await probeMediaDuration(file)
 
@@ -189,14 +210,12 @@ async function buildSongPayload(
 }
 
 /**
- * Per-file upload queue: pending → uploading → completed | error, with single-file retry.
- * Storage upload is direct via Supabase JS; songs insert follows immediately after.
+ * Staged preview → Start Upload → per-file upload queue with genre override.
  */
 export function useMediaUploadQueue({
   supabase,
   themes,
   uploadThemeId,
-  uploadGenre = 'auto',
   onBatchComplete,
   onError,
   trackQuota,
@@ -204,22 +223,17 @@ export function useMediaUploadQueue({
   supabase: SupabaseClient
   themes: ThemeLike[]
   uploadThemeId: string
-  /** `auto` = detect from metadata/filename; otherwise a library genre label. */
-  uploadGenre?: string
   onBatchComplete: () => void
   onError: (message: string) => void
   trackQuota?: TrackQuotaGate
 }) {
   const [items, setItems] = useState<UploadQueueItem[]>([])
   const [running, setRunning] = useState(false)
-  /** Ids in the active batch — progress UI ignores leftover completed/error rows. */
   const [activeBatchIds, setActiveBatchIds] = useState<string[]>([])
   const itemsRef = useRef(items)
   itemsRef.current = items
   const themeIdRef = useRef(uploadThemeId)
   themeIdRef.current = uploadThemeId
-  const genreRef = useRef(uploadGenre)
-  genreRef.current = uploadGenre
   const themesRef = useRef(themes)
   themesRef.current = themes
   const trackQuotaRef = useRef(trackQuota)
@@ -266,7 +280,7 @@ export function useMediaUploadQueue({
           uploaded.path,
           uploaded.ext,
           themeIdRef.current,
-          genreRef.current,
+          item.genre,
           themesRef.current
         )
 
@@ -280,7 +294,6 @@ export function useMediaUploadQueue({
           bucket: uploaded.bucket,
         })
 
-        // Catalog row immediately after storage; roll back object if DB insert fails
         try {
           await insertSongRow(supabase, payload)
         } catch (dbErr) {
@@ -294,6 +307,7 @@ export function useMediaUploadQueue({
           mediaUrl: uploaded.publicUrl,
           storagePath: uploaded.path,
           title: payload.title,
+          artist: payload.artist,
         })
         effectiveCatalogCountRef.current += 1
         return true
@@ -314,13 +328,21 @@ export function useMediaUploadQueue({
     [supabase, patchItem]
   )
 
+  /** Parse ID3 and stage files for preview — does not upload yet. */
   const enqueueFiles = useCallback(
     async (fileList: FileList | File[]) => {
+      if (running) {
+        onError('Wait for the current upload to finish.')
+        return
+      }
+
       const raw = Array.from(fileList)
+      const existingStaged = itemsRef.current.filter((it) => it.status === 'staged').length
+      const room = Math.max(0, MAX_UPLOAD_FILES - existingStaged)
       const next: UploadQueueItem[] = []
       const rejected: string[] = []
 
-      for (const file of raw.slice(0, MAX_UPLOAD_FILES)) {
+      for (const file of raw.slice(0, room || MAX_UPLOAD_FILES)) {
         const validated = validateMediaFile(file)
         if ('error' in validated) {
           rejected.push(`${file.name}: ${validated.error}`)
@@ -330,19 +352,41 @@ export function useMediaUploadQueue({
           rejected.push(`${file.name}: exceeds ${MAX_UPLOAD_MB} MB`)
           continue
         }
+
+        let title: string | null = file.name.replace(/\.[^.]+$/, '')
+        let artist: string | null = null
+        let genre = UPLOAD_GENRE_UNTAGGED
+        try {
+          const meta = await extractMediaMetadata(file)
+          title = meta.title || title
+          artist = meta.artist
+          if (meta.genre && meta.genre !== 'Other') {
+            genre = meta.genre
+          } else {
+            const detected = detectGenreFromText(file.name, meta.title, meta.artist)
+            genre = detected ?? UPLOAD_GENRE_UNTAGGED
+          }
+        } catch {
+          // Filename-only fallback already set
+        }
+
         next.push({
           id: newItemId(),
           file,
-          status: 'pending',
+          status: 'staged',
           error: null,
           mediaUrl: null,
           storagePath: null,
-          title: null,
+          title,
+          artist,
+          genre,
         })
       }
 
-      if (raw.length > MAX_UPLOAD_FILES) {
-        onError(`Only the first ${MAX_UPLOAD_FILES} files were queued.`)
+      if (raw.length > room && room > 0) {
+        onError(`Only ${room} more file(s) can be staged (max ${MAX_UPLOAD_FILES}).`)
+      } else if (raw.length > MAX_UPLOAD_FILES && room === 0) {
+        onError(`Upload preview is full (max ${MAX_UPLOAD_FILES} files).`)
       } else if (rejected.length > 0 && next.length === 0) {
         onError(rejected[0])
         return
@@ -356,7 +400,9 @@ export function useMediaUploadQueue({
 
       const quota = trackQuotaRef.current
       if (quota) {
-        const gate = checkTrackQuota(quota.tier, effectiveCatalogCountRef.current, next.length)
+        const stagedCount =
+          itemsRef.current.filter((it) => it.status === 'staged').length + next.length
+        const gate = checkTrackQuota(quota.tier, effectiveCatalogCountRef.current, stagedCount)
         if (!gate.allowed) {
           quota.onQuotaBlocked(gate.reason)
           onError(gate.reason)
@@ -364,46 +410,85 @@ export function useMediaUploadQueue({
         }
       }
 
-      const batchIds = next.map((it) => it.id)
-      setActiveBatchIds(batchIds)
       setItems((prev) => {
-        const keep = prev.filter((it) => it.status === 'error' || it.status === 'completed')
-        const merged = [...keep, ...next]
+        const merged = [...prev, ...next]
         itemsRef.current = merged
         return merged
       })
-      setRunning(true)
-
-      let anyOk = false
-      let failCount = 0
-      try {
-        for (const item of next) {
-          const ok = await processItem(item)
-          if (ok) anyOk = true
-          else failCount += 1
-        }
-      } finally {
-        setRunning(false)
-      }
-
-      if (failCount > 0) {
-        const firstFailed = itemsRef.current.find(
-          (it) => batchIds.includes(it.id) && it.status === 'error'
-        )
-        const detail = firstFailed?.error ? ` ${firstFailed.error}` : ''
-        onError(
-          failCount === next.length
-            ? `All ${failCount} upload(s) failed.${detail}`
-            : `${failCount} of ${next.length} upload(s) failed.${detail}`
-        )
-      } else if (anyOk) {
-        onError('')
-      }
-
-      if (anyOk) onBatchComplete()
     },
-    [onError, onBatchComplete, processItem]
+    [running, onError]
   )
+
+  const setItemGenre = useCallback((id: string, genre: string) => {
+    patchItem(id, { genre })
+  }, [patchItem])
+
+  const removeStagedItem = useCallback((id: string) => {
+    setItems((prev) => prev.filter((it) => !(it.id === id && it.status === 'staged')))
+  }, [])
+
+  const clearStaged = useCallback(() => {
+    setItems((prev) => prev.filter((it) => it.status !== 'staged'))
+  }, [])
+
+  const startUpload = useCallback(async () => {
+    if (running) return
+    const staged = itemsRef.current.filter((it) => it.status === 'staged')
+    if (staged.length === 0) {
+      onError('Add files to the preview before starting upload.')
+      return
+    }
+
+    const quota = trackQuotaRef.current
+    if (quota) {
+      const gate = checkTrackQuota(quota.tier, effectiveCatalogCountRef.current, staged.length)
+      if (!gate.allowed) {
+        quota.onQuotaBlocked(gate.reason)
+        onError(gate.reason)
+        return
+      }
+    }
+
+    const batchIds = staged.map((it) => it.id)
+    setActiveBatchIds(batchIds)
+    setItems((prev) =>
+      prev.map((it) =>
+        batchIds.includes(it.id) ? { ...it, status: 'pending' as const, error: null } : it
+      )
+    )
+    setRunning(true)
+    onError('')
+
+    let anyOk = false
+    let failCount = 0
+    try {
+      for (const id of batchIds) {
+        const item = itemsRef.current.find((it) => it.id === id)
+        if (!item) continue
+        const ok = await processItem({ ...item, status: 'pending', error: null })
+        if (ok) anyOk = true
+        else failCount += 1
+      }
+    } finally {
+      setRunning(false)
+    }
+
+    if (failCount > 0) {
+      const firstFailed = itemsRef.current.find(
+        (it) => batchIds.includes(it.id) && it.status === 'error'
+      )
+      const detail = firstFailed?.error ? ` ${firstFailed.error}` : ''
+      onError(
+        failCount === staged.length
+          ? `All ${failCount} upload(s) failed.${detail}`
+          : `${failCount} of ${staged.length} upload(s) failed.${detail}`
+      )
+    } else if (anyOk) {
+      onError('')
+    }
+
+    if (anyOk) onBatchComplete()
+  }, [running, onError, onBatchComplete, processItem])
 
   const retryItem = useCallback(
     async (id: string) => {
@@ -464,16 +549,17 @@ export function useMediaUploadQueue({
   }, [])
 
   const stats = useMemo(() => {
+    const staged = items.filter((i) => i.status === 'staged').length
     const pending = items.filter((i) => i.status === 'pending').length
     const uploading = items.filter((i) => i.status === 'uploading').length
     const completed = items.filter((i) => i.status === 'completed').length
     const error = items.filter((i) => i.status === 'error').length
-    return { pending, uploading, completed, error, total: items.length }
+    return { staged, pending, uploading, completed, error, total: items.length }
   }, [items])
 
   const batchStats = useMemo(() => {
     const idSet = new Set(activeBatchIds)
-    const batch = idSet.size > 0 ? items.filter((i) => idSet.has(i.id)) : items
+    const batch = idSet.size > 0 ? items.filter((i) => idSet.has(i.id)) : items.filter((i) => i.status !== 'staged')
     const pending = batch.filter((i) => i.status === 'pending').length
     const uploading = batch.filter((i) => i.status === 'uploading').length
     const completed = batch.filter((i) => i.status === 'completed').length
@@ -481,12 +567,22 @@ export function useMediaUploadQueue({
     return { pending, uploading, completed, error, total: batch.length }
   }, [items, activeBatchIds])
 
+  const stagedItems = useMemo(
+    () => items.filter((i) => i.status === 'staged'),
+    [items]
+  )
+
   return {
     items,
+    stagedItems,
     stats,
     batchStats,
     running,
     enqueueFiles,
+    startUpload,
+    setItemGenre,
+    removeStagedItem,
+    clearStaged,
     retryItem,
     retryAllFailed,
     clearFinished,

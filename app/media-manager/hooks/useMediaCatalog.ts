@@ -303,7 +303,9 @@ export function useMediaCatalog() {
   const patchSongFields = useCallback(
     async (
       id: string,
-      fields: Partial<Pick<CatalogSong, 'title' | 'artist' | 'media_url' | 'youtube_url' | 'media_type'>>
+      fields: Partial<
+        Pick<CatalogSong, 'title' | 'artist' | 'genre' | 'media_url' | 'youtube_url' | 'media_type'>
+      >
     ): Promise<{ ok: boolean; storageMoved?: boolean; storageWarnings?: string[] }> => {
       const song = songs.find((s) => s.id === id)
       if (!song) return { ok: false }

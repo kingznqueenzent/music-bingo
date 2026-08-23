@@ -41,7 +41,7 @@ import { MediaManagerUpgradeWall } from './MediaManagerUpgradeWall'
 import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { TrackQuotaUpgradeModal } from '@/components/media/TrackQuotaUpgradeModal'
-import type { LibraryGenreFilterId } from '@/lib/media/detect-genre'
+import { countUntaggedSongs, type LibraryGenreFilterId } from '@/lib/media/detect-genre'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = 'var(--lg-canvas)'
@@ -187,7 +187,6 @@ function MediaManagerDashboardInner() {
   const [selectedThemeFilter, setSelectedThemeFilter] = useState(themeFromUrl)
   const [selectedGenreFilter, setSelectedGenreFilter] = useState('')
   const [uploadThemeId, setUploadThemeId] = useState(themeFromUrl)
-  const [uploadGenre, setUploadGenre] = useState('auto')
   const [removingDupes, setRemovingDupes] = useState(false)
   const [cleaningUnassigned, setCleaningUnassigned] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
@@ -273,6 +272,8 @@ function MediaManagerDashboardInner() {
     () => filteredSongs.slice(0, displayLimit),
     [filteredSongs, displayLimit]
   )
+
+  const untaggedCount = useMemo(() => countUntaggedSongs(songs), [songs])
 
   const hasMore = displayLimit < filteredSongs.length
 
@@ -635,6 +636,31 @@ function MediaManagerDashboardInner() {
     [handleInlineThemeChange]
   )
 
+  const handleInlineGenreChange = useCallback(
+    async (songId: string, genre: string) => {
+      const key = `${songId}:genre`
+      setInlineSavingKey(key)
+      setError('')
+      const result = await patchSongFields(songId, {
+        genre: genre.trim() ? genre.trim() : null,
+      })
+      setInlineSavingKey(null)
+      if (!result.ok) {
+        showToast('error', 'Could not save genre')
+        return
+      }
+      showToast('success', genre.trim() ? `Genre set to ${genre}` : 'Genre cleared')
+    },
+    [patchSongFields, setError, showToast]
+  )
+
+  const handleInlineGenreChangeClick = useCallback(
+    (id: string, genre: string) => {
+      void handleInlineGenreChange(id, genre)
+    },
+    [handleInlineGenreChange]
+  )
+
   const handleSaveEditClick = useCallback(
     (id: string) => {
       void handleSaveEdit(id)
@@ -773,6 +799,7 @@ function MediaManagerDashboardInner() {
         onBatchFilterChange={handleBatchFilterChange}
         genreFilter={libraryGenreFilter}
         onGenreFilterChange={handleLibraryGenreFilterChange}
+        untaggedCount={untaggedCount}
         selectedThemeId={selectedThemeFilter}
         onThemeChange={handleThemeDropdownChange}
         themes={themes}
@@ -838,8 +865,6 @@ function MediaManagerDashboardInner() {
             themes={themes}
             uploadThemeId={uploadThemeId}
             onUploadThemeIdChange={setUploadThemeId}
-            uploadGenre={uploadGenre}
-            onUploadGenreChange={setUploadGenre}
             onUploaded={() => void refetch()}
             onError={(message) => {
               setError(message)
@@ -963,6 +988,7 @@ function MediaManagerDashboardInner() {
                         onInlineFieldSave={handleInlineFieldSave}
                         onCleanYoutubeUrl={handleCleanYoutubeUrlClick}
                         onInlineThemeChange={handleInlineThemeChangeClick}
+                        onInlineGenreChange={handleInlineGenreChangeClick}
                         onStartEdit={startEdit}
                         onSaveEdit={handleSaveEditClick}
                         onCancelEdit={handleCancelEditClick}

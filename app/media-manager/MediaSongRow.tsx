@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { formatDuration } from '@/lib/media/probe-media-duration'
 import { getSongYoutubeCandidate } from '@/lib/media/normalize-youtube-url'
+import { LIBRARY_GENRES } from '@/lib/media/detect-genre'
 import { BATCH_FILE_ACCEPT } from './MediaUploadDropzone'
 import { InlineEditableField } from './InlineEditableField'
 import { ThemeSelect } from './ThemeSelect'
@@ -51,6 +52,7 @@ export type MediaSongRowProps = {
   onInlineFieldSave: (songId: string, field: 'title' | 'artist', value: string) => Promise<boolean>
   onCleanYoutubeUrl: (song: CatalogSong) => void
   onInlineThemeChange: (songId: string, themeId: string) => void
+  onInlineGenreChange: (songId: string, genre: string) => void
   onStartEdit: (song: CatalogSong) => void
   onSaveEdit: (id: string) => void
   onCancelEdit: () => void
@@ -78,6 +80,7 @@ function MediaSongRowInner({
   onInlineFieldSave,
   onCleanYoutubeUrl,
   onInlineThemeChange,
+  onInlineGenreChange,
   onStartEdit,
   onSaveEdit,
   onCancelEdit,
@@ -162,12 +165,31 @@ function MediaSongRowInner({
                 inputClassName="text-white/70"
                 onSave={(next) => onInlineFieldSave(s.id, 'artist', next)}
               />
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 mt-1">
                 <p className="text-[10px] text-white/30 tabular-nums">{formatDuration(fullDur)}</p>
-                {s.genre ? (
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-[#00FF66]/80 border border-[#00FF66]/25 rounded px-1.5 py-0.5">
-                    {s.genre}
-                  </span>
+                <select
+                  value={
+                    s.genre && LIBRARY_GENRES.includes(s.genre as (typeof LIBRARY_GENRES)[number])
+                      ? s.genre
+                      : s.genre === 'Other'
+                        ? 'Other'
+                        : ''
+                  }
+                  disabled={inlineSavingKey === `${s.id}:genre`}
+                  onChange={(e) => onInlineGenreChange(s.id, e.target.value)}
+                  aria-label={`Genre for ${s.title}`}
+                  className="rounded-lg border border-[#00FF66]/25 bg-black/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#00FF66]/90 min-h-8 disabled:opacity-50 max-w-[9rem]"
+                >
+                  <option value="">Untagged</option>
+                  {LIBRARY_GENRES.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                  <option value="Other">Other</option>
+                </select>
+                {inlineSavingKey === `${s.id}:genre` ? (
+                  <Loader2 className="w-3 h-3 animate-spin text-[#00FF66]/70" />
                 ) : null}
               </div>
             </>
@@ -333,6 +355,7 @@ function rowPropsEqual(prev: MediaSongRowProps, next: MediaSongRowProps): boolea
     prev.onInlineFieldSave === next.onInlineFieldSave &&
     prev.onCleanYoutubeUrl === next.onCleanYoutubeUrl &&
     prev.onInlineThemeChange === next.onInlineThemeChange &&
+    prev.onInlineGenreChange === next.onInlineGenreChange &&
     prev.onStartEdit === next.onStartEdit &&
     prev.onSaveEdit === next.onSaveEdit &&
     prev.onCancelEdit === next.onCancelEdit &&

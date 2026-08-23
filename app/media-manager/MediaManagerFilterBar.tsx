@@ -8,6 +8,8 @@ import {
 import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
 
+const UNTAGGED_FILTER_ID: LibraryGenreFilterId = 'other'
+
 const NEON = 'var(--lg-neon)'
 
 export type BatchThemeFilter = 'all' | 'country' | 'rock' | 'billboard'
@@ -26,6 +28,8 @@ export type MediaManagerFilterBarProps = {
   onBatchFilterChange: (value: BatchThemeFilter) => void
   genreFilter: LibraryGenreFilterId
   onGenreFilterChange: (value: LibraryGenreFilterId) => void
+  /** Badge on Untagged tab when > 0. */
+  untaggedCount?: number
   selectedThemeId: string
   onThemeChange: (themeId: string) => void
   themes: CatalogTheme[]
@@ -43,6 +47,7 @@ export function MediaManagerFilterBar({
   onBatchFilterChange,
   genreFilter,
   onGenreFilterChange,
+  untaggedCount = 0,
   selectedThemeId,
   onThemeChange,
   themes,
@@ -117,6 +122,8 @@ export function MediaManagerFilterBar({
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Genre filters">
           {LIBRARY_GENRE_FILTERS.map((pill) => {
             const active = genreFilter === pill.id
+            const showUntaggedBadge =
+              pill.id === UNTAGGED_FILTER_ID && untaggedCount > 0
             return (
               <button
                 key={pill.id}
@@ -124,13 +131,25 @@ export function MediaManagerFilterBar({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onGenreFilterChange(pill.id)}
-                className={`px-3 py-2 min-h-10 rounded-lg text-xs font-semibold border transition-colors touch-manipulation ${
+                className={`inline-flex items-center gap-1.5 px-3 py-2 min-h-10 rounded-lg text-xs font-semibold border transition-colors touch-manipulation ${
                   active
                     ? 'border-[var(--lg-neon)]/60 bg-[var(--lg-neon)]/10 text-[var(--lg-neon)]'
                     : 'border-white/10 text-gray-400 hover:border-white/25 hover:text-gray-200'
                 }`}
               >
                 {pill.label}
+                {showUntaggedBadge ? (
+                  <span
+                    className={`tabular-nums rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
+                      active
+                        ? 'bg-[var(--lg-neon)]/20 text-[var(--lg-neon)]'
+                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    }`}
+                    aria-label={`${untaggedCount} untagged tracks`}
+                  >
+                    {untaggedCount}
+                  </span>
+                ) : null}
               </button>
             )
           })}
@@ -168,7 +187,9 @@ export function MediaManagerFilterBar({
           <>
             Showing <span style={{ color: NEON }}>{resultCount}</span> of {totalCount} tracks
             {searchQuery.trim() ? ' · search active' : ''}
-            {genreFilter !== 'all' ? ` · ${genreFilter === 'other' ? 'other' : genreFilter} genre` : ''}
+            {genreFilter !== 'all'
+              ? ` · ${genreFilter === 'other' ? 'untagged' : genreFilter} genre`
+              : ''}
             {batchFilter !== 'all' ? ` · ${batchFilter} filter` : ''}
             {selectedThemeId ? ' · theme selected' : ''}
           </>

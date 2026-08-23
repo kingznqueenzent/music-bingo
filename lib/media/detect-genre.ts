@@ -25,7 +25,7 @@ export const LIBRARY_GENRE_FILTERS: { id: LibraryGenreFilterId; label: string }[
   { id: 'Afrobeats', label: 'Afrobeats' },
   { id: 'Hip-Hop', label: 'Hip-Hop' },
   { id: 'R&B', label: 'R&B' },
-  { id: 'other', label: 'Other / Uncategorized' },
+  { id: 'other', label: 'Untagged' },
 ]
 
 /** Longer / more specific keywords first so "dancehall" wins over "hall". */
@@ -78,6 +78,19 @@ export function normalizeGenreLabel(raw: string | null | undefined): DetectedGen
   if (lower.includes('reggae')) return 'Reggae'
 
   return 'Other'
+}
+
+/** Stored genre is missing, null, or Other → Untagged bucket. */
+export function isUntaggedStoredGenre(genre?: string | null): boolean {
+  const normalized = normalizeGenreLabel(genre)
+  return !normalized || normalized === 'Other'
+}
+
+/** Count catalog songs that lack a library genre tag. */
+export function countUntaggedSongs(
+  songs: Array<{ genre?: string | null }>
+): number {
+  return songs.reduce((n, s) => n + (isUntaggedStoredGenre(s.genre) ? 1 : 0), 0)
 }
 
 /** Infer genre from a decade-theme name like "90s Dancehall Reggae". */
@@ -144,7 +157,8 @@ export function songMatchesGenreFilter(
     themeName,
   })
   if (filter === 'other') {
-    return !resolved || resolved === 'Other'
+    // Untagged = missing / null / Other on songs.genre (ignore theme inference).
+    return isUntaggedStoredGenre(song.genre)
   }
   return resolved === filter
 }
