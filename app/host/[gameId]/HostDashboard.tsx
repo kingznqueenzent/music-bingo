@@ -36,6 +36,7 @@ import {
   broadcastPlaybackState,
   broadcastWinnerCrowned,
   broadcastSpinWheelStart,
+  broadcastBingoClaimDecision,
   type BingoClaimPayload,
   type WinnerCrownedPayload,
 } from '@/lib/supabase-realtime'
@@ -44,6 +45,10 @@ import { getLevelFromXp } from '@/lib/xp-levels'
 import { toEvaluatorPattern, verifyBingoFromCells } from '@/lib/bingo-evaluator'
 import { getWinProgress } from '@/lib/bingo/player-progress'
 import { WinnersCircle } from '@/components/host/WinnersCircle'
+import {
+  BingoClaimVerificationModal,
+  type ClaimMatrixCell,
+} from '@/components/host/BingoClaimVerificationModal'
 import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSoundboard } from '@/components/host/HostSoundboard'
 import { HostConfirmModal } from '@/components/host/HostConfirmModal'
@@ -132,7 +137,29 @@ export function HostDashboard({
     verified: false,
     markedPlaylistSongIds: [],
   })
+  const [claimModal, setClaimModal] = useState<{
+    open: boolean
+    playerName: string
+    cardId: string
+    pattern: string
+    valid: boolean
+    validationError: string | null
+    markedPlaylistSongIds: string[]
+    cells: ClaimMatrixCell[]
+    gridSize: 4 | 5
+  }>({
+    open: false,
+    playerName: '',
+    cardId: '',
+    pattern: 'LINE',
+    valid: false,
+    validationError: null,
+    markedPlaylistSongIds: [],
+    cells: [],
+    gridSize: 5,
+  })
   const [winConfirmLoading, setWinConfirmLoading] = useState(false)
+  const [claimRejectLoading, setClaimRejectLoading] = useState(false)
   const [celebrationRefireLoading, setCelebrationRefireLoading] = useState(false)
   const [lastCelebration, setLastCelebration] = useState<WinnerCrownedPayload | null>(null)
   const [trackSearch, setTrackSearch] = useState('')
@@ -303,6 +330,9 @@ export function HostDashboard({
     async (payload: BingoClaimPayload) => {
       const pattern = toEvaluatorPattern(String(payload.pattern))
       const calledIds = played.map((p) => p.playlist_song_id)
+      const calledSet = new Set(calledIds)
+      const markedSet = new Set(payload.markedPlaylistSongIds ?? [])
+      const gridSizeLocal: 4 | 5 = game?.grid_size === 4 ? 4 : 5
 
       const { data: cells } = await supabase
         .from('card_cells')
@@ -328,7 +358,6 @@ export function HostDashboard({
           .filter(Boolean) as { position: number; playlist_song_id: string }[]
       }
 
-      const gridSizeLocal = game?.grid_size === 4 ? 4 : 5
       const result = verifyBingoFromCells(
         boardCells,
         payload.markedPlaylistSongIds,
@@ -336,28 +365,61 @@ export function HostDashboard({
         pattern,
         gridSizeLocal
       )
+      const winning = new Set(result.winningPositions ?? [])
 
-      setWinnersCircle({
+      const songIds = [...new Set(boardCells.map((c) => c.playlist_song_id))]
+      const titleById = new Map<string, string>()
+      for (const s of songs) {
+        if (songIds.includes(s.id)) {
+          titleById.set(s.id, playlistSongLabel(s))
+        }
+      }
+      const missing = songIds.filter((id) => !titleById.has(id))
+      if (missing.length > 0) {
+        const { data: extra } = await supabase
+          .from('playlist_songs')
+          .select('id, title, youtube_id')
+          .in('id', missing)
+        for (const row of extra ?? []) {
+          titleById.set(row.id, row.title || row.youtube_id || '—')
+        }
+      }
+
+      const matrix: ClaimMatrixCell[] = boardCells.map((c) => ({
+        position: c.position,
+        title: titleById.get(c.playlist_song_id) ?? null,
+        called: calledSet.has(c.playlist_song_id),
+        marked: markedSet.has(c.playlist_song_id),
+        winning: winning.has(c.position),
+      }))
+
+      setClaimModal({
         open: true,
+        playerName: payload.playerName ?? 'Player',
+        cardId: payload.cardId,
+        pattern,
+        valid: result.valid,
+        validationError: result.error ?? null,
+        markedPlaylistSongIds: [...(payload.markedPlaylistSongIds ?? [])],
+        cells: matrix,
+        gridSize: gridSizeLocal,
+      })
+
+      // Keep prize-wheel circle payload ready for after approve.
+      setWinnersCircle({
+        open: false,
         playerName: payload.playerName ?? 'Player',
         cardId: payload.cardId,
         pattern,
         verified: result.valid,
         markedPlaylistSongIds: [...(payload.markedPlaylistSongIds ?? [])],
       })
-      if (result.valid) {
-        setLastCelebration({
-          playerName: payload.playerName ?? 'Player',
-          cardId: payload.cardId,
-          pattern,
-        })
-      }
       pushWinnerAlert({
         playerName: payload.playerName ?? 'Player',
         cardId: payload.cardId,
       })
     },
-    [game?.grid_size, played, pushWinnerAlert, supabase]
+    [game?.grid_size, played, pushWinnerAlert, songs, supabase]
   )
 
   useEffect(() => {
@@ -926,7 +988,12 @@ export function HostDashboard({
   handleNextSongRef.current = handleNextSong
 
   async function handleConfirmWinFromCircle() {
-    const cardId = winnersCircle.cardId
+    const cardId = claimModal.open ? claimModal.cardId : winnersCircle.cardId
+    const markedPlaylistSongIds = claimModal.open
+      ? claimModal.markedPlaylistSongIds
+      : winnersCircle.markedPlaylistSongIds
+    const playerNameFallback = claimModal.open ? claimModal.playerName : winnersCircle.playerName
+    const pattern = claimModal.open ? claimModal.pattern : winnersCircle.pattern
     if (!cardId) return
     setWinConfirmLoading(true)
     try {
@@ -936,7 +1003,7 @@ export function HostDashboard({
         body: JSON.stringify({
           gameId,
           cardId,
-          markedPlaylistSongIds: winnersCircle.markedPlaylistSongIds,
+          markedPlaylistSongIds,
         }),
       })
       const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
@@ -946,7 +1013,12 @@ export function HostDashboard({
           event: 'bingo_verified',
           payload: { cardId },
         })
-        const playerName = data.playerName ?? winnersCircle.playerName
+        await broadcastBingoClaimDecision(supabase, gameId, {
+          cardId,
+          status: 'approved',
+          playerName: data.playerName ?? playerNameFallback,
+        })
+        const playerName = data.playerName ?? playerNameFallback
         let level: number | undefined
         let levelTitle: string | undefined
         const { data: lbRow } = await supabase
@@ -962,19 +1034,63 @@ export function HostDashboard({
         setLastCelebration({
           playerName,
           cardId,
-          pattern: winnersCircle.pattern,
+          pattern,
           level,
           levelTitle,
         })
-        setWinnersCircle((w) => ({ ...w, open: false, verified: true }))
+        setClaimModal((c) => ({ ...c, open: false }))
+        setWinnersCircle((w) => ({
+          ...w,
+          open: true,
+          verified: true,
+          playerName,
+          cardId,
+          pattern,
+          markedPlaylistSongIds,
+        }))
         setVerifyBingoSuccess(`${playerName} verified!`)
       } else {
         setActionError(data.error ?? 'Verification failed')
+        setClaimModal((c) => ({
+          ...c,
+          valid: false,
+          validationError: data.error ?? 'Verification failed',
+        }))
       }
     } catch (e) {
       setActionError(String(e))
     } finally {
       setWinConfirmLoading(false)
+    }
+  }
+
+  async function handleRejectClaim() {
+    const cardId = claimModal.cardId
+    if (!cardId) return
+    setClaimRejectLoading(true)
+    try {
+      await broadcastBingoClaimDecision(supabase, gameId, {
+        cardId,
+        status: 'rejected',
+        playerName: claimModal.playerName,
+        reason: claimModal.validationError || 'Host marked this as a false alarm.',
+      })
+      playChannelRef.current?.send({
+        type: 'broadcast',
+        event: 'bingo_claim_decision',
+        payload: {
+          cardId,
+          status: 'rejected',
+          playerName: claimModal.playerName,
+          reason: claimModal.validationError || 'Host marked this as a false alarm.',
+        },
+      })
+      setClaimModal((c) => ({ ...c, open: false }))
+      setVerifyBingoSuccess(`Rejected claim from ${claimModal.playerName}.`)
+    } catch (e) {
+      setActionError(String(e))
+    } finally {
+      setClaimRejectLoading(false)
     }
   }
 
@@ -1028,6 +1144,21 @@ export function HostDashboard({
 
   return (
     <div className="w-full max-w-4xl min-w-0 space-y-5 sm:space-y-8 overflow-x-hidden px-0">
+      <BingoClaimVerificationModal
+        open={claimModal.open}
+        playerName={claimModal.playerName}
+        cardId={claimModal.cardId}
+        pattern={claimModal.pattern}
+        gridSize={claimModal.gridSize}
+        cells={claimModal.cells}
+        valid={claimModal.valid}
+        validationError={claimModal.validationError}
+        approveLoading={winConfirmLoading}
+        rejectLoading={claimRejectLoading}
+        onApprove={() => void handleConfirmWinFromCircle()}
+        onReject={() => void handleRejectClaim()}
+        onDismiss={() => setClaimModal((c) => ({ ...c, open: false }))}
+      />
       <WinnersCircle
         open={winnersCircle.open}
         playerName={winnersCircle.playerName}

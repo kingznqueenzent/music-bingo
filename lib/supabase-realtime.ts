@@ -234,6 +234,27 @@ export async function broadcastBingoClaim(
   supabase.removeChannel(channel)
 }
 
+export type BingoClaimDecisionPayload = {
+  cardId: string
+  status: 'approved' | 'rejected'
+  playerName?: string | null
+  reason?: string | null
+}
+
+/** Notify the player card that the host approved or rejected a CALL BINGO claim. */
+export async function broadcastBingoClaimDecision(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: BingoClaimDecisionPayload
+): Promise<void> {
+  await broadcastOnChannel(supabase, playChannelName(gameId), 'bingo_claim_decision', payload)
+  if (payload.status === 'approved') {
+    await broadcastOnChannel(supabase, playChannelName(gameId), 'bingo_verified', {
+      cardId: payload.cardId,
+    })
+  }
+}
+
 async function broadcastOnChannel(
   supabase: SupabaseClient,
   channelName: string,

@@ -102,7 +102,7 @@ export function PlayView({
   const [claimSubmitting, setClaimSubmitting] = useState(false)
   const [claimError, setClaimError] = useState('')
   const [bingoSubmitting, setBingoSubmitting] = useState(false)
-  const [bingoMessage, setBingoMessage] = useState<'invalid' | null>(null)
+  const [bingoMessage, setBingoMessage] = useState<'invalid' | 'pending' | 'rejected' | null>(null)
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
@@ -683,7 +683,36 @@ export function PlayView({
         'broadcast',
         { event: 'bingo_verified' },
         (payload: { payload?: { cardId?: string } }) => {
-          if (payload?.payload?.cardId === cardId) setShowWinModal(true)
+          if (payload?.payload?.cardId === cardId) {
+            setBingoMessage(null)
+            setShowWinModal(true)
+            triggerHaptic('success')
+            setCelebrationName(playerName)
+            setCelebrationOpen(true)
+            window.setTimeout(() => setCelebrationOpen(false), 14000)
+          }
+        }
+      )
+      .on(
+        'broadcast',
+        { event: 'bingo_claim_decision' },
+        (payload: {
+          payload?: { cardId?: string; status?: string; reason?: string | null }
+        }) => {
+          const p = payload?.payload
+          if (!p?.cardId || p.cardId !== cardId) return
+          if (p.status === 'rejected') {
+            triggerHaptic('error')
+            setBingoMessage('rejected')
+            window.setTimeout(() => setBingoMessage(null), 6000)
+          } else if (p.status === 'approved') {
+            setBingoMessage(null)
+            setShowWinModal(true)
+            triggerHaptic('success')
+            setCelebrationName(playerName)
+            setCelebrationOpen(true)
+            window.setTimeout(() => setCelebrationOpen(false), 14000)
+          }
         }
       )
       .on(
@@ -754,7 +783,7 @@ export function PlayView({
       supabase.removeChannel(channel)
       supabase.removeChannel(gameChannel)
     }
-  }, [gameId, cardId, supabase])
+  }, [gameId, cardId, supabase, playerName])
 
   useEffect(() => {
     const onLeave = () => {
@@ -785,45 +814,36 @@ export function PlayView({
     setBingoMessage(null)
     setBingoSubmitting(true)
     try {
+      const marked = [...markedSongIds]
+      const pattern = toEvaluatorPattern(gameMode)
       void broadcastBingoClaim(supabase, gameId, {
         cardId,
         playerId: profileIdentifier || cardId,
         playerName,
-        pattern: toEvaluatorPattern(gameMode),
-        markedPlaylistSongIds: [...markedSongIds],
+        pattern,
+        markedPlaylistSongIds: marked,
       })
 
-      const res = await fetch('/api/verify-bingo', {
+      const claimRes = await fetch('/api/claim-bingo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          cardId,
           gameId,
-          markedPlaylistSongIds: [...markedSongIds],
+          cardId,
+          playerName,
+          playerIdentifier: profileIdentifier || cardId,
+          pattern,
+          markedPlaylistSongIds: marked,
         }),
       })
-      const data = (await res.json()) as { valid?: boolean; error?: string; playerName?: string }
-      if (data.valid) {
-        triggerHaptic('success')
-        setCelebrationName(data.playerName ?? playerName)
-        setCelebrationOpen(true)
-        window.setTimeout(() => setCelebrationOpen(false), 14000)
-        const ch = supabase.channel(`game-${gameId}`)
-        ch.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            ch.send({
-              type: 'broadcast',
-              event: 'bingo_winner',
-              payload: { cardId, playerName: data.playerName ?? playerName },
-            })
-          }
-        })
-        setShowWinModal(true)
-      } else {
-        triggerHaptic('error')
-        setBingoMessage('invalid')
-        setTimeout(() => setBingoMessage(null), 4000)
+      const claimData = (await claimRes.json().catch(() => ({}))) as { ok?: boolean; error?: string }
+      if (!claimRes.ok && claimData.error) {
+        console.warn('[CALL BINGO] claim persist:', claimData.error)
       }
+
+      // Host verifies via Instant Bingo modal — wait for approve/reject realtime.
+      setBingoMessage('pending')
+      triggerHaptic('tap')
     } catch {
       triggerHaptic('error')
       setBingoMessage('invalid')
@@ -1110,13 +1130,21 @@ export function PlayView({
           disabled={!canClaimBingo || bingoSubmitting}
           className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#00FF66] hover:bg-green-300 text-[#121212] shadow-lg shadow-[#00FF66]/30 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
         >
-          {bingoSubmitting ? 'Checking…' : 'BINGO!'}
+          {bingoSubmitting ? 'Calling…' : bingoMessage === 'pending' ? 'Waiting for host…' : 'CALL BINGO!'}
         </button>
         {!canClaimBingo && (
           <p className="text-slate-500 text-xs">Mark a full line (or the current pattern) to enable BINGO.</p>
         )}
+        {bingoMessage === 'pending' && (
+          <p className="text-[#00FF66] text-sm font-medium">Claim sent — host is verifying your card.</p>
+        )}
+        {bingoMessage === 'rejected' && (
+          <p className="text-amber-300 text-sm font-medium">
+            Host marked that as a false alarm. Keep playing!
+          </p>
+        )}
         {bingoMessage === 'invalid' && (
-          <p className="text-red-400 text-sm font-medium">Invalid Bingo – only mark songs the host has already played.</p>
+          <p className="text-red-400 text-sm font-medium">Could not send bingo claim — try again.</p>
         )}
       </div>
 
