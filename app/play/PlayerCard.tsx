@@ -810,7 +810,7 @@ export function PlayView({
   const canClaimBingo = hasWinningPatternFromMarks(markedSongIds, cells, gridSize, gameMode)
 
   async function handleBingoClick() {
-    if (!canClaimBingo || bingoSubmitting) return
+    if (!canClaimBingo || bingoSubmitting || bingoMessage === 'pending') return
     setBingoMessage(null)
     setBingoSubmitting(true)
     try {
@@ -837,8 +837,11 @@ export function PlayView({
         }),
       })
       const claimData = (await claimRes.json().catch(() => ({}))) as { ok?: boolean; error?: string }
-      if (!claimRes.ok && claimData.error) {
-        console.warn('[CALL BINGO] claim persist:', claimData.error)
+      if (!claimRes.ok || claimData.ok === false) {
+        triggerHaptic('error')
+        setBingoMessage('invalid')
+        setTimeout(() => setBingoMessage(null), 4000)
+        return
       }
 
       // Host verifies via Instant Bingo modal — wait for approve/reject realtime.
@@ -970,7 +973,7 @@ export function PlayView({
       playerName={playerName}
     >
     <div
-      className="w-full max-w-6xl mx-auto px-2 sm:px-0 relative pb-32 lg:pb-28 lg:flex lg:flex-row lg:gap-6 lg:items-start"
+      className="w-full max-w-6xl mx-auto px-2 sm:px-0 relative pb-40 lg:pb-28 lg:flex lg:flex-row lg:gap-6 lg:items-start"
       style={
         whiteLabel
           ? ({
@@ -1107,11 +1110,18 @@ export function PlayView({
         {hideSongTitles ? ' Titles are hidden in Blind Mode.' : ''}
       </p>
 
-      <div className="mt-6 flex flex-col items-center gap-3">
+      <div className="mt-6 flex flex-col items-center gap-3 pb-2 lg:pb-0">
+        {/* Desktop in-flow CALL BINGO */}
         <button
           type="button"
           onPointerDown={(e) => {
-            if (e.pointerType !== 'touch' || !canClaimBingo || bingoSubmitting) return
+            if (
+              e.pointerType !== 'touch' ||
+              !canClaimBingo ||
+              bingoSubmitting ||
+              bingoMessage === 'pending'
+            )
+              return
             e.preventDefault()
             bingoSkipClickRef.current = true
             void handleBingoClick()
@@ -1127,25 +1137,103 @@ export function PlayView({
             }
             void handleBingoClick()
           }}
-          disabled={!canClaimBingo || bingoSubmitting}
-          className="w-full max-w-xs rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#00FF66] hover:bg-green-300 text-[#121212] shadow-lg shadow-[#00FF66]/30 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
+          disabled={!canClaimBingo || bingoSubmitting || bingoMessage === 'pending'}
+          className="hidden lg:inline-flex w-full max-w-xs items-center justify-center rounded-2xl py-4 px-8 text-xl font-black uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed bg-[#00FF66] hover:bg-green-300 text-[#121212] shadow-lg shadow-[#00FF66]/30 hover:scale-[1.02] disabled:hover:scale-100 touch-manipulation pointer-events-auto"
         >
           {bingoSubmitting ? 'Calling…' : bingoMessage === 'pending' ? 'Waiting for host…' : 'CALL BINGO!'}
         </button>
         {!canClaimBingo && (
-          <p className="text-slate-500 text-xs">Mark a full line (or the current pattern) to enable BINGO.</p>
+          <p className="hidden lg:block text-slate-500 text-xs">
+            Mark a full line (or the current pattern) to enable CALL BINGO.
+          </p>
         )}
         {bingoMessage === 'pending' && (
-          <p className="text-[#00FF66] text-sm font-medium">Claim sent — host is verifying your card.</p>
+          <p className="text-[#00FF66] text-sm font-medium text-center">
+            Claim sent — host is verifying your card.
+          </p>
         )}
         {bingoMessage === 'rejected' && (
-          <p className="text-amber-300 text-sm font-medium">
+          <p className="text-amber-300 text-sm font-medium text-center">
             Host marked that as a false alarm. Keep playing!
           </p>
         )}
         {bingoMessage === 'invalid' && (
-          <p className="text-red-400 text-sm font-medium">Could not send bingo claim — try again.</p>
+          <p className="text-red-400 text-sm font-medium text-center">
+            Could not send bingo claim — try again.
+          </p>
         )}
+      </div>
+
+      {/* Mobile sticky CALL BINGO — large touch target above home indicator */}
+      <div
+        className={`call-bingo-sticky lg:hidden fixed inset-x-0 bottom-0 z-40 px-3 pt-3 pointer-events-none ${
+          canClaimBingo && bingoMessage !== 'pending' ? 'call-bingo-sticky--ready' : ''
+        }`}
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
+        <div className="pointer-events-auto mx-auto w-full max-w-md">
+          <button
+            type="button"
+            onPointerDown={(e) => {
+              if (
+                e.pointerType !== 'touch' ||
+                !canClaimBingo ||
+                bingoSubmitting ||
+                bingoMessage === 'pending'
+              )
+                return
+              e.preventDefault()
+              bingoSkipClickRef.current = true
+              void handleBingoClick()
+              window.setTimeout(() => {
+                bingoSkipClickRef.current = false
+              }, 600)
+            }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={() => {
+              if (bingoSkipClickRef.current) {
+                bingoSkipClickRef.current = false
+                return
+              }
+              void handleBingoClick()
+            }}
+            disabled={!canClaimBingo || bingoSubmitting || bingoMessage === 'pending'}
+            className={`
+              call-bingo-btn w-full min-h-[3.5rem] rounded-2xl py-4 px-6 text-lg sm:text-xl font-black uppercase tracking-wider
+              transition-all touch-manipulation pointer-events-auto transform-gpu
+              disabled:opacity-45 disabled:cursor-not-allowed
+              ${
+                canClaimBingo && bingoMessage !== 'pending'
+                  ? 'bg-[#00FF66] text-[#121212] shadow-[0_0_32px_rgba(0,255,102,0.55)] animate-call-bingo-pulse active:scale-[0.97]'
+                  : bingoMessage === 'pending'
+                    ? 'bg-[#00FF66]/70 text-[#121212]'
+                    : 'bg-[#1E1E1E] text-white/50 border border-white/15'
+              }
+            `}
+            aria-label={
+              canClaimBingo ? 'Call Bingo' : 'Call Bingo disabled until you have a winning pattern'
+            }
+          >
+            {bingoSubmitting
+              ? 'Calling…'
+              : bingoMessage === 'pending'
+                ? 'Waiting for host…'
+                : 'CALL BINGO!'}
+          </button>
+          {!canClaimBingo ? (
+            <p className="mt-1.5 text-center text-[11px] text-slate-500">
+              Complete the{' '}
+              {gameMode === 'blackout'
+                ? 'blackout'
+                : gameMode === 'corners'
+                  ? 'corners'
+                  : gameMode === 'x'
+                    ? 'X'
+                    : 'line'}{' '}
+              pattern to unlock
+            </p>
+          ) : null}
+        </div>
       </div>
 
       {celebrationOpen && (
@@ -1241,7 +1329,7 @@ export function PlayView({
           type="button"
           onTouchStart={(e) => e.stopPropagation()}
           onClick={() => setLeaderboardDrawerOpen(true)}
-          className="fixed bottom-24 right-6 z-30 lg:bottom-6 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto transform-gpu"
+          className="fixed bottom-28 right-4 z-30 lg:bottom-6 lg:right-6 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto transform-gpu"
           aria-label="View leaderboard"
         >
           🏆

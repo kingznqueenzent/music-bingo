@@ -193,9 +193,9 @@ export function BingoCard({
             })
 
             const stateClasses = isEarlyMark
-              ? 'bg-white/5 border-white/20 text-white/70'
+              ? 'bingo-cell--early bg-white/5 border-white/20 text-white/70'
               : isCalledMarked
-                ? 'bg-brand-neon/15 border-brand-neon/60 text-brand-neon animate-pulse-glow'
+                ? 'bingo-cell--dabbed bg-brand-neon/15 border-brand-neon/60 text-brand-neon animate-pulse-glow'
                 : 'bg-[#1E1E1E] border-white/5 text-white hover:border-brand-neon/30 hover:bg-white/5'
 
             return (
@@ -223,10 +223,10 @@ export function BingoCard({
                 }}
                 className={`
                   bingo-cell relative aspect-square rounded-xl flex flex-col items-stretch justify-center
-                  p-1 sm:p-1.5 text-center border transition-colors duration-200
+                  p-1 sm:p-1.5 text-center border transition-[transform,colors,box-shadow] duration-150
                   cursor-pointer touch-manipulation min-h-[3.25rem] sm:min-h-[4.5rem]
-                  select-none active:scale-[0.98] transform-gpu
-                  ${markAnim ? 'animate-bingo-mark animate-bingo-gold' : ''}
+                  select-none active:scale-[0.92] transform-gpu will-change-transform
+                  ${markAnim ? 'animate-bingo-mark animate-bingo-gold bingo-cell--just-dabbed' : ''}
                   ${wrongAnim ? 'animate-bingo-wrong' : ''}
                   ${isActive ? 'bingo-cell-called-glow' : ''}
                   ${stateClasses}
@@ -235,11 +235,17 @@ export function BingoCard({
               >
                 {isCalledMarked && !isFree ? (
                   <span
-                    className="absolute top-0.5 right-0.5 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-brand-neon text-brand-dark text-[9px] sm:text-[10px] font-black leading-none shadow-[0_0_8px_rgba(0,255,102,0.65)] pointer-events-none"
+                    className="bingo-dab-stamp absolute top-0.5 right-0.5 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-brand-neon text-brand-dark text-[9px] sm:text-[10px] font-black leading-none shadow-[0_0_8px_rgba(0,255,102,0.65)] pointer-events-none"
                     aria-hidden
                   >
                     ✓
                   </span>
+                ) : null}
+                {isCalledMarked && !isFree ? (
+                  <span
+                    className="bingo-dab-ring pointer-events-none absolute inset-1 rounded-lg border border-brand-neon/35"
+                    aria-hidden
+                  />
                 ) : null}
                 <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full gap-0.5 overflow-hidden px-0.5">
                   {showAlbumArt ? (
