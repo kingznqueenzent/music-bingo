@@ -24,7 +24,7 @@ export type GameByCode = {
   logo_url: string | null
 }
 
-export type GameEventType = 'bingo_win' | 'prize_claim' | 'board_update'
+export type GameEventType = 'bingo_win' | 'prize_claim' | 'board_update' | 'bingo_claim'
 
 /** Base44 getGameByCode — load active session by room code. */
 export async function getGameByCode(
@@ -152,6 +152,44 @@ export async function notifyHostWin(
   })
   if (error) {
     if (/game_events|schema cache|does not exist/i.test(error.message)) return { ok: true }
+    return { ok: false, error: error.message }
+  }
+  return { ok: true }
+}
+
+/** Persist a player CALL BINGO! claim for host alert (before / alongside verify). */
+export async function notifyHostBingoClaim(
+  supabase: SupabaseClient,
+  gameId: string,
+  payload: {
+    cardId: string
+    playerName?: string | null
+    playerIdentifier?: string | null
+    pattern?: string | null
+    markedPlaylistSongIds?: string[]
+  }
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase.from('game_events').insert({
+    game_id: gameId,
+    event_type: 'bingo_claim',
+    payload: {
+      cardId: payload.cardId,
+      playerId: payload.playerIdentifier ?? null,
+      playerName: payload.playerName ?? null,
+      pattern: payload.pattern ?? 'line',
+      markedPlaylistSongIds: payload.markedPlaylistSongIds ?? [],
+      claimedAt: new Date().toISOString(),
+    } satisfies Json,
+  })
+  if (error) {
+    // Older DBs without bingo_claim in the check constraint — still ok; realtime broadcast covers host.
+    if (
+      /game_events|schema cache|does not exist|bingo_claim|check constraint|violates/i.test(
+        error.message
+      )
+    ) {
+      return { ok: true }
+    }
     return { ok: false, error: error.message }
   }
   return { ok: true }

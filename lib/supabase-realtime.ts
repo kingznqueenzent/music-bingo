@@ -145,6 +145,21 @@ export function subscribeHostGameChannel(
             cardId: p.cardId as string | undefined,
           })
         }
+        if (row.event_type === 'bingo_claim') {
+          const p = row.payload ?? {}
+          const cardId = p.cardId as string | undefined
+          if (cardId) {
+            handlers.onBingoClaim?.({
+              cardId,
+              playerId: (p.playerId as string | null | undefined) ?? null,
+              playerName: (p.playerName as string | null | undefined) ?? null,
+              pattern: (p.pattern as string) ?? 'line',
+              markedPlaylistSongIds: Array.isArray(p.markedPlaylistSongIds)
+                ? (p.markedPlaylistSongIds as string[])
+                : [],
+            })
+          }
+        }
         if (row.event_type === 'board_update') {
           const p = row.payload ?? {}
           const cardId = p.cardId as string | undefined
