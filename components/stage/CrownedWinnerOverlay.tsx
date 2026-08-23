@@ -110,15 +110,15 @@ export function CrownedWinnerOverlay({
       <div
         className={`relative flex flex-col items-center text-center px-8 max-w-4xl animate-crown-breathe ${
           isOverlay
-            ? 'rounded-3xl border-2 border-[var(--gold)]/50 bg-[var(--bg-deep)]/55 backdrop-blur-xl py-10 px-10 shadow-[0_0_48px_var(--gold-glow)]'
+            ? 'rounded-3xl border-2 border-[#FFD700]/50 bg-black/55 backdrop-blur-xl py-10 px-10 shadow-[0_0_48px_rgba(0,255,102,0.35)]'
             : ''
         }`}
       >
-        <div className={`absolute inset-0 -z-10 rounded-full blur-3xl animate-crown-glow ${isOverlay ? 'bg-[var(--magenta)]/20' : 'bg-[#00FF66]/20'}`} />
+        <div className="absolute inset-0 -z-10 rounded-full blur-3xl bg-[#00FF66]/20 animate-crown-glow" />
         <div className="animate-crown-pop text-7xl md:text-9xl mb-4 drop-shadow-[0_0_32px_rgba(255,215,0,0.8)]">
           👑
         </div>
-        <p className={`text-sm md:text-base uppercase tracking-[0.35em] font-bold mb-2 ${isOverlay ? 'gold-accent' : 'text-[#FFD700]/90'}`}>
+        <p className="text-sm md:text-base uppercase tracking-[0.35em] text-[#FFD700]/90 font-bold mb-2">
           {titleLine}
         </p>
         {avatarUrl ? (
@@ -135,22 +135,18 @@ export function CrownedWinnerOverlay({
         )}
         <h2
           id="crowned-winner-title"
-          className={
-            isOverlay
-              ? 'disco-text text-5xl md:text-8xl mb-3'
-              : 'text-5xl md:text-8xl font-black text-white mb-3 drop-shadow-[0_0_24px_rgba(0,255,102,0.55)]'
-          }
-          style={{ fontFamily: isOverlay ? 'var(--font-main), sans-serif' : 'var(--font-inter), sans-serif' }}
+          className="text-5xl md:text-8xl font-black text-white mb-3 drop-shadow-[0_0_24px_rgba(0,255,102,0.55)]"
+          style={{ fontFamily: 'var(--font-inter), sans-serif' }}
         >
           {playerName}
         </h2>
         {(level != null || levelTitle) && (
-          <p className={`text-xl md:text-2xl font-semibold mb-2 ${isOverlay ? 'text-[var(--cyan)]' : 'text-[#00FF66]'}`}>
+          <p className="text-xl md:text-2xl font-semibold text-[#00FF66] mb-2">
             Level {level ?? '—'}
             {levelTitle ? ` · ${levelTitle}` : ''}
           </p>
         )}
-        <p className={`text-2xl md:text-3xl font-bold mb-8 ${isOverlay ? 'gold-accent' : 'text-[#FFD700]'}`}>{patternLabel}</p>
+        <p className="text-2xl md:text-3xl text-[#FFD700] font-bold mb-8">{patternLabel}</p>
         {onDismiss && (
           <button
             type="button"

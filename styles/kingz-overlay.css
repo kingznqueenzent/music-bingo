@@ -1,0 +1,74 @@
+/* Kingz & Queenz stream overlay only. Do not import from LyricGrid / Music Bingo routes. */
+
+.kingz-overlay,
+html.kingz-overlay-route,
+body.kingz-overlay-route {
+  --bg-deep: #050014;
+  --bg-purple: #1a0b2e;
+  --gold: #FFD700;
+  --gold-glow: rgba(255, 215, 0, 0.5);
+  --magenta: #FF00FF;
+  --cyan: #00FFFF;
+  --chrome: #E8E9EB;
+  --font-main: var(--font-montserrat), 'Montserrat', sans-serif;
+}
+
+html.kingz-overlay-route,
+body.kingz-overlay-route {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--font-main);
+  background: transparent !important;
+  color: #fff;
+}
+
+.kingz-overlay {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  font-family: var(--font-main);
+  background: transparent;
+  color: #fff;
+}
+
+.kingz-overlay .disco-text {
+  font-weight: 900;
+  text-transform: uppercase;
+  background: linear-gradient(to bottom, #fff, var(--chrome), #888);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+}
+
+.kingz-overlay .gold-accent {
+  color: var(--gold);
+  text-shadow: 0 0 15px var(--gold-glow);
+}
+
+.kingz-overlay-lower-third {
+  position: fixed;
+  left: 2.5rem;
+  bottom: 2.5rem;
+  max-width: min(42rem, calc(100vw - 5rem));
+  padding: 1.1rem 1.4rem 1.2rem;
+  border-radius: 0.85rem;
+  border: 2px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  background: color-mix(in srgb, var(--bg-deep) 55%, transparent);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--magenta) 22%, transparent);
+}
+
+.kingz-overlay-lower-third .disco-text {
+  margin: 0;
+  font-size: clamp(1.6rem, 4vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: 0.04em;
+}
+
+.kingz-overlay-lower-third .gold-accent {
+  margin: 0.4rem 0 0;
+  font-weight: 700;
+  font-size: clamp(0.85rem, 1.6vw, 1.1rem);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+}

@@ -41,6 +41,7 @@ const OFFICIAL_PATH_ALIASES: Record<string, string> = {
 const KINGZ_ALLOWED_EXACT = new Set([
   '/',
   '/kingz',
+  '/kingz/overlay',
   '/robots.txt',
   '/sitemap.xml',
   '/icon.png',

@@ -172,7 +172,7 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
             className={`rounded-xl border px-4 py-3 text-center text-sm font-semibold backdrop-blur-md ${
               shoutout.kind === 'warning'
                 ? 'border-red-400/50 bg-red-950/70 text-red-100'
-                : 'border-[var(--cyan)]/40 bg-[var(--bg-deep)]/70 text-[var(--cyan)]'
+                : 'border-[#00FF66]/40 bg-black/55 text-[#00FF66]'
             }`}
           >
             {shoutout.message}
@@ -182,32 +182,32 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
 
       <div className="pointer-events-auto max-w-5xl mx-auto grid gap-4 lg:grid-cols-2 bg-transparent">
         <div className="space-y-4">
-          <div className="rounded-xl border-2 border-[var(--cyan)]/35 bg-[var(--bg-deep)]/40 backdrop-blur-xl px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.25em] gold-accent font-bold mb-1">
+          <div className="rounded-xl border-2 border-[#00FF66]/35 bg-black/40 backdrop-blur-xl px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.25em] text-[#00FF66]/70 font-bold mb-1">
               Room {gameCode}
             </p>
             {nowPlaying ? (
               <>
-                <p className="text-[10px] uppercase tracking-widest text-[var(--cyan)]/70 mb-0.5">Now playing</p>
-                <p className="disco-text text-xl md:text-2xl truncate">{nowPlaying.title}</p>
+                <p className="text-[10px] uppercase tracking-widest text-[#00FF66]/60 mb-0.5">Now playing</p>
+                <p className="text-xl md:text-2xl font-black text-white truncate">{nowPlaying.title}</p>
                 {nowPlaying.artist ? (
-                  <p className="text-sm text-[var(--magenta)] truncate">{nowPlaying.artist}</p>
+                  <p className="text-sm text-[#00FF66]/80 truncate">{nowPlaying.artist}</p>
                 ) : null}
               </>
             ) : (
-              <p className="text-lg text-[var(--chrome)]/60">Waiting for next track…</p>
+              <p className="text-lg text-slate-400">Waiting for next track…</p>
             )}
           </div>
 
           <Leaderboard variant="overlay" limit={10} live title="Leaderboard" />
         </div>
 
-        <div className="rounded-xl border-2 border-[var(--gold)]/35 bg-[var(--bg-deep)]/40 backdrop-blur-xl p-4">
-          <h3 className="gold-accent text-lg font-black uppercase mb-3 flex items-center gap-2">
+        <div className="rounded-xl border-2 border-[#FFD700]/35 bg-black/40 backdrop-blur-xl p-4">
+          <h3 className="text-lg font-black text-[#FFD700] mb-3 flex items-center gap-2">
             <span aria-hidden>🎯</span> Bingo ticker
           </h3>
           {ticker.length === 0 ? (
-            <p className="text-[var(--chrome)]/50 text-sm">Wins and claims appear here in realtime.</p>
+            <p className="text-slate-500 text-sm">Wins and claims appear here in realtime.</p>
           ) : (
             <ul className="space-y-2">
               {ticker.map((item) => (
@@ -215,8 +215,8 @@ export function GameOverlayView({ gameId }: { gameId: string }) {
                   key={item.id}
                   className={`text-sm font-semibold px-3 py-2 rounded-lg border ${
                     item.kind === 'win'
-                      ? 'border-[var(--gold)]/40 bg-[var(--gold)]/10 gold-accent'
-                      : 'border-[var(--magenta)]/30 bg-[var(--magenta)]/10 text-[var(--cyan)]'
+                      ? 'border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFD700]'
+                      : 'border-[#00FF66]/30 bg-[#00FF66]/5 text-[#00FF66]'
                   }`}
                 >
                   {item.label}

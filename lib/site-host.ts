@@ -50,8 +50,13 @@ export function isLyricGridPreferredHost(host: string | null | undefined): boole
   return true
 }
 
-/** Kingz marketing chrome applies only on Kingz hosts at `/` or `/kingz`. */
+export function isKingzOverlayPath(pathname: string | null): boolean {
+  return pathname === '/kingz/overlay' || (pathname?.startsWith('/kingz/overlay/') ?? false)
+}
+
+/** Kingz marketing chrome applies only on Kingz hosts at `/` or `/kingz`. Overlay is Kingz-only on every host. */
 export function isKingzPublicPath(pathname: string | null, host?: string | null): boolean {
+  if (isKingzOverlayPath(pathname)) return true
   if (pathname !== '/' && pathname !== '/kingz') return false
   if (isLyricGridHost(host)) return false
   if (isKingzHost(host)) return true
