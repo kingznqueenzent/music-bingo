@@ -226,6 +226,36 @@ export function useMediaCatalog() {
     return ok ? ids.length : -1
   }, [songs, themes, bulkDeleteSongs])
 
+  const bulkAssignGenre = useCallback(
+    async (ids: string[], genre: string | null): Promise<boolean> => {
+      if (ids.length === 0) return true
+      const idSet = new Set(ids)
+      const snapshot = songs
+      setSongs((prev) => prev.map((s) => (idSet.has(s.id) ? { ...s, genre } : s)))
+
+      try {
+        const CHUNK = 100
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const chunk = ids.slice(i, i + CHUNK)
+          const res = await fetch('/api/songs/batch', {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: chunk, genre }),
+          })
+          const body = (await res.json()) as { error?: string }
+          if (!res.ok) throw new Error(body.error ?? 'Bulk genre update failed')
+        }
+        return true
+      } catch (e) {
+        setSongs(snapshot)
+        setError(e instanceof Error ? e.message : 'Bulk genre update failed')
+        return false
+      }
+    },
+    [songs]
+  )
+
   const bulkAssignTheme = useCallback(
     async (
       ids: string[],
@@ -407,6 +437,7 @@ export function useMediaCatalog() {
     assignTheme,
     bulkDeleteSongs,
     deleteUnassignedSongs,
+    bulkAssignGenre,
     bulkAssignTheme,
     removeDuplicates,
     replaceSongFile,

@@ -11,6 +11,7 @@ import {
   assertTrackQuotaForInsert,
   trackQuotaErrorResponse,
 } from '@/lib/media/track-quota-server'
+import { isBulkGenreTarget, toStoredGenre } from '@/lib/media/detect-genre'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -71,4 +72,44 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true, count: payload.length })
+}
+
+const PATCH_CHUNK = 100
+
+/** Batch UPDATE public.songs.genre for selected catalog ids (admin cookie + service role). */
+export async function PATCH(request: NextRequest) {
+  if (!(await requireHostCookie())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = (await request.json()) as { ids?: string[]; genre?: string | null }
+  const ids = Array.isArray(body.ids)
+    ? body.ids.map((id) => String(id).trim()).filter(Boolean)
+    : []
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: 'No song ids provided.' }, { status: 400 })
+  }
+
+  const rawGenre = body.genre == null ? 'Untagged' : String(body.genre).trim() || 'Untagged'
+  if (!isBulkGenreTarget(rawGenre)) {
+    return NextResponse.json({ error: 'Invalid genre.' }, { status: 400 })
+  }
+  const genre = toStoredGenre(rawGenre)
+
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
+  }
+
+  let updated = 0
+  for (let i = 0; i < ids.length; i += PATCH_CHUNK) {
+    const chunk = ids.slice(i, i + PATCH_CHUNK)
+    const { data, error } = await supabase.from('songs').update({ genre }).in('id', chunk).select('id')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    updated += data?.length ?? 0
+  }
+
+  return NextResponse.json({ ok: true, updated, genre })
 }

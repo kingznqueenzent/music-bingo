@@ -41,7 +41,7 @@ import { MediaManagerUpgradeWall } from './MediaManagerUpgradeWall'
 import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { TrackQuotaUpgradeModal } from '@/components/media/TrackQuotaUpgradeModal'
-import { countUntaggedSongs, type LibraryGenreFilterId } from '@/lib/media/detect-genre'
+import { countUntaggedSongs, toStoredGenre, type LibraryGenreFilterId } from '@/lib/media/detect-genre'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = 'var(--lg-canvas)'
@@ -145,6 +145,7 @@ function MediaManagerDashboardInner() {
     bulkDeleteSongs,
     deleteUnassignedSongs,
     bulkAssignTheme,
+    bulkAssignGenre,
     removeDuplicates,
     replaceSongFile,
   } = useMediaCatalog()
@@ -191,9 +192,11 @@ function MediaManagerDashboardInner() {
   const [cleaningUnassigned, setCleaningUnassigned] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [bulkApplyingTheme, setBulkApplyingTheme] = useState(false)
+  const [bulkApplyingGenre, setBulkApplyingGenre] = useState(false)
   const [bulkThemeId, setBulkThemeId] = useState('')
+  const [bulkGenre, setBulkGenre] = useState('')
   const [libraryView, setLibraryView] = useState<'all' | 'uncategorized'>('all')
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set())
   const [taggingId, setTaggingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<Partial<CatalogSong>>({})
@@ -348,7 +351,7 @@ function MediaManagerDashboardInner() {
   }, [])
 
   const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
+    setSelectedSongIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -356,19 +359,19 @@ function MediaManagerDashboardInner() {
     })
   }, [])
 
-  const toggleSelectAllDisplayed = useCallback(() => {
-    setSelectedIds((prev) => {
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedSongIds((prev) => {
       const allSelected =
-        displayedSongs.length > 0 && displayedSongs.every((s) => prev.has(s.id))
+        filteredSongs.length > 0 && filteredSongs.every((s) => prev.has(s.id))
       const next = new Set(prev)
       if (allSelected) {
-        displayedSongs.forEach((s) => next.delete(s.id))
+        filteredSongs.forEach((s) => next.delete(s.id))
       } else {
-        displayedSongs.forEach((s) => next.add(s.id))
+        filteredSongs.forEach((s) => next.add(s.id))
       }
       return next
     })
-  }, [displayedSongs])
+  }, [filteredSongs])
 
   const startEdit = useCallback((song: CatalogSong) => {
     setEditingId(song.id)
@@ -429,7 +432,7 @@ function MediaManagerDashboardInner() {
       if (playingSongId && deleteTarget.ids.includes(playingSongId)) stop()
       ok = await bulkDeleteSongs(deleteTarget.ids)
       if (ok) {
-        setSelectedIds(new Set())
+        setSelectedSongIds(new Set())
         showToast('success', `Deleted ${deleteTarget.ids.length} track(s)`)
       } else {
         showToast('error', 'Bulk delete failed')
@@ -437,7 +440,7 @@ function MediaManagerDashboardInner() {
     } else {
       ok = (await deleteUnassignedSongs()) > 0
       if (ok) {
-        setSelectedIds(new Set())
+        setSelectedSongIds(new Set())
         showToast('success', `Deleted ${deleteTarget.count} uncategorized track(s)`)
       } else {
         showToast('error', 'Could not clear uncategorized tracks')
@@ -488,13 +491,13 @@ function MediaManagerDashboardInner() {
   }, [themeCounts.uncategorized])
 
   const handleBulkDelete = useCallback(async () => {
-    const ids = [...selectedIds]
+    const ids = [...selectedSongIds]
     if (ids.length === 0) return
     setDeleteTarget({ kind: 'bulk', ids })
-  }, [selectedIds])
+  }, [selectedSongIds])
 
   const handleBulkApplyTheme = useCallback(async () => {
-    const ids = [...selectedIds]
+    const ids = [...selectedSongIds]
     if (ids.length === 0 || !bulkThemeId) return
     setBulkApplyingTheme(true)
     setSavingMessage('Moving files and updating metadata…')
@@ -503,7 +506,7 @@ function MediaManagerDashboardInner() {
     setBulkApplyingTheme(false)
     setSavingMessage(null)
     if (result.ok) {
-      setSelectedIds(new Set())
+      setSelectedSongIds(new Set())
       setBulkThemeId('')
       const movedNote =
         result.storageMoved && result.storageMoved > 0 ? ` (${result.storageMoved} file(s) moved)` : ''
@@ -513,7 +516,26 @@ function MediaManagerDashboardInner() {
     } else {
       showToast('error', 'Bulk theme update failed')
     }
-  }, [selectedIds, bulkThemeId, bulkAssignTheme, setError, refetch, showToast])
+  }, [selectedSongIds, bulkThemeId, bulkAssignTheme, setError, refetch, showToast])
+
+  const handleBulkApplyGenre = useCallback(async () => {
+    const ids = [...selectedSongIds]
+    if (ids.length === 0 || !bulkGenre) return
+    const storedGenre = toStoredGenre(bulkGenre)
+    const label = storedGenre ?? 'Untagged'
+    const noun = ids.length === 1 ? 'track' : 'tracks'
+    setBulkApplyingGenre(true)
+    setError('')
+    const ok = await bulkAssignGenre(ids, storedGenre)
+    setBulkApplyingGenre(false)
+    if (ok) {
+      setSelectedSongIds(new Set())
+      setBulkGenre('')
+      showToast('success', `Updated ${ids.length} ${noun} to ${label}`)
+    } else {
+      showToast('error', 'Bulk genre update failed')
+    }
+  }, [selectedSongIds, bulkGenre, bulkAssignGenre, setError, showToast])
 
   const handleInlineThemeChange = useCallback(
     async (songId: string, themeId: string) => {
@@ -708,8 +730,9 @@ function MediaManagerDashboardInner() {
     }
   }, [deleteTarget])
 
-  const allDisplayedSelected =
-    displayedSongs.length > 0 && displayedSongs.every((s) => selectedIds.has(s.id))
+  const allVisibleSelected =
+    filteredSongs.length > 0 && filteredSongs.every((s) => selectedSongIds.has(s.id))
+  const someVisibleSelected = filteredSongs.some((s) => selectedSongIds.has(s.id)) && !allVisibleSelected
 
   return (
     <main
@@ -765,7 +788,7 @@ function MediaManagerDashboardInner() {
               )}
               Clear uncategorized ({themeCounts.uncategorized})
             </button>
-            {selectedIds.size > 0 ? (
+            {selectedSongIds.size > 0 ? (
               <button
                 type="button"
                 disabled={bulkDeleting}
@@ -777,7 +800,7 @@ function MediaManagerDashboardInner() {
                 ) : (
                   <Trash2 className="w-3.5 h-3.5" />
                 )}
-                Delete ({selectedIds.size})
+                Delete ({selectedSongIds.size})
               </button>
             ) : null}
             <button
@@ -885,12 +908,15 @@ function MediaManagerDashboardInner() {
                 <label className="flex items-center gap-2 text-xs text-white/40 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={allDisplayedSelected}
-                    onChange={toggleSelectAllDisplayed}
-                    aria-label="Select all loaded tracks"
+                    checked={allVisibleSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = someVisibleSelected
+                    }}
+                    onChange={toggleSelectAllVisible}
+                    aria-label="Select all visible tracks"
                     className="rounded border-white/20"
                   />
-                  Select all loaded
+                  Select All
                 </label>
               ) : null}
             </div>
@@ -972,7 +998,7 @@ function MediaManagerDashboardInner() {
                         themes={themes}
                         themeName={s.theme_id ? themeNameById.get(s.theme_id) : undefined}
                         themeCounts={themeCounts.counts}
-                        isSelected={selectedIds.has(s.id)}
+                        isSelected={selectedSongIds.has(s.id)}
                         isEditing={editingId === s.id}
                         isPlaying={playingSongId === s.id}
                         isSaving={savingId === s.id}
@@ -1029,16 +1055,23 @@ function MediaManagerDashboardInner() {
       </div>
       </div>
 
-      {selectedIds.size > 0 ? (
+      {selectedSongIds.size > 0 ? (
         <BulkThemeToolbar
-          selectedCount={selectedIds.size}
+          selectedCount={selectedSongIds.size}
           themes={themes}
           bulkThemeId={bulkThemeId}
           onBulkThemeIdChange={setBulkThemeId}
           applying={bulkApplyingTheme}
           onApply={() => void handleBulkApplyTheme()}
-          onClearSelection={() => setSelectedIds(new Set())}
+          onClearSelection={() => {
+            setSelectedSongIds(new Set())
+            setBulkGenre('')
+          }}
           themeCounts={themeCounts.counts}
+          bulkGenre={bulkGenre}
+          onBulkGenreChange={setBulkGenre}
+          applyingGenre={bulkApplyingGenre}
+          onApplyGenre={() => void handleBulkApplyGenre()}
         />
       ) : null}
 

@@ -13,8 +13,23 @@ export const LIBRARY_GENRES = [
 
 export type LibraryGenre = (typeof LIBRARY_GENRES)[number]
 
+/** Bulk tagging targets: canonical library genres plus the Untagged bucket. */
+export const BULK_GENRE_TARGETS = [...LIBRARY_GENRES, 'Untagged'] as const
+export type BulkGenreTarget = (typeof BULK_GENRE_TARGETS)[number]
+
 /** Stored / display genre including uncategorized bucket. */
 export type DetectedGenre = LibraryGenre | 'Other'
+
+/** Persist a library genre; Untagged / empty → null (matches isUntaggedStoredGenre). */
+export function toStoredGenre(genre: string | null | undefined): string | null {
+  const trimmed = genre?.trim() ?? ''
+  if (!trimmed || trimmed === 'Untagged') return null
+  return trimmed
+}
+
+export function isBulkGenreTarget(value: string): value is BulkGenreTarget {
+  return (BULK_GENRE_TARGETS as readonly string[]).includes(value)
+}
 
 export type LibraryGenreFilterId = 'all' | LibraryGenre | 'other'
 
