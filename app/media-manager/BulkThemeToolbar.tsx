@@ -1,6 +1,6 @@
 'use client'
 
-import { Loader2, Tag, X } from 'lucide-react'
+import { Loader2, Tag, Trash2, X } from 'lucide-react'
 import { BULK_GENRE_TARGETS } from '@/lib/media/detect-genre'
 import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
@@ -20,6 +20,8 @@ export type BulkThemeToolbarProps = {
   onBulkGenreChange: (genre: string) => void
   applyingGenre: boolean
   onApplyGenre: () => void
+  deleting?: boolean
+  onDeleteSelected?: () => void
 }
 
 export function BulkThemeToolbar({
@@ -35,17 +37,19 @@ export function BulkThemeToolbar({
   onBulkGenreChange,
   applyingGenre,
   onApplyGenre,
+  deleting = false,
+  onDeleteSelected,
 }: BulkThemeToolbarProps) {
   if (selectedCount === 0) return null
 
-  const busy = applying || applyingGenre
+  const busy = applying || applyingGenre || deleting
   const trackLabel = selectedCount === 1 ? 'track' : 'tracks'
 
   return (
     <div
       className="fixed bottom-4 sm:bottom-6 left-1/2 z-50 -translate-x-1/2 w-[calc(100%-1.5rem)] sm:w-[min(100%,48rem)] max-w-[48rem] flex flex-wrap items-center gap-2 sm:gap-3 rounded-xl border border-[#00FF66]/40 bg-[#1E1E1E] md:bg-[#1E1E1E]/95 md:backdrop-blur-md px-3 sm:px-4 py-3 shadow-2xl shadow-black/50 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       role="toolbar"
-      aria-label="Bulk genre and theme assignment"
+      aria-label="Bulk genre, theme, and delete actions"
     >
       <span className="text-sm font-semibold text-white whitespace-nowrap">
         {selectedCount} {trackLabel} selected
@@ -76,6 +80,19 @@ export function BulkThemeToolbar({
         {applyingGenre ? <Loader2 className="w-4 h-4 animate-spin" /> : <Tag className="w-4 h-4" />}
         Apply to Selected
       </button>
+
+      {onDeleteSelected ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onDeleteSelected}
+          className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
+          aria-label={`Delete ${selectedCount} selected ${trackLabel}`}
+        >
+          {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+          Delete Selected
+        </button>
+      ) : null}
 
       <ThemeSelect
         value={bulkThemeId}

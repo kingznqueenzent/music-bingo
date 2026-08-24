@@ -715,11 +715,13 @@ function MediaManagerDashboardInner() {
       }
     }
     if (deleteTarget.kind === 'bulk') {
+      const n = deleteTarget.ids.length
+      const noun = n === 1 ? 'track' : 'tracks'
       return {
-        title: `Delete ${deleteTarget.ids.length} selected track(s)?`,
+        title: `Delete ${n} ${noun} permanently?`,
         description:
           'Selected tracks and their storage files will be permanently removed from your library.',
-        confirmLabel: `Delete ${deleteTarget.ids.length} tracks`,
+        confirmLabel: `Delete ${n} ${noun}`,
       }
     }
     return {
@@ -1072,6 +1074,8 @@ function MediaManagerDashboardInner() {
           onBulkGenreChange={setBulkGenre}
           applyingGenre={bulkApplyingGenre}
           onApplyGenre={() => void handleBulkApplyGenre()}
+          deleting={bulkDeleting}
+          onDeleteSelected={() => void handleBulkDelete()}
         />
       ) : null}
 

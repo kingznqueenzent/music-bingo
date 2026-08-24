@@ -12,6 +12,7 @@ import {
   trackQuotaErrorResponse,
 } from '@/lib/media/track-quota-server'
 import { isBulkGenreTarget, toStoredGenre } from '@/lib/media/detect-genre'
+import { deleteSongStorageObjects } from '@/lib/media/delete-song-storage'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -112,4 +113,51 @@ export async function PATCH(request: NextRequest) {
   }
 
   return NextResponse.json({ ok: true, updated, genre })
+}
+
+const DELETE_CHUNK = 100
+
+/** Batch DELETE public.songs rows and their audio objects in the media bucket. */
+export async function DELETE(request: NextRequest) {
+  if (!(await requireHostCookie())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const body = (await request.json()) as { ids?: string[] }
+  const ids = Array.isArray(body.ids)
+    ? [...new Set(body.ids.map((id) => String(id).trim()).filter(Boolean))]
+    : []
+
+  if (ids.length === 0) {
+    return NextResponse.json({ error: 'No song ids provided.' }, { status: 400 })
+  }
+
+  const supabase = createClient()
+  const access = await checkMediaLibraryAccessForClient(supabase)
+  if (!access.allowed) {
+    return mediaLibraryBlockedResponse(access.tier)
+  }
+
+  const storageRows: { storage_path?: string | null; media_url?: string | null }[] = []
+  for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
+    const chunk = ids.slice(i, i + DELETE_CHUNK)
+    const { data, error } = await supabase
+      .from('songs')
+      .select('id, storage_path, media_url')
+      .in('id', chunk)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (data?.length) storageRows.push(...data)
+  }
+
+  await deleteSongStorageObjects(supabase, storageRows)
+
+  let deleted = 0
+  for (let i = 0; i < ids.length; i += DELETE_CHUNK) {
+    const chunk = ids.slice(i, i + DELETE_CHUNK)
+    const { data, error } = await supabase.from('songs').delete().in('id', chunk).select('id')
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    deleted += data?.length ?? 0
+  }
+
+  return NextResponse.json({ ok: true, deleted })
 }

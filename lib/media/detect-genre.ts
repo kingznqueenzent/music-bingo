@@ -95,8 +95,14 @@ export function normalizeGenreLabel(raw: string | null | undefined): DetectedGen
   return 'Other'
 }
 
-/** Stored genre is missing, null, or Other → Untagged bucket. */
+/**
+ * Stored genre belongs in the Untagged bucket:
+ * NULL, empty / whitespace, literal "Untagged", or Other (legacy unclassified).
+ */
 export function isUntaggedStoredGenre(genre?: string | null): boolean {
+  const trimmed = genre?.trim() ?? ''
+  if (!trimmed) return true
+  if (trimmed.toLowerCase() === 'untagged') return true
   const normalized = normalizeGenreLabel(genre)
   return !normalized || normalized === 'Other'
 }
@@ -172,7 +178,7 @@ export function songMatchesGenreFilter(
     themeName,
   })
   if (filter === 'other') {
-    // Untagged = missing / null / Other on songs.genre (ignore theme inference).
+    // Untagged = NULL / empty / "Untagged" / Other on songs.genre (ignore theme inference).
     return isUntaggedStoredGenre(song.genre)
   }
   return resolved === filter

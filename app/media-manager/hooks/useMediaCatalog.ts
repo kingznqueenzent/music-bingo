@@ -201,12 +201,17 @@ export function useMediaCatalog() {
       setSongs((prev) => prev.filter((s) => !idSet.has(s.id)))
 
       try {
-        for (const id of ids) {
-          const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
-          if (!res.ok) {
-            const body = (await res.json()) as { error?: string }
-            throw new Error(body.error ?? 'Bulk delete failed')
-          }
+        const CHUNK = 100
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const chunk = ids.slice(i, i + CHUNK)
+          const res = await fetch('/api/songs/batch', {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: chunk }),
+          })
+          const body = (await res.json()) as { error?: string }
+          if (!res.ok) throw new Error(body.error ?? 'Bulk delete failed')
         }
         return true
       } catch (e) {
