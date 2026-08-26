@@ -1,45 +1,56 @@
 /**
  * Shared genre detection for Media Library uploads + filtering.
- * Canonical library genres: Reggae, Dancehall, Afrobeats, Hip-Hop, R&B, Other.
+ * Canonical buckets live in `constants/genres.ts` (MASTER_GENRES).
  */
 
-export const LIBRARY_GENRES = [
-  'Reggae',
-  'Dancehall',
-  'Afrobeats',
-  'Hip-Hop',
-  'R&B',
-] as const
+import {
+  MASTER_GENRES,
+  TAGGED_GENRES,
+  canonicalMasterGenre,
+  isMasterGenre,
+  isTaggedGenre,
+  type TaggedGenre,
+} from '@/constants/genres'
 
-export type LibraryGenre = (typeof LIBRARY_GENRES)[number]
+export {
+  MASTER_GENRES,
+  TAGGED_GENRES,
+  canonicalMasterGenre,
+  isMasterGenre,
+  isTaggedGenre,
+}
+export type { MasterGenre, TaggedGenre } from '@/constants/genres'
 
-/** Bulk tagging targets: canonical library genres plus the Untagged bucket. */
-export const BULK_GENRE_TARGETS = [...LIBRARY_GENRES, 'Untagged'] as const
+/** @deprecated Use TAGGED_GENRES — kept so existing imports keep working. */
+export const LIBRARY_GENRES = TAGGED_GENRES
+
+export type LibraryGenre = TaggedGenre
+
+/** Bulk tagging targets: master list including Untagged. */
+export const BULK_GENRE_TARGETS = MASTER_GENRES
 export type BulkGenreTarget = (typeof BULK_GENRE_TARGETS)[number]
 
-/** Stored / display genre including uncategorized bucket. */
+/** Stored / display genre including unclassified bucket. */
 export type DetectedGenre = LibraryGenre | 'Other'
 
 /** Persist a library genre; Untagged / empty → null (matches isUntaggedStoredGenre). */
 export function toStoredGenre(genre: string | null | undefined): string | null {
   const trimmed = genre?.trim() ?? ''
-  if (!trimmed || trimmed === 'Untagged') return null
+  if (!trimmed || trimmed.toLowerCase() === 'untagged') return null
+  const canonical = canonicalMasterGenre(trimmed)
+  if (canonical && canonical !== 'Untagged') return canonical
   return trimmed
 }
 
 export function isBulkGenreTarget(value: string): value is BulkGenreTarget {
-  return (BULK_GENRE_TARGETS as readonly string[]).includes(value)
+  return isMasterGenre(value)
 }
 
 export type LibraryGenreFilterId = 'all' | LibraryGenre | 'other'
 
 export const LIBRARY_GENRE_FILTERS: { id: LibraryGenreFilterId; label: string }[] = [
   { id: 'all', label: 'All' },
-  { id: 'Reggae', label: 'Reggae' },
-  { id: 'Dancehall', label: 'Dancehall' },
-  { id: 'Afrobeats', label: 'Afrobeats' },
-  { id: 'Hip-Hop', label: 'Hip-Hop' },
-  { id: 'R&B', label: 'R&B' },
+  ...TAGGED_GENRES.map((g) => ({ id: g as LibraryGenreFilterId, label: g })),
   { id: 'other', label: 'Untagged' },
 ]
 
@@ -57,12 +68,23 @@ const KEYWORD_GENRE_RULES: { keyword: string; genre: LibraryGenre }[] = [
   { keyword: 'rnb', genre: 'R&B' },
   { keyword: 'rhythm and blues', genre: 'R&B' },
   { keyword: 'reggae', genre: 'Reggae' },
-  { keyword: 'soca', genre: 'Dancehall' },
+  { keyword: 'calypso', genre: 'Calypso' },
+  { keyword: 'chutney', genre: 'Chutney' },
+  { keyword: 'gospel', genre: 'Gospel' },
+  { keyword: 'country', genre: 'Country' },
+  { keyword: 'latin', genre: 'Latin' },
+  { keyword: 'soca', genre: 'Soca' },
   { keyword: 'bashment', genre: 'Dancehall' },
+  { keyword: 'reggaeton', genre: 'Latin' },
+  { keyword: '2000s', genre: '2000s' },
+  { keyword: '80s', genre: '80s' },
+  { keyword: '90s', genre: '90s' },
+  { keyword: 'rock', genre: 'Rock' },
   { keyword: 'rap', genre: 'Hip-Hop' },
   { keyword: 'trap', genre: 'Hip-Hop' },
   { keyword: 'soul', genre: 'R&B' },
   { keyword: 'afro', genre: 'Afrobeats' },
+  { keyword: 'pop', genre: 'Pop' },
 ]
 
 /** Map decade-theme / ID3 / legacy labels onto library genres. */
@@ -70,27 +92,16 @@ export function normalizeGenreLabel(raw: string | null | undefined): DetectedGen
   if (!raw?.trim()) return null
   const lower = raw.trim().toLowerCase().replace(/[_/]+/g, ' ').replace(/\s+/g, ' ')
 
-  if (lower === 'other' || lower === 'uncategorized' || lower === 'unknown') return 'Other'
-
-  for (const g of LIBRARY_GENRES) {
-    if (lower === g.toLowerCase()) return g
+  if (lower === 'other' || lower === 'uncategorized' || lower === 'unknown' || lower === 'untagged') {
+    return 'Other'
   }
 
-  if (lower.includes('dancehall')) return 'Dancehall'
-  if (lower.includes('afrobeats') || lower.includes('afrobeat') || lower === 'afro') return 'Afrobeats'
-  if (lower.includes('hip-hop') || lower.includes('hip hop') || lower.includes('hiphop') || lower === 'rap') {
-    return 'Hip-Hop'
+  const exact = canonicalMasterGenre(raw)
+  if (exact && exact !== 'Untagged') return exact
+
+  for (const { keyword, genre } of KEYWORD_GENRE_RULES) {
+    if (lower.includes(keyword)) return genre
   }
-  if (
-    lower.includes('r&b') ||
-    lower.includes('r and b') ||
-    lower.includes('rnb') ||
-    lower.includes('soul') ||
-    lower.includes('rhythm and blues')
-  ) {
-    return 'R&B'
-  }
-  if (lower.includes('reggae')) return 'Reggae'
 
   return 'Other'
 }
@@ -108,9 +119,7 @@ export function isUntaggedStoredGenre(genre?: string | null): boolean {
 }
 
 /** Count catalog songs that lack a library genre tag. */
-export function countUntaggedSongs(
-  songs: Array<{ genre?: string | null }>
-): number {
+export function countUntaggedSongs(songs: Array<{ genre?: string | null }>): number {
   return songs.reduce((n, s) => n + (isUntaggedStoredGenre(s.genre) ? 1 : 0), 0)
 }
 
@@ -171,16 +180,17 @@ export function songMatchesGenreFilter(
   filter: LibraryGenreFilterId
 ): boolean {
   if (filter === 'all') return true
+  if (filter === 'other') {
+    return isUntaggedStoredGenre(song.genre)
+  }
+  const storedNorm = normalizeGenreLabel(song.genre)
+  if (storedNorm && storedNorm !== 'Other') return storedNorm === filter
   const resolved = resolveSongGenre({
     genre: song.genre,
     title: song.title,
     artist: song.artist,
     themeName,
   })
-  if (filter === 'other') {
-    // Untagged = NULL / empty / "Untagged" / Other on songs.genre (ignore theme inference).
-    return isUntaggedStoredGenre(song.genre)
-  }
   return resolved === filter
 }
 

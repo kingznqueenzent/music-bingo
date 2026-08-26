@@ -10,7 +10,7 @@ export type CatalogSong = {
   artist: string | null
   year: number | null
   theme_id: string | null
-  /** Library genre tag (Reggae, Dancehall, Afrobeats, Hip-Hop, R&B, Other). */
+  /** Library genre tag from MASTER_GENRES (nullable = Untagged). */
   genre?: string | null
   media_type: string
   media_url: string | null

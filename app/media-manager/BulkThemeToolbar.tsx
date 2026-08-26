@@ -1,7 +1,7 @@
 'use client'
 
 import { Loader2, Tag, Trash2, X } from 'lucide-react'
-import { BULK_GENRE_TARGETS } from '@/lib/media/detect-genre'
+import { MASTER_GENRES } from '@/constants/genres'
 import { ThemeSelect } from './ThemeSelect'
 import type { CatalogTheme } from './types'
 
@@ -18,6 +18,8 @@ export type BulkThemeToolbarProps = {
   themeCounts?: Record<string, number>
   bulkGenre: string
   onBulkGenreChange: (genre: string) => void
+  bulkYear: string
+  onBulkYearChange: (year: string) => void
   applyingGenre: boolean
   onApplyGenre: () => void
   deleting?: boolean
@@ -35,6 +37,8 @@ export function BulkThemeToolbar({
   themeCounts,
   bulkGenre,
   onBulkGenreChange,
+  bulkYear,
+  onBulkYearChange,
   applyingGenre,
   onApplyGenre,
   deleting = false,
@@ -49,7 +53,7 @@ export function BulkThemeToolbar({
     <div
       className="fixed bottom-4 sm:bottom-6 left-1/2 z-50 -translate-x-1/2 w-[calc(100%-1.5rem)] sm:w-[min(100%,48rem)] max-w-[48rem] flex flex-wrap items-center gap-2 sm:gap-3 rounded-xl border border-[#00FF66]/40 bg-[#1E1E1E] md:bg-[#1E1E1E]/95 md:backdrop-blur-md px-3 sm:px-4 py-3 shadow-2xl shadow-black/50 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
       role="toolbar"
-      aria-label="Bulk genre, theme, and delete actions"
+      aria-label="Bulk genre, year, theme, and delete actions"
     >
       <span className="text-sm font-semibold text-white whitespace-nowrap">
         {selectedCount} {trackLabel} selected
@@ -63,16 +67,32 @@ export function BulkThemeToolbar({
         className="flex-1 min-w-[9rem] sm:max-w-44 rounded-lg border border-[#00FF66]/25 bg-black/40 px-2.5 py-2 text-sm font-semibold text-[#00FF66]/90 min-h-10 disabled:opacity-50"
       >
         <option value="">Target genre…</option>
-        {BULK_GENRE_TARGETS.map((g) => (
+        {MASTER_GENRES.map((g) => (
           <option key={g} value={g}>
             {g}
           </option>
         ))}
       </select>
 
+      <label className="flex items-center gap-2 min-w-[7.5rem]">
+        <span className="sr-only">Set year</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1900}
+          max={2100}
+          placeholder="Set year"
+          value={bulkYear}
+          onChange={(e) => onBulkYearChange(e.target.value)}
+          disabled={busy}
+          aria-label="Set year"
+          className="w-[6.5rem] rounded-lg border border-white/15 bg-black/40 px-2.5 py-2 text-sm font-semibold tabular-nums text-white min-h-10 disabled:opacity-50 placeholder:text-white/35"
+        />
+      </label>
+
       <button
         type="button"
-        disabled={busy || !bulkGenre}
+        disabled={busy || (!bulkGenre && !bulkYear.trim())}
         onClick={onApplyGenre}
         className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
         style={{ backgroundColor: NEON }}

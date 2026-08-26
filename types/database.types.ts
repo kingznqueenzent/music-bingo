@@ -910,6 +910,7 @@ export type Database = {
           title: string
           artist: string | null
           year: number | null
+          genre: string | null
           theme_id: string | null
           media_type: string
           media_url: string | null
@@ -924,7 +925,8 @@ export type Database = {
           id?: string
           title: string
           artist?: string | null
-          year?: number | null
+          year?: string | number | null
+          genre?: string | null
           theme_id?: string | null
           media_type?: string
           media_url?: string | null
@@ -939,7 +941,8 @@ export type Database = {
           id?: string
           title?: string
           artist?: string | null
-          year?: number | null
+          year?: string | number | null
+          genre?: string | null
           theme_id?: string | null
           media_type?: string
           media_url?: string | null

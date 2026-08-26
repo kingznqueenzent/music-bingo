@@ -231,34 +231,60 @@ export function useMediaCatalog() {
     return ok ? ids.length : -1
   }, [songs, themes, bulkDeleteSongs])
 
-  const bulkAssignGenre = useCallback(
-    async (ids: string[], genre: string | null): Promise<boolean> => {
+  const bulkAssignFields = useCallback(
+    async (
+      ids: string[],
+      fields: { genre?: string | null; year?: number | null }
+    ): Promise<boolean> => {
       if (ids.length === 0) return true
+      const hasGenre = Object.prototype.hasOwnProperty.call(fields, 'genre')
+      const hasYear = Object.prototype.hasOwnProperty.call(fields, 'year')
+      if (!hasGenre && !hasYear) return true
+
       const idSet = new Set(ids)
       const snapshot = songs
-      setSongs((prev) => prev.map((s) => (idSet.has(s.id) ? { ...s, genre } : s)))
+      setSongs((prev) =>
+        prev.map((s) => {
+          if (!idSet.has(s.id)) return s
+          return {
+            ...s,
+            ...(hasGenre ? { genre: fields.genre } : {}),
+            ...(hasYear ? { year: fields.year ?? null } : {}),
+          }
+        })
+      )
 
       try {
         const CHUNK = 100
         for (let i = 0; i < ids.length; i += CHUNK) {
           const chunk = ids.slice(i, i + CHUNK)
+          const payload: { ids: string[]; genre?: string | null; year?: number | null } = { ids: chunk }
+          if (hasGenre) payload.genre = fields.genre ?? null
+          if (hasYear) payload.year = fields.year ?? null
           const res = await fetch('/api/songs/batch', {
             method: 'PATCH',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids: chunk, genre }),
+            body: JSON.stringify(payload),
           })
           const body = (await res.json()) as { error?: string }
-          if (!res.ok) throw new Error(body.error ?? 'Bulk genre update failed')
+          if (!res.ok) throw new Error(body.error ?? 'Bulk update failed')
         }
         return true
       } catch (e) {
         setSongs(snapshot)
-        setError(e instanceof Error ? e.message : 'Bulk genre update failed')
+        setError(e instanceof Error ? e.message : 'Bulk update failed')
         return false
       }
     },
     [songs]
+  )
+
+  const bulkAssignGenre = useCallback(
+    async (ids: string[], genre: string | null): Promise<boolean> => {
+      return bulkAssignFields(ids, { genre })
+    },
+    [bulkAssignFields]
   )
 
   const bulkAssignTheme = useCallback(
@@ -339,7 +365,7 @@ export function useMediaCatalog() {
     async (
       id: string,
       fields: Partial<
-        Pick<CatalogSong, 'title' | 'artist' | 'genre' | 'media_url' | 'youtube_url' | 'media_type'>
+        Pick<CatalogSong, 'title' | 'artist' | 'year' | 'genre' | 'media_url' | 'youtube_url' | 'media_type'>
       >
     ): Promise<{ ok: boolean; storageMoved?: boolean; storageWarnings?: string[] }> => {
       const song = songs.find((s) => s.id === id)
@@ -443,6 +469,7 @@ export function useMediaCatalog() {
     bulkDeleteSongs,
     deleteUnassignedSongs,
     bulkAssignGenre,
+    bulkAssignFields,
     bulkAssignTheme,
     removeDuplicates,
     replaceSongFile,

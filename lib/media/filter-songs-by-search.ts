@@ -10,6 +10,7 @@ export function buildSongSearchHaystack(
     song.title ?? '',
     song.artist ?? '',
     song.genre ?? '',
+    song.year != null ? String(song.year) : '',
     theme,
     song.media_url ?? '',
     song.youtube_url ?? '',

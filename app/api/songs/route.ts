@@ -7,10 +7,8 @@ import {
   checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
-import {
-  assertTrackQuotaForInsert,
-  trackQuotaErrorResponse,
-} from '@/lib/media/track-quota-server'
+import { parseSongYear } from '@/types/song'
+import { toStoredGenre } from '@/lib/media/detect-genre'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -75,9 +73,9 @@ export async function POST(request: NextRequest) {
       {
         title: String(body.title ?? '').trim(),
         artist: body.artist ? String(body.artist).trim() : null,
-        year: body.year != null ? Number(body.year) : null,
+        year: parseSongYear(body.year as string | number | null),
         theme_id: body.theme_id ? String(body.theme_id) : null,
-        genre: body.genre != null && String(body.genre).trim() ? String(body.genre).trim() : null,
+        genre: toStoredGenre(body.genre != null ? String(body.genre) : null),
         youtube_url: body.youtube_url ? String(body.youtube_url).trim() : null,
         media_url: body.media_url ? String(body.media_url).trim() : null,
         storage_path: body.storage_path ? String(body.storage_path).trim() : null,

@@ -13,6 +13,7 @@ import {
   checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
+import { parseSongYear } from '@/types/song'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -25,7 +26,7 @@ function buildUpdatePayload(body: Record<string, unknown>): Record<string, unkno
   return {
     title: body.title != null ? String(body.title) : undefined,
     artist: body.artist !== undefined ? (body.artist ? String(body.artist) : null) : undefined,
-    year: body.year !== undefined ? (body.year != null ? Number(body.year) : null) : undefined,
+    year: body.year !== undefined ? parseSongYear(body.year as string | number | null) : undefined,
     theme_id: body.theme_id !== undefined ? (body.theme_id ? String(body.theme_id) : null) : undefined,
     genre:
       body.genre !== undefined ? (body.genre ? String(body.genre).trim() : null) : undefined,

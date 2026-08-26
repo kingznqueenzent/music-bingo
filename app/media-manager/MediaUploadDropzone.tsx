@@ -21,7 +21,7 @@ import {
   type TrackQuotaGate,
   type UploadQueueItem,
 } from './hooks/useMediaUploadQueue'
-import { LIBRARY_GENRES } from '@/lib/media/detect-genre'
+import { TAGGED_GENRES } from '@/constants/genres'
 import type { CatalogTheme } from './types'
 
 const SURFACE = 'var(--lg-surface)'
@@ -92,12 +92,11 @@ function GenreSelect({
       }
     >
       <option value={UPLOAD_GENRE_UNTAGGED}>Select Genre</option>
-      {LIBRARY_GENRES.map((g) => (
+      {TAGGED_GENRES.map((g) => (
         <option key={g} value={g}>
           {g}
         </option>
       ))}
-      <option value="Other">Other</option>
     </select>
   )
 }

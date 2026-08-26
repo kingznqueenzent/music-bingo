@@ -12,6 +12,7 @@ import {
   trackQuotaErrorResponse,
 } from '@/lib/media/track-quota-server'
 import { isBulkGenreTarget, toStoredGenre } from '@/lib/media/detect-genre'
+import { parseSongYear } from '@/types/song'
 import { deleteSongStorageObjects } from '@/lib/media/delete-song-storage'
 
 async function requireHostCookie(): Promise<boolean> {
@@ -54,9 +55,9 @@ export async function POST(request: NextRequest) {
   const payload = rows.map((row) => ({
     title: String(row.title ?? 'Untitled').trim(),
     artist: row.artist ? String(row.artist).trim() : null,
-    year: row.year != null ? Number(row.year) : null,
+    year: parseSongYear(row.year),
     theme_id: row.theme_id ? String(row.theme_id) : null,
-    genre: row.genre != null && String(row.genre).trim() ? String(row.genre).trim() : null,
+    genre: toStoredGenre(row.genre != null ? String(row.genre) : null),
     youtube_url: row.youtube_url ? String(row.youtube_url).trim() : null,
     media_url: row.media_url ? String(row.media_url).trim() : null,
     start_time_sec: Number(row.start_time_sec ?? 0),
@@ -77,13 +78,17 @@ export async function POST(request: NextRequest) {
 
 const PATCH_CHUNK = 100
 
-/** Batch UPDATE public.songs.genre for selected catalog ids (admin cookie + service role). */
+/** Batch UPDATE public.songs.genre and/or year for selected catalog ids. */
 export async function PATCH(request: NextRequest) {
   if (!(await requireHostCookie())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json()) as { ids?: string[]; genre?: string | null }
+  const body = (await request.json()) as {
+    ids?: string[]
+    genre?: string | null
+    year?: string | number | null
+  }
   const ids = Array.isArray(body.ids)
     ? body.ids.map((id) => String(id).trim()).filter(Boolean)
     : []
@@ -92,11 +97,33 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'No song ids provided.' }, { status: 400 })
   }
 
-  const rawGenre = body.genre == null ? 'Untagged' : String(body.genre).trim() || 'Untagged'
-  if (!isBulkGenreTarget(rawGenre)) {
-    return NextResponse.json({ error: 'Invalid genre.' }, { status: 400 })
+  const hasGenre = Object.prototype.hasOwnProperty.call(body, 'genre')
+  const hasYear = Object.prototype.hasOwnProperty.call(body, 'year')
+  if (!hasGenre && !hasYear) {
+    return NextResponse.json({ error: 'Provide genre and/or year to update.' }, { status: 400 })
   }
-  const genre = toStoredGenre(rawGenre)
+
+  const patch: { genre?: string | null; year?: number | null } = {}
+
+  if (hasGenre) {
+    const rawGenre = body.genre == null ? 'Untagged' : String(body.genre).trim() || 'Untagged'
+    if (!isBulkGenreTarget(rawGenre)) {
+      return NextResponse.json({ error: 'Invalid genre.' }, { status: 400 })
+    }
+    patch.genre = toStoredGenre(rawGenre)
+  }
+
+  if (hasYear) {
+    if (body.year === '' || body.year == null) {
+      patch.year = null
+    } else {
+      const year = parseSongYear(body.year)
+      if (year == null) {
+        return NextResponse.json({ error: 'Year must be between 1900 and 2100.' }, { status: 400 })
+      }
+      patch.year = year
+    }
+  }
 
   const supabase = createClient()
   const access = await checkMediaLibraryAccessForClient(supabase)
@@ -107,12 +134,12 @@ export async function PATCH(request: NextRequest) {
   let updated = 0
   for (let i = 0; i < ids.length; i += PATCH_CHUNK) {
     const chunk = ids.slice(i, i + PATCH_CHUNK)
-    const { data, error } = await supabase.from('songs').update({ genre }).in('id', chunk).select('id')
+    const { data, error } = await supabase.from('songs').update(patch).in('id', chunk).select('id')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     updated += data?.length ?? 0
   }
 
-  return NextResponse.json({ ok: true, updated, genre })
+  return NextResponse.json({ ok: true, updated, ...patch })
 }
 
 const DELETE_CHUNK = 100

@@ -42,6 +42,7 @@ import { useAudioPreview } from './hooks/useAudioPreview'
 import { LibrarySearchEmpty } from '@/components/media/LibrarySearchEmpty'
 import { TrackQuotaUpgradeModal } from '@/components/media/TrackQuotaUpgradeModal'
 import { countUntaggedSongs, toStoredGenre, type LibraryGenreFilterId } from '@/lib/media/detect-genre'
+import { parseSongYear } from '@/types/song'
 import type { CatalogSong, SongUpdatePayload } from './types'
 
 const BG = 'var(--lg-canvas)'
@@ -60,12 +61,9 @@ function buildUpdatePayload(form: Partial<CatalogSong>): SongUpdatePayload {
   return {
     title: String(form.title ?? '').trim(),
     artist: form.artist ? String(form.artist).trim() : null,
-    year:
-      form.year === null || form.year === undefined || form.year === ('' as unknown as null)
-        ? null
-        : Number(form.year),
+    year: parseSongYear(form.year),
     theme_id: form.theme_id ? String(form.theme_id).trim() : null,
-    genre: form.genre != null && String(form.genre).trim() ? String(form.genre).trim() : null,
+    genre: toStoredGenre(form.genre != null ? String(form.genre) : null),
     media_url: mediaUrl,
     storage_path: form.storage_path?.trim() || null,
     youtube_url: youtubeUrl,
@@ -145,7 +143,7 @@ function MediaManagerDashboardInner() {
     bulkDeleteSongs,
     deleteUnassignedSongs,
     bulkAssignTheme,
-    bulkAssignGenre,
+    bulkAssignFields,
     removeDuplicates,
     replaceSongFile,
   } = useMediaCatalog()
@@ -195,6 +193,7 @@ function MediaManagerDashboardInner() {
   const [bulkApplyingGenre, setBulkApplyingGenre] = useState(false)
   const [bulkThemeId, setBulkThemeId] = useState('')
   const [bulkGenre, setBulkGenre] = useState('')
+  const [bulkYear, setBulkYear] = useState('')
   const [libraryView, setLibraryView] = useState<'all' | 'uncategorized'>('all')
   const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set())
   const [taggingId, setTaggingId] = useState<string | null>(null)
@@ -520,22 +519,37 @@ function MediaManagerDashboardInner() {
 
   const handleBulkApplyGenre = useCallback(async () => {
     const ids = [...selectedSongIds]
-    if (ids.length === 0 || !bulkGenre) return
-    const storedGenre = toStoredGenre(bulkGenre)
-    const label = storedGenre ?? 'Untagged'
+    const yearValue = bulkYear.trim() ? parseSongYear(bulkYear) : undefined
+    if (ids.length === 0) return
+    if (!bulkGenre && yearValue === undefined) return
+    if (bulkYear.trim() && yearValue === undefined) {
+      showToast('error', 'Year must be between 1900 and 2100')
+      return
+    }
+
+    const fields: { genre?: string | null; year?: number | null } = {}
+    if (bulkGenre) fields.genre = toStoredGenre(bulkGenre)
+    if (yearValue !== undefined) fields.year = yearValue
+
     const noun = ids.length === 1 ? 'track' : 'tracks'
+    const parts: string[] = []
+    if (fields.genre !== undefined) parts.push(fields.genre ?? 'Untagged')
+    if (fields.year !== undefined) parts.push(String(fields.year))
+    const label = parts.join(' · ')
+
     setBulkApplyingGenre(true)
     setError('')
-    const ok = await bulkAssignGenre(ids, storedGenre)
+    const ok = await bulkAssignFields(ids, fields)
     setBulkApplyingGenre(false)
     if (ok) {
       setSelectedSongIds(new Set())
       setBulkGenre('')
-      showToast('success', `Updated ${ids.length} ${noun} to ${label}`)
+      setBulkYear('')
+      showToast('success', `Updated ${ids.length} ${noun}${label ? ` to ${label}` : ''}`)
     } else {
-      showToast('error', 'Bulk genre update failed')
+      showToast('error', 'Bulk update failed')
     }
-  }, [selectedSongIds, bulkGenre, bulkAssignGenre, setError, showToast])
+  }, [selectedSongIds, bulkGenre, bulkYear, bulkAssignFields, setError, showToast])
 
   const handleInlineThemeChange = useCallback(
     async (songId: string, themeId: string) => {
@@ -664,7 +678,7 @@ function MediaManagerDashboardInner() {
       setInlineSavingKey(key)
       setError('')
       const result = await patchSongFields(songId, {
-        genre: genre.trim() ? genre.trim() : null,
+        genre: toStoredGenre(genre),
       })
       setInlineSavingKey(null)
       if (!result.ok) {
@@ -681,6 +695,35 @@ function MediaManagerDashboardInner() {
       void handleInlineGenreChange(id, genre)
     },
     [handleInlineGenreChange]
+  )
+
+  const handleInlineYearChange = useCallback(
+    async (songId: string, rawYear: string): Promise<boolean> => {
+      const key = `${songId}:year`
+      const year = rawYear.trim() ? parseSongYear(rawYear) : null
+      if (rawYear.trim() && year == null) {
+        showToast('error', 'Year must be between 1900 and 2100')
+        return false
+      }
+      setInlineSavingKey(key)
+      setError('')
+      const result = await patchSongFields(songId, { year })
+      setInlineSavingKey(null)
+      if (!result.ok) {
+        showToast('error', 'Could not save year')
+        return false
+      }
+      showToast('success', year != null ? `Year set to ${year}` : 'Year cleared')
+      return true
+    },
+    [patchSongFields, setError, showToast]
+  )
+
+  const handleInlineYearChangeClick = useCallback(
+    (id: string, year: string) => {
+      void handleInlineYearChange(id, year)
+    },
+    [handleInlineYearChange]
   )
 
   const handleSaveEditClick = useCallback(
@@ -1017,6 +1060,7 @@ function MediaManagerDashboardInner() {
                         onCleanYoutubeUrl={handleCleanYoutubeUrlClick}
                         onInlineThemeChange={handleInlineThemeChangeClick}
                         onInlineGenreChange={handleInlineGenreChangeClick}
+                        onInlineYearChange={handleInlineYearChangeClick}
                         onStartEdit={startEdit}
                         onSaveEdit={handleSaveEditClick}
                         onCancelEdit={handleCancelEditClick}
@@ -1068,10 +1112,13 @@ function MediaManagerDashboardInner() {
           onClearSelection={() => {
             setSelectedSongIds(new Set())
             setBulkGenre('')
+            setBulkYear('')
           }}
           themeCounts={themeCounts.counts}
           bulkGenre={bulkGenre}
           onBulkGenreChange={setBulkGenre}
+          bulkYear={bulkYear}
+          onBulkYearChange={setBulkYear}
           applyingGenre={bulkApplyingGenre}
           onApplyGenre={() => void handleBulkApplyGenre()}
           deleting={bulkDeleting}
