@@ -27,6 +27,7 @@ import {
   MEDIA_LIBRARY_REQUIRES_PRO_CODE,
   TRACK_QUOTA_EXCEEDED_CODE,
 } from '@/lib/media/track-quota'
+import { fetchJson, FetchJsonError } from '@/lib/media/fetch-json'
 import type { CatalogTheme, SongInsertPayload } from '../types'
 
 export const MAX_UPLOAD_FILES = 20
@@ -53,6 +54,8 @@ export type UploadQueueItem = {
   artist: string | null
   /** Library genre label, or '' for Select Genre / Untagged. */
   genre: string
+  /** ID3 / filename year captured at stage time. */
+  year: number | null
 }
 
 type ThemeLike = Pick<CatalogTheme, 'id' | 'name'>
@@ -65,32 +68,42 @@ async function insertSongRow(
   supabase: SupabaseClient,
   payload: SongInsertPayload
 ): Promise<void> {
-  const res = await fetch('/api/songs', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const body = (await res.json()) as { error?: string; code?: string }
-  if (res.ok) return
-  if (res.status === 403 && (body.code === MEDIA_LIBRARY_REQUIRES_PRO_CODE || body.code === TRACK_QUOTA_EXCEEDED_CODE)) {
-    throw new Error(body.error ?? 'Media Library requires Pro+.')
+  try {
+    await fetchJson<{ song?: unknown; error?: string; code?: string }>('/api/songs', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    return
+  } catch (e) {
+    if (e instanceof FetchJsonError) {
+      const body = (e.parsed ?? {}) as { error?: string; code?: string }
+      if (
+        e.status === 403 &&
+        (body.code === MEDIA_LIBRARY_REQUIRES_PRO_CODE || body.code === TRACK_QUOTA_EXCEEDED_CODE)
+      ) {
+        throw new Error(body.error ?? 'Media Library requires Pro+.')
+      }
+    }
+
+    const { error: insertError } = await supabase.from('songs').insert([payload])
+    if (!insertError) return
+
+    // Pre-migration: songs.genre may not exist yet.
+    if (payload.genre != null && /genre|column|schema cache/i.test(insertError.message)) {
+      const { genre: _genre, ...withoutGenre } = payload
+      const retry = await supabase.from('songs').insert([withoutGenre])
+      if (!retry.error) return
+      throw new Error(
+        e instanceof FetchJsonError
+          ? e.message
+          : retry.error.message
+      )
+    }
+
+    throw new Error(e instanceof FetchJsonError ? e.message : insertError.message)
   }
-
-  const { error: insertError } = await supabase.from('songs').insert([payload])
-  if (!insertError) return
-
-  // Pre-migration: songs.genre may not exist yet.
-  if (payload.genre != null && /genre|column|schema cache/i.test(insertError.message)) {
-    const { genre: _genre, ...withoutGenre } = payload
-    const retry = await supabase.from('songs').insert([withoutGenre])
-    if (!retry.error) return
-    if (!res.ok) throw new Error(body.error ?? retry.error.message)
-    throw new Error(retry.error.message)
-  }
-
-  if (!res.ok) throw new Error(body.error ?? insertError.message)
-  throw new Error(insertError.message)
 }
 
 async function insertMediaLibraryBestEffort(
@@ -132,7 +145,8 @@ async function buildSongPayload(
   ext: 'mp3' | 'mp4',
   uploadThemeId: string,
   itemGenre: string,
-  themes: ThemeLike[]
+  themes: ThemeLike[],
+  stagedYear: number | null
 ): Promise<SongInsertPayload> {
   const selectedThemeId = uploadThemeId.trim() || null
   const picked =
@@ -142,7 +156,7 @@ async function buildSongPayload(
   const meta = await extractMediaMetadata(file)
   let title = meta.title
   let artist = meta.artist
-  let year = meta.year
+  let year = stagedYear ?? meta.year
   let themeId = selectedThemeId
 
   // Explicit picker wins; otherwise ID3 / filename detect; empty picker → null (Untagged).
@@ -281,7 +295,8 @@ export function useMediaUploadQueue({
           uploaded.ext,
           themeIdRef.current,
           item.genre,
-          themesRef.current
+          themesRef.current,
+          item.year
         )
 
         await insertMediaLibraryBestEffort(supabase, {
@@ -356,10 +371,12 @@ export function useMediaUploadQueue({
         let title: string | null = file.name.replace(/\.[^.]+$/, '')
         let artist: string | null = null
         let genre = UPLOAD_GENRE_UNTAGGED
+        let year: number | null = null
         try {
           const meta = await extractMediaMetadata(file)
           title = meta.title || title
           artist = meta.artist
+          year = meta.year
           if (meta.genre && meta.genre !== 'Other') {
             genre = meta.genre
           } else {
@@ -380,6 +397,7 @@ export function useMediaUploadQueue({
           title,
           artist,
           genre,
+          year,
         })
       }
 

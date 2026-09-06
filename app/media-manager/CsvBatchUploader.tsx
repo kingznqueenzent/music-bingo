@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { buildThemeLookup, resolveThemeId, type CsvTheme } from '@/lib/media/resolve-theme-from-csv'
 import type { ParsedSong } from '@/lib/media/song-catalog-types'
 import { enrichParsedSongsWithAutoCategory } from '@/lib/media/enrich-parsed-songs'
+import { fetchJson, FetchJsonError } from '@/lib/media/fetch-json'
 
 export type { CsvTheme }
 export type { ParsedSong }
@@ -127,21 +128,24 @@ export function CsvBatchUploader({
     const count = payload.length
 
     try {
-      const res = await fetch('/api/songs/batch', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ songs: payload }),
-      })
-      const body = (await res.json()) as { error?: string; count?: number }
-
-      if (!res.ok) {
+      let imported = count
+      try {
+        const body = await fetchJson<{ error?: string; count?: number }>('/api/songs/batch', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ songs: payload }),
+        })
+        imported = body.count ?? count
+      } catch (e) {
         const { error: insertError } = await supabase.from('songs').insert(payload)
-        if (insertError) throw new Error(body.error ?? insertError.message)
+        if (insertError) {
+          throw new Error(e instanceof FetchJsonError ? e.message : insertError.message)
+        }
       }
 
       setParsedData([])
-      setSuccessMessage(`Imported ${body.count ?? count} tracks into the catalog.`)
+      setSuccessMessage(`Imported ${imported} tracks into the catalog.`)
       onUploadSuccess()
     } catch (e) {
       setError(`Upload failed: ${e instanceof Error ? e.message : 'Unknown error'}`)

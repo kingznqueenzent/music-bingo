@@ -5,6 +5,7 @@ import type { GameTier } from '@/lib/tiers'
 import { hasBrandingAccess, hasMediaLibraryAccess, TIER_DISPLAY_NAMES } from '@/lib/tiers'
 import { resolveClientHostTier } from '@/lib/host-tier'
 import { buildTrackQuotaSnapshot, formatTrackQuotaLabel } from '@/lib/media/track-quota'
+import { fetchJson } from '@/lib/media/fetch-json'
 
 type HostTierApiResponse = {
   tier?: GameTier
@@ -47,9 +48,10 @@ export function useHostTier(catalogCount: number): HostTierState {
 
   const refreshFromServer = useCallback(async () => {
     try {
-      const res = await fetch('/api/host/tier', { credentials: 'include', cache: 'no-store' })
-      if (!res.ok) return
-      const data = (await res.json()) as HostTierApiResponse
+      const data = await fetchJson<HostTierApiResponse>('/api/host/tier', {
+        credentials: 'include',
+        cache: 'no-store',
+      })
       if (data.tier) setTier(data.tier)
     } catch {
       // Keep env/bootstrap tier on transient failures.

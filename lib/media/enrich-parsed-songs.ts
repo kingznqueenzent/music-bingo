@@ -4,6 +4,7 @@ import {
 } from '@/lib/songAutoCategorizer'
 import { buildThemeLookup, resolveThemeId, type CsvTheme } from '@/lib/media/resolve-theme-from-csv'
 import type { ParsedSong } from '@/lib/media/song-catalog-types'
+import { fetchJson } from '@/lib/media/fetch-json'
 
 /** Apply keyword categorization locally, then MusicBrainz via API for gaps. */
 export async function enrichParsedSongsWithAutoCategory(
@@ -50,21 +51,20 @@ export async function enrichParsedSongsWithAutoCategory(
     return { rows: keywordEnriched, autoTagged }
   }
 
-  const res = await fetch('/api/songs/auto-categorize', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      titles: needsApi.map(({ row }) => (row as ParsedSong & { _rawTitle?: string })._rawTitle ?? row.title),
-    }),
-  })
-
-  if (!res.ok) {
+  let apiResults: AutoCategoryResult[] = []
+  try {
+    const body = await fetchJson<{ results?: AutoCategoryResult[] }>('/api/songs/auto-categorize', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        titles: needsApi.map(({ row }) => (row as ParsedSong & { _rawTitle?: string })._rawTitle ?? row.title),
+      }),
+    })
+    apiResults = body.results ?? []
+  } catch {
     return { rows: keywordEnriched, autoTagged }
   }
-
-  const body = (await res.json()) as { results?: AutoCategoryResult[] }
-  const apiResults = body.results ?? []
 
   const merged = [...keywordEnriched]
   needsApi.forEach(({ index }, i) => {

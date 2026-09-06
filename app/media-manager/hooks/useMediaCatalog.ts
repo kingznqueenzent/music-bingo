@@ -11,6 +11,7 @@ import {
 import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-media-duration'
 import type { CatalogSong, CatalogTheme, SongUpdatePayload } from '../types'
 import { isUncategorizedSong } from '@/lib/media/is-uncategorized-song'
+import { fetchJson } from '@/lib/media/fetch-json'
 
 type PatchSongResponse = {
   song?: CatalogSong
@@ -23,15 +24,12 @@ async function patchSongViaApi(
   id: string,
   payload: Record<string, unknown>
 ): Promise<PatchSongResponse> {
-  const res = await fetch(`/api/songs/${id}`, {
+  return fetchJson<PatchSongResponse>(`/api/songs/${id}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   })
-  const body = (await res.json()) as PatchSongResponse
-  if (!res.ok) throw new Error(body.error ?? 'Update failed')
-  return body
 }
 
 function normalizeKey(value: string): string {
@@ -159,9 +157,10 @@ export function useMediaCatalog() {
       setSongs((prev) => prev.filter((s) => s.id !== id))
 
       try {
-        const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
-        const body = (await res.json()) as { error?: string }
-        if (!res.ok) throw new Error(body.error ?? 'Delete failed')
+        await fetchJson<{ error?: string }>(`/api/songs/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
         return true
       } catch (e) {
         setSongs(snapshot)
@@ -204,14 +203,12 @@ export function useMediaCatalog() {
         const CHUNK = 100
         for (let i = 0; i < ids.length; i += CHUNK) {
           const chunk = ids.slice(i, i + CHUNK)
-          const res = await fetch('/api/songs/batch', {
+          await fetchJson<{ error?: string }>('/api/songs/batch', {
             method: 'DELETE',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids: chunk }),
           })
-          const body = (await res.json()) as { error?: string }
-          if (!res.ok) throw new Error(body.error ?? 'Bulk delete failed')
         }
         return true
       } catch (e) {
@@ -261,14 +258,12 @@ export function useMediaCatalog() {
           const payload: { ids: string[]; genre?: string | null; year?: number | null } = { ids: chunk }
           if (hasGenre) payload.genre = fields.genre ?? null
           if (hasYear) payload.year = fields.year ?? null
-          const res = await fetch('/api/songs/batch', {
+          await fetchJson<{ error?: string }>('/api/songs/batch', {
             method: 'PATCH',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
           })
-          const body = (await res.json()) as { error?: string }
-          if (!res.ok) throw new Error(body.error ?? 'Bulk update failed')
         }
         return true
       } catch (e) {
@@ -304,18 +299,16 @@ export function useMediaCatalog() {
 
         for (let i = 0; i < ids.length; i += CHUNK) {
           const chunk = ids.slice(i, i + CHUNK)
-          const res = await fetch('/api/songs/batch-theme', {
+          const body = await fetchJson<{
+            error?: string
+            storageMoved?: number
+            storageWarnings?: string[]
+          }>('/api/songs/batch-theme', {
             method: 'PATCH',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ids: chunk, theme_id: themeId }),
           })
-          const body = (await res.json()) as {
-            error?: string
-            storageMoved?: number
-            storageWarnings?: string[]
-          }
-          if (!res.ok) throw new Error(body.error ?? 'Bulk theme update failed')
           storageMoved += body.storageMoved ?? 0
           if (body.storageWarnings?.length) storageWarnings.push(...body.storageWarnings)
         }
@@ -347,11 +340,10 @@ export function useMediaCatalog() {
 
     try {
       for (const id of duplicateIds) {
-        const res = await fetch(`/api/songs/${id}`, { method: 'DELETE', credentials: 'include' })
-        if (!res.ok) {
-          const body = (await res.json()) as { error?: string }
-          throw new Error(body.error ?? 'Could not remove duplicates')
-        }
+        await fetchJson<{ error?: string }>(`/api/songs/${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
       }
       return duplicateIds.length
     } catch (e) {
@@ -427,14 +419,15 @@ export function useMediaCatalog() {
           .single()
 
         if (updateError) {
-          const res = await fetch(`/api/songs/${id}`, {
-            method: 'PATCH',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(fields),
-          })
-          const body = (await res.json()) as { song?: CatalogSong; error?: string }
-          if (!res.ok) throw new Error(body.error ?? updateError.message)
+          const body = await fetchJson<{ song?: CatalogSong; error?: string }>(
+            `/api/songs/${id}`,
+            {
+              method: 'PATCH',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fields),
+            }
+          )
           if (body.song) setSongs((prev) => prev.map((s) => (s.id === id ? body.song! : s)))
         } else if (data) {
           setSongs((prev) => prev.map((s) => (s.id === id ? (data as CatalogSong) : s)))
