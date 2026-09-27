@@ -18,8 +18,9 @@ export function ClientAppShell({ children }: { children: ReactNode }) {
 
   const isKingzSite = isKingzPublicPath(pathname, host)
   const isOverlayRoute = pathname === '/overlay' || pathname.startsWith('/overlay/')
+  const isBroadcastRoute = pathname === '/broadcast' || pathname.startsWith('/broadcast/')
 
-  if (isKingzSite || isOverlayRoute) {
+  if (isKingzSite || isOverlayRoute || isBroadcastRoute) {
     return <>{children}</>
   }
 

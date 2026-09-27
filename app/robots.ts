@@ -31,6 +31,8 @@ export default function robots(): MetadataRoute.Robots {
           '/stage/',
           '/overlay',
           '/overlay/',
+          '/broadcast',
+          '/broadcast/',
           '/kingz-control',
           '/sitemap',
           '/community',
