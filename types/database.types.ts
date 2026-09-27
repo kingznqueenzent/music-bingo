@@ -445,6 +445,9 @@ export type Database = {
           muted_players: string[]
           chat_profanity_filter_enabled: boolean
           host_id: string | null
+          auto_play_enabled?: boolean
+          game_pace_seconds?: number
+          autopilot?: Json
         }
         Insert: {
           id?: string
@@ -475,6 +478,9 @@ export type Database = {
           muted_players?: string[]
           chat_profanity_filter_enabled?: boolean
           host_id?: string | null
+          auto_play_enabled?: boolean
+          game_pace_seconds?: number
+          autopilot?: Json
         }
         Update: {
           id?: string | null
@@ -505,6 +511,9 @@ export type Database = {
           muted_players?: string[] | null
           chat_profanity_filter_enabled?: boolean | null
           host_id?: string | null
+          auto_play_enabled?: boolean | null
+          game_pace_seconds?: number | null
+          autopilot?: Json | null
         }
         Relationships: []
       }

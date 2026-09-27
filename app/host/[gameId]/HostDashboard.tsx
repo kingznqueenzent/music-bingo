@@ -15,7 +15,6 @@ import {
 import type { WinPattern } from '@/lib/bingo-win-pattern'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
 import { formatPlayerCapLabel, type GameTier } from '@/lib/tiers'
-import { DEFAULT_GAME_PACE_SECONDS } from '@/lib/game-pace'
 import { debounce } from '@/lib/debounce'
 import { generateBingoCardsPdf } from '@/lib/pdf-export'
 import { LyricGridLogo } from '@/components/LyricGridLogo'
@@ -51,6 +50,23 @@ import { ShoutoutConsole } from '@/components/host/ShoutoutConsole'
 import { HostSoundboard } from '@/components/host/HostSoundboard'
 import { HostConfirmModal } from '@/components/host/HostConfirmModal'
 import { HostSongControls, CalledSongsLog } from '@/components/host/HostSongControls'
+import { HostAutopilotPanel, type AutopilotConnection } from '@/components/host/HostAutopilotPanel'
+import {
+  buildRemainingOrder,
+  completedAutopilot,
+  computeRuntimeEndsAt,
+  isRuntimeExpired,
+  parseAutopilot,
+  pickNextTrackId,
+  recoverAutopilotOnLoad,
+  stoppedAutopilot,
+  type AutopilotDelaySec,
+  type AutopilotMode,
+  type AutopilotPauseReason,
+  type AutopilotPersisted,
+  type AutopilotRuntime,
+  type AutopilotWinnerPolicy,
+} from '@/lib/autopilot'
 import { HostPlayerBoardPanel, hostBoardGameCode } from '@/components/host/HostPlayerBoardPanel'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
 import { LayoutGrid } from 'lucide-react'
@@ -152,11 +168,25 @@ export function HostDashboard({
   const autoAdvanceIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const upNextRef = useRef<PlaylistSong[]>([])
   const playbackPausedRef = useRef(false)
-  const autoPlayEnabledRef = useRef(false)
-  const gamePaceSecondsRef = useRef(DEFAULT_GAME_PACE_SECONDS)
   const playingSongIdRef = useRef<string | null>(null)
   const handleNextSongRef = useRef<(song: PlaylistSong) => Promise<void>>(async () => {})
   const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState<number | null>(null)
+  const [autopilot, setAutopilot] = useState<AutopilotPersisted>(() =>
+    recoverAutopilotOnLoad(parseAutopilot(initialGame?.autopilot))
+  )
+  const [autopilotConnection, setAutopilotConnection] = useState<AutopilotConnection>('connecting')
+  const [autopilotClock, setAutopilotClock] = useState(() => Date.now())
+  const [autopilotStarting, setAutopilotStarting] = useState(false)
+  const [clipEndedSinceCurrent, setClipEndedSinceCurrent] = useState(false)
+  const autopilotRef = useRef(autopilot)
+  const autopilotInvokingNextRef = useRef(false)
+  const autopilotHydratedRef = useRef(false)
+  const songsRef = useRef<PlaylistSong[]>(initialSongs)
+  const playedRef = useRef<PlayedSong[]>(initialPlayed)
+  const currentSongRef = useRef<PlaylistSong | null>(null)
+  const persistAutopilotRef = useRef<(next: AutopilotPersisted) => Promise<void>>(async () => {})
+  const scheduleAutopilotAdvanceRef = useRef<() => void>(() => {})
+  const pauseAutopilotRef = useRef<(reason: AutopilotPauseReason) => void>(() => {})
 
   useEffect(() => {
     if (initialGame && retryTrigger === 0) {
@@ -316,6 +346,7 @@ export function HostDashboard({
       }
       setAutoAdvanceCountdown(null)
     }
+    pauseAutopilotRef.current('bingo_claim')
   }, [])
 
   const calledPlaylistSongIds = useMemo(
@@ -375,12 +406,23 @@ export function HostDashboard({
       },
       onBingoWinner: (p) => {
         pushWinnerAlert({ playerName: p.playerName ?? 'Player', cardId: p.cardId ?? '' })
+        pauseAutopilotRef.current('winner')
       },
       onBingoClaim: (payload) => {
         void handleBingoClaim(payload)
       },
       onBoardUpdate: (payload) => {
         applyBoardProgress(payload)
+      },
+      onChannelStatus: (status) => {
+        if (status === 'SUBSCRIBED') {
+          setAutopilotConnection('connected')
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setAutopilotConnection('disconnected')
+          pauseAutopilotRef.current('disconnect')
+        } else {
+          setAutopilotConnection('connecting')
+        }
       },
     })
     return () => {
@@ -413,29 +455,13 @@ export function HostDashboard({
   useEffect(() => () => clearAutoAdvance(), [clearAutoAdvance])
 
   const scheduleAutoAdvance = useCallback(() => {
-    if (!autoPlayEnabledRef.current || playbackPausedRef.current || playingSongIdRef.current) return
-    const pool = upNextRef.current
-    if (pool.length === 0) return
-
-    clearAutoAdvance()
-    const pace = gamePaceSecondsRef.current
-    setAutoAdvanceCountdown(pace)
-    autoAdvanceIntervalRef.current = setInterval(() => {
-      setAutoAdvanceCountdown((prev) => (prev != null && prev > 1 ? prev - 1 : prev))
-    }, 1000)
-    autoAdvanceTimerRef.current = setTimeout(() => {
-      clearAutoAdvance()
-      if (playbackPausedRef.current || playingSongIdRef.current || !autoPlayEnabledRef.current) return
-      const currentPool = upNextRef.current
-      if (currentPool.length === 0) return
-      const pick = currentPool[Math.floor(Math.random() * currentPool.length)]
-      void handleNextSongRef.current(pick)
-    }, pace * 1000)
-  }, [clearAutoAdvance])
+    scheduleAutopilotAdvanceRef.current()
+  }, [])
 
   const handleClipEnded = useCallback(() => {
-    scheduleAutoAdvance()
-  }, [scheduleAutoAdvance])
+    setClipEndedSinceCurrent(true)
+    scheduleAutopilotAdvanceRef.current()
+  }, [])
 
   async function handleEndGameConfirmed() {
     setLifecycleLoading(true)
@@ -453,9 +479,11 @@ export function HostDashboard({
       }
       setGame((prev) =>
         prev
-          ? { ...prev, status: 'ended', current_song_id: null, auto_play_enabled: false }
+          ? { ...prev, status: 'ended', current_song_id: null, auto_play_enabled: false, autopilot: {} }
           : prev
       )
+      clearAutoAdvance()
+      void persistAutopilotRef.current(stoppedAutopilot(autopilotRef.current))
       setPlayingSongId(null)
       setCurrentSong(null)
       setEndGameConfirmOpen(false)
@@ -491,9 +519,10 @@ export function HostDashboard({
       if (data.reusedSameGame) {
         setGame((prev) =>
           prev
-            ? { ...prev, status: 'lobby', current_song_id: null, auto_play_enabled: false }
+            ? { ...prev, status: 'lobby', current_song_id: null, auto_play_enabled: false, autopilot: {} }
             : prev
         )
+        void persistAutopilotRef.current(stoppedAutopilot(autopilotRef.current))
         setPlayed([])
         setPlayingSongId(null)
         setCurrentSong(null)
@@ -601,6 +630,14 @@ export function HostDashboard({
       setActionError('Invalid song.')
       return
     }
+    if (
+      autopilotRef.current.enabled &&
+      !autopilotRef.current.paused &&
+      !autopilotRef.current.complete &&
+      !autopilotInvokingNextRef.current
+    ) {
+      pauseAutopilotRef.current('manual_track')
+    }
     clearAutoAdvance()
     setActionError('')
     previousCurrentSongRef.current = currentSong
@@ -649,6 +686,7 @@ export function HostDashboard({
     }
     if (success) {
       setActionError('')
+      setClipEndedSinceCurrent(false)
       try {
         const { data: playedData } = await supabase
           .from('played_songs')
@@ -656,6 +694,15 @@ export function HostDashboard({
           .eq('game_id', gameId)
           .order('played_at')
         setPlayed(playedData ?? [])
+        const playedIds = new Set((playedData ?? []).map((p) => p.playlist_song_id))
+        const ap = autopilotRef.current
+        if (ap.enabled || ap.complete) {
+          const remaining = buildRemainingOrder(ap.mode, songsRef.current, playedIds, ap.remainingTrackIds)
+          const nextAp: AutopilotPersisted = remaining.length === 0
+            ? completedAutopilot({ ...ap, remainingTrackIds: [] })
+            : { ...ap, remainingTrackIds: remaining }
+          void persistAutopilotRef.current(nextAp)
+        }
       } catch {
         // keep currentSong and played as-is
       }
@@ -664,6 +711,164 @@ export function HostDashboard({
     }
     setPlayingSongId(null)
   }
+
+  const persistAutopilot = useCallback(
+    async (next: AutopilotPersisted) => {
+      setAutopilot(next)
+      autopilotRef.current = next
+      setGame((g) => (g ? { ...g, autopilot: next, auto_play_enabled: next.enabled && !next.paused && !next.complete } : g))
+      const res = await updateGameSettings(gameId, {
+        autopilot: next,
+        autoPlayEnabled: next.enabled && !next.complete,
+      })
+      if (res.error) {
+        const missingColumn = /autopilot|schema cache|could not find/i.test(res.error)
+        if (!missingColumn) setActionError(res.error)
+      }
+    },
+    [gameId]
+  )
+  persistAutopilotRef.current = persistAutopilot
+
+  const pauseAutopilot = useCallback(
+    (reason: AutopilotPauseReason) => {
+      const ap = autopilotRef.current
+      if (!ap.enabled || ap.complete) return
+      if (ap.paused && ap.pauseReason && reason === 'disconnect' && ap.pauseReason !== 'disconnect') return
+      clearAutoAdvance()
+      void persistAutopilot({ ...ap, paused: true, pauseReason: reason })
+    },
+    [clearAutoAdvance, persistAutopilot]
+  )
+  pauseAutopilotRef.current = pauseAutopilot
+
+  const scheduleAutopilotAdvance = useCallback(() => {
+    const ap = autopilotRef.current
+    if (!ap.enabled || ap.paused || ap.complete) return
+    if (playbackPausedRef.current || playingSongIdRef.current) return
+    if (autopilotConnection === 'disconnected' || typeof navigator !== 'undefined' && !navigator.onLine) {
+      pauseAutopilot('disconnect')
+      return
+    }
+    if (isRuntimeExpired(ap.runtimeEndsAt)) {
+      clearAutoAdvance()
+      void persistAutopilot(completedAutopilot(ap))
+      return
+    }
+    const playedIds = new Set(playedRef.current.map((p) => p.playlist_song_id))
+    const remaining = buildRemainingOrder(ap.mode, songsRef.current, playedIds, ap.remainingTrackIds)
+    if (remaining.length === 0) {
+      clearAutoAdvance()
+      void persistAutopilot(completedAutopilot({ ...ap, remainingTrackIds: [] }))
+      return
+    }
+
+    clearAutoAdvance()
+    const delay = ap.delaySec
+    setAutoAdvanceCountdown(delay)
+    autoAdvanceIntervalRef.current = setInterval(() => {
+      setAutoAdvanceCountdown((prev) => (prev != null && prev > 1 ? prev - 1 : prev))
+    }, 1000)
+    autoAdvanceTimerRef.current = setTimeout(() => {
+      clearAutoAdvance()
+      const live = autopilotRef.current
+      if (!live.enabled || live.paused || live.complete) return
+      if (playbackPausedRef.current || playingSongIdRef.current) return
+      if (isRuntimeExpired(live.runtimeEndsAt)) {
+        void persistAutopilot(completedAutopilot(live))
+        return
+      }
+      const livePlayed = new Set(playedRef.current.map((p) => p.playlist_song_id))
+      const liveRemaining = buildRemainingOrder(live.mode, songsRef.current, livePlayed, live.remainingTrackIds)
+      const nextId = pickNextTrackId(liveRemaining)
+      const pick = nextId ? songsRef.current.find((s) => s.id === nextId) : undefined
+      if (!pick) {
+        void persistAutopilot(completedAutopilot({ ...live, remainingTrackIds: [] }))
+        return
+      }
+      autopilotInvokingNextRef.current = true
+      void handleNextSongRef.current(pick).finally(() => {
+        autopilotInvokingNextRef.current = false
+      })
+    }, delay * 1000)
+  }, [autopilotConnection, clearAutoAdvance, pauseAutopilot, persistAutopilot])
+  scheduleAutopilotAdvanceRef.current = scheduleAutopilotAdvance
+
+  const handleAutopilotStart = useCallback(async () => {
+    const playedIds = new Set(playedRef.current.map((p) => p.playlist_song_id))
+    const remaining = buildRemainingOrder(
+      autopilot.mode,
+      songsRef.current,
+      playedIds,
+      autopilot.remainingTrackIds,
+      autopilot.mode === 'random'
+    )
+    if (remaining.length === 0) {
+      setActionError('No uncalled tracks left. Autopilot will not loop.')
+      void persistAutopilot(completedAutopilot({ ...autopilot, remainingTrackIds: [] }))
+      return
+    }
+    setAutopilotStarting(true)
+    setActionError('')
+    if (playbackPaused) {
+      setPlaybackPaused(false)
+      await broadcastPlaybackState(supabase, gameId, { paused: false })
+    }
+    const startedAt = new Date()
+    const next: AutopilotPersisted = {
+      ...autopilot,
+      enabled: true,
+      paused: false,
+      pauseReason: null,
+      complete: false,
+      startedAt: startedAt.toISOString(),
+      runtimeEndsAt: computeRuntimeEndsAt(autopilot.runtime, startedAt),
+      remainingTrackIds: remaining,
+    }
+    await persistAutopilot(next)
+    const needImmediateCall = !currentSongRef.current || clipEndedSinceCurrent
+    if (needImmediateCall) {
+      const nextId = pickNextTrackId(remaining)
+      const pick = nextId ? songsRef.current.find((s) => s.id === nextId) : undefined
+      if (pick) {
+        autopilotInvokingNextRef.current = true
+        await handleNextSongRef.current(pick).finally(() => {
+          autopilotInvokingNextRef.current = false
+        })
+      }
+    }
+    setAutopilotStarting(false)
+  }, [autopilot, clipEndedSinceCurrent, gameId, persistAutopilot, playbackPaused, supabase])
+
+  const handleAutopilotResume = useCallback(async () => {
+    const ap = autopilotRef.current
+    if (!ap.enabled || ap.complete) return
+    if (autopilotConnection === 'disconnected' || (typeof navigator !== 'undefined' && !navigator.onLine)) {
+      setActionError('Reconnect before resuming Autopilot.')
+      return
+    }
+    try {
+      const { data: playedData } = await supabase
+        .from('played_songs')
+        .select('*')
+        .eq('game_id', gameId)
+        .order('played_at')
+      if (playedData) setPlayed(playedData)
+      const playedIds = new Set((playedData ?? playedRef.current).map((p) => p.playlist_song_id))
+      const remaining = buildRemainingOrder(ap.mode, songsRef.current, playedIds, ap.remainingTrackIds)
+      await persistAutopilot({ ...ap, paused: false, pauseReason: null, remainingTrackIds: remaining })
+      if (!currentSongRef.current || clipEndedSinceCurrent) {
+        scheduleAutopilotAdvance()
+      }
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Could not resync before resume.')
+    }
+  }, [autopilotConnection, clipEndedSinceCurrent, gameId, persistAutopilot, scheduleAutopilotAdvance, supabase])
+
+  const handleAutopilotStop = useCallback(() => {
+    clearAutoAdvance()
+    void persistAutopilot(stoppedAutopilot(autopilotRef.current))
+  }, [clearAutoAdvance, persistAutopilot])
 
   async function handleResetPlayed() {
     setActionError('')
@@ -770,30 +975,6 @@ export function HostDashboard({
     }
   }
 
-  async function handleAutoPlayToggle() {
-    setActionError('')
-    const next = !(game?.auto_play_enabled ?? false)
-    const prev = game?.auto_play_enabled ?? false
-    setGame((g) => (g ? { ...g, auto_play_enabled: next } : null))
-    if (!next) clearAutoAdvance()
-    const res = await updateGameSettings(gameId, { autoPlayEnabled: next })
-    if (res.error) {
-      setActionError(res.error)
-      setGame((g) => (g ? { ...g, auto_play_enabled: prev } : null))
-    }
-  }
-
-  async function handlePaceChange(seconds: number) {
-    setActionError('')
-    const prevPace = game?.game_pace_seconds ?? DEFAULT_GAME_PACE_SECONDS
-    setGame((g) => (g ? { ...g, game_pace_seconds: seconds } : null))
-    const res = await updateGameSettings(gameId, { gamePaceSeconds: seconds })
-    if (res.error) {
-      setActionError(res.error)
-      setGame((g) => (g ? { ...g, game_pace_seconds: prevPace } : null))
-    }
-  }
-
   async function handleWinPatternChange(pattern: WinPattern) {
     setActionError('')
     const prevMode = game?.mode ?? 'line'
@@ -845,6 +1026,58 @@ export function HostDashboard({
     await generateBingoCardsPdf(result.gameCode, result.cards, pdfPerPage, result.logoUrl)
   }
 
+  useEffect(() => {
+    if (!game || autopilotHydratedRef.current) return
+    autopilotHydratedRef.current = true
+    const recovered = recoverAutopilotOnLoad(parseAutopilot(game.autopilot))
+    const playedIds = new Set(played.map((p) => p.playlist_song_id))
+    const remaining = buildRemainingOrder(recovered.mode, songs, playedIds, recovered.remainingTrackIds)
+    const next = { ...recovered, remainingTrackIds: remaining }
+    setAutopilot(next)
+    if (next.enabled && next.paused && next.pauseReason === 'refresh') {
+      void persistAutopilotRef.current(next)
+    }
+  }, [game, played, songs])
+
+  useEffect(() => {
+    if (!autopilot.enabled && !autopilot.startedAt) return
+    const id = window.setInterval(() => setAutopilotClock(Date.now()), 1000)
+    return () => window.clearInterval(id)
+  }, [autopilot.enabled, autopilot.startedAt])
+
+  useEffect(() => {
+    const onOffline = () => {
+      setAutopilotConnection('disconnected')
+      pauseAutopilotRef.current('disconnect')
+    }
+    const onOnline = () => {
+      setAutopilotConnection((prev) => (prev === 'disconnected' ? 'connecting' : prev))
+    }
+    window.addEventListener('offline', onOffline)
+    window.addEventListener('online', onOnline)
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setAutopilotConnection('disconnected')
+      pauseAutopilotRef.current('disconnect')
+    }
+    return () => {
+      window.removeEventListener('offline', onOffline)
+      window.removeEventListener('online', onOnline)
+    }
+  }, [])
+
+  useEffect(() => {
+    setClipEndedSinceCurrent(false)
+  }, [currentSong?.id])
+
+  useEffect(() => {
+    const ap = autopilotRef.current
+    if (!ap.enabled && !ap.complete) return
+    const playedIds = new Set(played.map((p) => p.playlist_song_id))
+    const remaining = buildRemainingOrder(ap.mode, songs, playedIds, ap.remainingTrackIds)
+    if (remaining.join('\0') === ap.remainingTrackIds.join('\0')) return
+    setAutopilot((s) => ({ ...s, remainingTrackIds: remaining }))
+  }, [played, songs])
+
   if (loading) {
     return <div className="text-xl text-slate-300">Loading…</div>
   }
@@ -887,8 +1120,6 @@ export function HostDashboard({
   const playedIds = new Set(played.map((p) => p.playlist_song_id))
   const clipSeconds = game.clip_seconds ?? 20
   const crossfadeSeconds = game.crossfade_seconds ?? 0
-  const autoPlayEnabled = game.auto_play_enabled ?? false
-  const gamePaceSeconds = game.game_pace_seconds ?? DEFAULT_GAME_PACE_SECONDS
   const gridSize = game.grid_size === 4 ? 4 : 5
   const stageUrl = typeof window !== 'undefined' ? `${window.location.origin}/stage/${gameId}` : ''
   const overlayUrl = typeof window !== 'undefined' ? `${window.location.origin}/overlay/${gameId}` : ''
@@ -914,10 +1145,12 @@ export function HostDashboard({
 
   upNextRef.current = upNext
   playbackPausedRef.current = playbackPaused
-  autoPlayEnabledRef.current = autoPlayEnabled
-  gamePaceSecondsRef.current = gamePaceSeconds
   playingSongIdRef.current = playingSongId
   handleNextSongRef.current = handleNextSong
+  autopilotRef.current = autopilot
+  songsRef.current = songs
+  playedRef.current = played
+  currentSongRef.current = currentSong
 
   async function handleConfirmWinFromCircle() {
     const cardId = claimModal.open ? claimModal.cardId : winnersCircle.cardId
@@ -981,6 +1214,21 @@ export function HostDashboard({
           markedPlaylistSongIds,
         }))
         setVerifyBingoSuccess(`${playerName} verified!`)
+        if (autopilotRef.current.enabled) {
+          const policy = autopilotRef.current.winnerPolicy
+          if (policy === 'end_game') {
+            pauseAutopilotRef.current('winner')
+            void handleEndGameConfirmed()
+          } else if (policy === 'continue') {
+            void persistAutopilotRef.current({
+              ...autopilotRef.current,
+              paused: false,
+              pauseReason: null,
+            })
+          } else {
+            pauseAutopilotRef.current('winner')
+          }
+        }
       } else {
         setActionError(data.error ?? 'Verification failed')
         setClaimModal((c) => ({
@@ -1206,6 +1454,37 @@ export function HostDashboard({
           playerCount={playerCount}
           trackedBoards={playerBoards.length}
           className="mb-4"
+        />
+        <HostAutopilotPanel
+          className="mb-4"
+          state={autopilot}
+          connection={autopilotConnection}
+          currentTrackLabel={currentSong ? playlistSongLabel(currentSong) : '—'}
+          calledCount={played.length}
+          remainingCount={autopilot.enabled || autopilot.complete ? autopilot.remainingTrackIds.length : upNext.length}
+          elapsedSec={
+            autopilot.startedAt
+              ? Math.max(0, Math.floor((autopilotClock - Date.parse(autopilot.startedAt)) / 1000))
+              : 0
+          }
+          remainingRuntimeSec={
+            autopilot.runtimeEndsAt
+              ? Math.max(0, Math.floor((Date.parse(autopilot.runtimeEndsAt) - autopilotClock) / 1000))
+              : null
+          }
+          nextActionCountdown={autoAdvanceCountdown}
+          bingoApprovalRequired={claimModal.open || autopilot.pauseReason === 'bingo_claim'}
+          starting={autopilotStarting}
+          onStart={() => void handleAutopilotStart()}
+          onPause={() => pauseAutopilot('user')}
+          onResume={() => void handleAutopilotResume()}
+          onStop={handleAutopilotStop}
+          onModeChange={(mode: AutopilotMode) => setAutopilot((s) => ({ ...s, mode }))}
+          onRuntimeChange={(runtime: AutopilotRuntime) => setAutopilot((s) => ({ ...s, runtime }))}
+          onDelayChange={(delaySec: AutopilotDelaySec) => setAutopilot((s) => ({ ...s, delaySec }))}
+          onWinnerPolicyChange={(winnerPolicy: AutopilotWinnerPolicy) =>
+            setAutopilot((s) => ({ ...s, winnerPolicy }))
+          }
         />
         <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4 mb-4">
           <button
@@ -1609,11 +1888,6 @@ export function HostDashboard({
           hasCurrentSong={!!currentSong}
           hasUpNext={upNext.length > 0}
           playing={!!playingSongId}
-          autoPlayEnabled={autoPlayEnabled}
-          gamePaceSeconds={gamePaceSeconds}
-          autoAdvanceCountdown={autoAdvanceCountdown}
-          onToggleAutoPlay={() => void handleAutoPlayToggle()}
-          onPaceChange={(sec) => void handlePaceChange(sec)}
           onTogglePause={handleTogglePlaybackPause}
           onNext={() => upNext[0] && handleNextSong(upNext[0])}
           onSkip={() => {

@@ -48,6 +48,8 @@ export interface Game {
   auto_play_enabled?: boolean
   /** Gap (seconds) after clip ends before the next auto-played track */
   game_pace_seconds?: number
+  /** Host Autopilot persisted session (games.autopilot jsonb) */
+  autopilot?: import('@/lib/autopilot').AutopilotPersisted | Record<string, unknown> | null
   grid_size?: number
   tier?: GameTier
   logo_url?: string | null

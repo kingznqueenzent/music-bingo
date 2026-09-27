@@ -531,6 +531,7 @@ export async function updateGameSettings(
     crossfadeSeconds?: number
     autoPlayEnabled?: boolean
     gamePaceSeconds?: number
+    autopilot?: import('@/lib/autopilot').AutopilotPersisted | Record<string, unknown> | null
     logoUrl?: string | null
     winPattern?: WinPattern
     stageShowLeaderboard?: boolean
@@ -550,6 +551,7 @@ export async function updateGameSettings(
     crossfade_seconds?: number
     auto_play_enabled?: boolean
     game_pace_seconds?: number
+    autopilot?: import('@/lib/autopilot').AutopilotPersisted | Record<string, unknown> | null
     logo_url?: string | null
     mode?: string
     stage_show_leaderboard?: boolean
@@ -569,6 +571,7 @@ export async function updateGameSettings(
   if (settings.autoPlayEnabled !== undefined) updates.auto_play_enabled = settings.autoPlayEnabled
   if (settings.gamePaceSeconds != null)
     updates.game_pace_seconds = Math.min(120, Math.max(3, settings.gamePaceSeconds))
+  if (settings.autopilot !== undefined) updates.autopilot = settings.autopilot ?? {}
   if (settings.logoUrl !== undefined) updates.logo_url = settings.logoUrl || null
   if (settings.winPattern != null && ['line', 'x', 'blackout', 'corners'].includes(settings.winPattern))
     updates.mode = settings.winPattern

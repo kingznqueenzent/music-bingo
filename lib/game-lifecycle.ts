@@ -44,6 +44,7 @@ export async function endGameSession(
       status: 'ended',
       current_song_id: null,
       auto_play_enabled: false,
+      autopilot: {},
     })
     .eq('id', gameId)
 
@@ -151,6 +152,7 @@ export async function startNewGameFromExisting(
         status: 'lobby',
         current_song_id: null,
         auto_play_enabled: false,
+        autopilot: {},
         round: 1,
       })
       .eq('id', sourceGameId)
@@ -197,6 +199,7 @@ export async function startNewGameFromExisting(
     status: 'lobby',
     current_song_id: null,
     auto_play_enabled: false,
+    autopilot: {},
     playlist_id: newPlaylistId,
     theme_id: src.theme_id ?? null,
     host_id: src.host_id ?? null,
@@ -235,6 +238,7 @@ export async function startNewGameFromExisting(
         status: 'ended',
         current_song_id: null,
         auto_play_enabled: false,
+        autopilot: {},
       })
       .eq('id', sourceGameId)
   }

@@ -80,6 +80,7 @@ export type HostGameRealtimeHandlers = {
   onBingoClaim?: (payload: BingoClaimPayload) => void
   onBoardUpdate?: (payload: BoardProgressPayload) => void
   onHostShoutout?: (payload: HostShoutoutPayload) => void
+  onChannelStatus?: (status: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR') => void
 }
 
 export type StageRealtimeHandlers = {
@@ -201,7 +202,11 @@ export function subscribeHostGameChannel(
       if (p?.message) handlers.onHostShoutout?.(p)
     })
 
-  channel.subscribe()
+  channel.subscribe((status) => {
+    if (status === 'SUBSCRIBED' || status === 'TIMED_OUT' || status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+      handlers.onChannelStatus?.(status)
+    }
+  })
   return channel
 }
 
