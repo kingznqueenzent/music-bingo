@@ -92,9 +92,9 @@ export function HostDashboard({
 }: HostDashboardProps) {
   const searchParams = useSearchParams()
   const codeParam = searchParams.get('code') ?? ''
-  const displayCode = codeParam || (game ? roomCodeFromGame(game) : '')
   const supabase = useMemo(() => createClient(), [])
   const [game, setGame] = useState<Game | null>(initialGame ?? null)
+  const displayCode = codeParam || (game ? roomCodeFromGame(game) : '')
   const [songs, setSongs] = useState<PlaylistSong[]>(initialSongs)
   const [played, setPlayed] = useState<PlayedSong[]>(initialPlayed)
   const [playerCount, setPlayerCount] = useState(initialPlayerCount)
