@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceRoleClient } from '@/lib/supabase/server'
 import { ADMIN_COOKIE, isAdminCookieValue } from '@/lib/admin-access'
 import {
   checkMediaLibraryAccessForClient,
@@ -25,7 +25,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createClient()
+  let supabase: ReturnType<typeof createServiceRoleClient>
+  try {
+    supabase = createServiceRoleClient()
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : 'Service role client is not configured' },
+      { status: 500 }
+    )
+  }
   const access = await checkMediaLibraryAccessForClient(supabase)
   if (!access.allowed) {
     return mediaLibraryBlockedResponse(access.tier)

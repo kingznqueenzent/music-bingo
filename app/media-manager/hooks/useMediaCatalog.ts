@@ -70,55 +70,12 @@ async function fetchAllRows<T>(
   return rows
 }
 
-function catalogEmptyAlert(
-  sessionUser: string | null,
-  supabaseError: string | null
-): string {
-  if (supabaseError) return `Supabase error: ${withSupabaseKeyHint(supabaseError)}`
-  if (!sessionUser) {
-    return 'Not logged in — catalog returned 0 tracks. The host admin cookie is not a Supabase Auth session; public.songs must allow SELECT for the anon role.'
-  }
-  return 'Catalog returned 0 tracks. Check public.songs RLS (songs_select_all) and that rows exist.'
-}
+const RLS_READ_BANNER =
+  'No tracks found or read permissions restricted (RLS). Please verify database policies or host session.'
 
-/** Unrestricted catalog read: select * , no genre/theme/playable filters. */
-async function fetchSongsUnrestricted(
-  supabase: ReturnType<typeof createClient>
-): Promise<{ songs: CatalogSong[]; error: string | null }> {
-  const pageSize = 1000
-  const songs: CatalogSong[] = []
-
-  // Primary initial load — unrestricted select, no extra filters.
-  const { data, error } = await supabase
-    .from('songs')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  console.log('[MediaManager] songs data', data)
-  console.log('[MediaManager] songs error', error)
-
-  if (error) return { songs: [], error: error.message }
-  if (!data?.length) return { songs: [], error: null }
-  songs.push(...(data as CatalogSong[]))
-
-  // PostgREST caps a single response at ~1000; page the rest if needed.
-  let page = 1
-  while (data.length >= pageSize) {
-    const from = page * pageSize
-    const to = from + pageSize - 1
-    const next = await supabase
-      .from('songs')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .range(from, to)
-    if (next.error) return { songs, error: next.error.message }
-    if (!next.data?.length) break
-    songs.push(...(next.data as CatalogSong[]))
-    if (next.data.length < pageSize) break
-    page += 1
-  }
-
-  return { songs, error: null }
+function catalogEmptyAlert(detail?: string | null): string {
+  const extra = detail?.trim()
+  return extra ? `${RLS_READ_BANNER} ${extra}` : RLS_READ_BANNER
 }
 
 async function fetchSongsViaHostApi(): Promise<CatalogSong[]> {
@@ -147,24 +104,51 @@ export function useMediaCatalog() {
 
     const envProblem = describeMissingSupabaseConfig(getSupabaseBrowserConfig())
     if (envProblem) {
-      console.log('[MediaManager] songs data', [])
-      console.log('[MediaManager] songs error', envProblem)
-      const { data: sessionEnvelope } = await supabase.auth.getSession()
-      console.log('[MediaManager] auth session', sessionEnvelope.session)
+      const emptyData: CatalogSong[] = []
+      const envError = { message: envProblem }
+      console.log('[MediaManager] Songs fetch data:', emptyData)
+      console.log('[MediaManager] Songs fetch error:', envError)
+      console.log('[MediaManager] Auth session:', await supabase.auth.getSession())
       setSongs([])
-      setCatalogAlert(envProblem)
+      setCatalogAlert(catalogEmptyAlert(envProblem))
       setError(envProblem)
       setLoading(false)
       return
     }
 
     try {
-      const { data: sessionEnvelope } = await supabase.auth.getSession()
-      console.log('[MediaManager] auth session', sessionEnvelope.session)
-      const sessionUser = sessionEnvelope.session?.user?.id ?? null
+      // Primary initial load — unrestricted select, no extra filters.
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      // Exact unrestricted query (paginated so catalogs >1000 still load).
-      let { songs: songData, error: songError } = await fetchSongsUnrestricted(supabase)
+      console.log('[MediaManager] Songs fetch data:', data)
+      console.log('[MediaManager] Songs fetch error:', error)
+      console.log('[MediaManager] Auth session:', await supabase.auth.getSession())
+
+      let songData: CatalogSong[] = !error && data?.length ? (data as CatalogSong[]) : []
+      let songError = error?.message ?? null
+
+      if (!songError && data && data.length >= 1000) {
+        let page = 1
+        while (true) {
+          const from = page * 1000
+          const next = await supabase
+            .from('songs')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .range(from, from + 999)
+          if (next.error) {
+            songError = next.error.message
+            break
+          }
+          if (!next.data?.length) break
+          songData = songData.concat(next.data as CatalogSong[])
+          if (next.data.length < 1000) break
+          page += 1
+        }
+      }
 
       if (songError || songData.length === 0) {
         try {
@@ -220,14 +204,17 @@ export function useMediaCatalog() {
       hasLoadedRef.current = true
 
       if (songError || songData.length === 0) {
-        const alert = catalogEmptyAlert(sessionUser, songError)
+        const detail = songError
+          ? `Supabase error: ${withSupabaseKeyHint(songError)}`
+          : null
+        const alert = catalogEmptyAlert(detail)
         setCatalogAlert(alert)
         if (songError) setError(alert)
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not load catalog'
       setError(message)
-      setCatalogAlert(`Supabase error: ${withSupabaseKeyHint(message)}`)
+      setCatalogAlert(catalogEmptyAlert(`Supabase error: ${withSupabaseKeyHint(message)}`))
     } finally {
       setLoading(false)
     }
