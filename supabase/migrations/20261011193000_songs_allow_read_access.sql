@@ -1,14 +1,14 @@
--- Exact Media Manager SELECT policy. Hosts often hit PostgREST as `anon`
--- (admin cookie, no Supabase Auth session). Missing SELECT → data = [].
--- Keep songs_select_all as an equivalent named policy.
-
+-- Enable RLS so missing SELECT policies cannot silently return [].
 ALTER TABLE public.songs ENABLE ROW LEVEL SECURITY;
 
+-- Enable RLS read policy on songs table
 DROP POLICY IF EXISTS "Allow read access to songs" ON public.songs;
-CREATE POLICY "Allow read access to songs" ON public.songs
-  FOR SELECT
-  USING (true);
+CREATE POLICY "Allow read access to songs"
+ON public.songs
+FOR SELECT
+USING (true);
 
+-- Equivalent named policy for anon + authenticated (Media Manager client reads).
 DROP POLICY IF EXISTS "songs_select_all" ON public.songs;
 CREATE POLICY "songs_select_all" ON public.songs
   FOR SELECT
