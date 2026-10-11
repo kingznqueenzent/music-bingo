@@ -17,8 +17,13 @@ export function createClient(): SupabaseClient {
   const resolvedKey = anonKey || 'placeholder-key'
 
   if (!isConfigured && typeof window !== 'undefined') {
+    const missing = [
+      !url && 'NEXT_PUBLIC_SUPABASE_URL',
+      !anonKey && 'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    ].filter(Boolean)
     console.error(
-      '[LyricGrid] Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+      '[LyricGrid] Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.',
+      missing.length ? { missing } : { url: Boolean(url), anonKey: Boolean(anonKey) }
     )
   }
 

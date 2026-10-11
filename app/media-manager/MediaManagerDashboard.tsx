@@ -133,6 +133,7 @@ function MediaManagerDashboardInner() {
     themes,
     loading,
     error,
+    catalogAlert,
     setError,
     refetch,
     themeCounts,
@@ -886,7 +887,21 @@ function MediaManagerDashboardInner() {
         }}
       />
 
-      {error ? (
+      {catalogAlert ? (
+        <div
+          className="flex items-start gap-3 rounded-xl border-2 border-amber-400/80 bg-amber-950/80 px-4 py-4 text-amber-50 shadow-[0_0_28px_rgba(251,191,36,0.18)]"
+          role="alert"
+          data-testid="media-manager-catalog-alert"
+        >
+          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-300" />
+          <div className="min-w-0 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-200">
+              Catalog status
+            </p>
+            <p className="text-sm font-medium leading-relaxed">{catalogAlert}</p>
+          </div>
+        </div>
+      ) : error ? (
         <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-950/40 px-4 py-3 text-red-300 text-sm" role="alert">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{error}</span>

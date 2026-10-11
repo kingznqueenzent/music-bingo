@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import {
+  describeMissingSupabaseConfig,
+  getSupabaseBrowserConfig,
+} from '@/lib/supabase/browser-config'
 import { resolveSongStoragePath } from '@/lib/media/resolve-song-storage-path'
 import {
   MEDIA_BUCKET,
@@ -12,6 +16,7 @@ import { defaultClipDurationSec, probeMediaDuration } from '@/lib/media/probe-me
 import type { CatalogSong, CatalogTheme, SongUpdatePayload } from '../types'
 import { isUncategorizedSong } from '@/lib/media/is-uncategorized-song'
 import { fetchJson } from '@/lib/media/fetch-json'
+import { withSupabaseKeyHint } from '@/lib/supabase-error-hint'
 
 type PatchSongResponse = {
   song?: CatalogSong
@@ -65,12 +70,72 @@ async function fetchAllRows<T>(
   return rows
 }
 
+function catalogEmptyAlert(
+  sessionUser: string | null,
+  supabaseError: string | null
+): string {
+  if (supabaseError) return `Supabase error: ${withSupabaseKeyHint(supabaseError)}`
+  if (!sessionUser) {
+    return 'Not logged in — catalog returned 0 tracks. The host admin cookie is not a Supabase Auth session; public.songs must allow SELECT for the anon role.'
+  }
+  return 'Catalog returned 0 tracks. Check public.songs RLS (songs_select_all) and that rows exist.'
+}
+
+/** Unrestricted catalog read: select * , no genre/theme/playable filters. */
+async function fetchSongsUnrestricted(
+  supabase: ReturnType<typeof createClient>
+): Promise<{ songs: CatalogSong[]; error: string | null }> {
+  const pageSize = 1000
+  const songs: CatalogSong[] = []
+
+  // Primary initial load — unrestricted select, no extra filters.
+  const { data, error } = await supabase
+    .from('songs')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  console.log('[MediaManager] songs data', data)
+  console.log('[MediaManager] songs error', error)
+
+  if (error) return { songs: [], error: error.message }
+  if (!data?.length) return { songs: [], error: null }
+  songs.push(...(data as CatalogSong[]))
+
+  // PostgREST caps a single response at ~1000; page the rest if needed.
+  let page = 1
+  while (data.length >= pageSize) {
+    const from = page * pageSize
+    const to = from + pageSize - 1
+    const next = await supabase
+      .from('songs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (next.error) return { songs, error: next.error.message }
+    if (!next.data?.length) break
+    songs.push(...(next.data as CatalogSong[]))
+    if (next.data.length < pageSize) break
+    page += 1
+  }
+
+  return { songs, error: null }
+}
+
+async function fetchSongsViaHostApi(): Promise<CatalogSong[]> {
+  const body = await fetchJson<{ songs?: CatalogSong[]; error?: string }>('/api/songs', {
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  return Array.isArray(body.songs) ? body.songs : []
+}
+
 export function useMediaCatalog() {
   const supabase = useMemo(() => createClient(), [])
   const [songs, setSongs] = useState<CatalogSong[]>([])
   const [themes, setThemes] = useState<CatalogTheme[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [catalogAlert, setCatalogAlert] = useState('')
   const hasLoadedRef = useRef(false)
 
   const refetch = useCallback(async () => {
@@ -78,14 +143,72 @@ export function useMediaCatalog() {
     // Blanking the catalog on every refresh caused mobile “flash” when theme dropdowns remounted.
     if (!hasLoadedRef.current) setLoading(true)
     setError('')
+    setCatalogAlert('')
+
+    const envProblem = describeMissingSupabaseConfig(getSupabaseBrowserConfig())
+    if (envProblem) {
+      console.log('[MediaManager] songs data', [])
+      console.log('[MediaManager] songs error', envProblem)
+      const { data: sessionEnvelope } = await supabase.auth.getSession()
+      console.log('[MediaManager] auth session', sessionEnvelope.session)
+      setSongs([])
+      setCatalogAlert(envProblem)
+      setError(envProblem)
+      setLoading(false)
+      return
+    }
+
     try {
-      const [songData, themeData] = await Promise.all([
-        fetchAllRows<CatalogSong>(supabase, 'songs', '*', { column: 'created_at', ascending: false }),
-        fetchAllRows<CatalogTheme>(supabase, 'themes', 'id, name, display_order', {
+      const { data: sessionEnvelope } = await supabase.auth.getSession()
+      console.log('[MediaManager] auth session', sessionEnvelope.session)
+      const sessionUser = sessionEnvelope.session?.user?.id ?? null
+
+      // Exact unrestricted query (paginated so catalogs >1000 still load).
+      let { songs: songData, error: songError } = await fetchSongsUnrestricted(supabase)
+
+      if (songError || songData.length === 0) {
+        try {
+          const apiSongs = await fetchSongsViaHostApi()
+          console.log('[MediaManager] /api/songs fallback', {
+            count: apiSongs.length,
+            clientError: songError,
+            clientCount: songData.length,
+          })
+          if (apiSongs.length > 0) {
+            songData = apiSongs
+            songError = null
+          }
+        } catch (apiErr) {
+          console.log('[MediaManager] /api/songs fallback error', apiErr)
+          if (!songError && songData.length === 0) {
+            songError = apiErr instanceof Error ? apiErr.message : 'Host catalog API failed'
+          }
+        }
+      }
+
+      let themeData: CatalogTheme[] = []
+      try {
+        themeData = await fetchAllRows<CatalogTheme>(supabase, 'themes', 'id, name, display_order', {
           column: 'display_order',
           ascending: true,
-        }),
-      ])
+        })
+      } catch (themeErr) {
+        console.log('[MediaManager] themes error', themeErr)
+        const { data: themeFallback, error: themeFallbackError } = await supabase
+          .from('themes')
+          .select('id, name')
+          .order('name')
+        if (themeFallbackError) {
+          console.log('[MediaManager] themes fallback error', themeFallbackError)
+        } else {
+          themeData = (themeFallback ?? []).map((t) => ({
+            id: t.id,
+            name: t.name,
+            display_order: 0,
+          }))
+        }
+      }
+
       setSongs(songData)
       setThemes(
         themeData.map((t) => ({
@@ -95,8 +218,16 @@ export function useMediaCatalog() {
         }))
       )
       hasLoadedRef.current = true
+
+      if (songError || songData.length === 0) {
+        const alert = catalogEmptyAlert(sessionUser, songError)
+        setCatalogAlert(alert)
+        if (songError) setError(alert)
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load catalog')
+      const message = e instanceof Error ? e.message : 'Could not load catalog'
+      setError(message)
+      setCatalogAlert(`Supabase error: ${withSupabaseKeyHint(message)}`)
     } finally {
       setLoading(false)
     }
@@ -452,6 +583,7 @@ export function useMediaCatalog() {
     themes,
     loading,
     error,
+    catalogAlert,
     setError,
     refetch,
     themeCounts,
