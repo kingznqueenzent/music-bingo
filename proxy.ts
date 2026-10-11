@@ -141,10 +141,7 @@ export function proxy(request: NextRequest) {
     return kingzIsolatedResponse(request)
   }
 
-  // Stage / HostGame support ?game=GAME_ID → live route
-  if ((pathname === '/Stage' || pathname === '/stage') && gameId) {
-    return NextResponse.redirect(new URL(`/stage/${encodeURIComponent(gameId)}`, request.url))
-  }
+  // /stage?game=GAME_ID is the audio-free OBS overlay (do not redirect to /stage/[gameId]).
   if ((pathname === '/HostGame' || pathname === '/host/game') && gameId) {
     return NextResponse.redirect(new URL(`/host/${encodeURIComponent(gameId)}`, request.url))
   }

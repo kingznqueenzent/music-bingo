@@ -100,7 +100,7 @@ export const SITEMAP_PAGES: SitemapPageEntry[] = [
   {
     href: '/stage',
     label: 'Stage Broadcast',
-    description: 'Venue TV view — now playing, join code, winner overlays. Supports ?game=GAME_ID. Official URL: /Stage.',
+    description: 'OBS overlay at /stage?game=GAME_ID (optional &transparent=true). Venue TV with audio lives at /stage/[gameId].',
     icon: Tv2,
     section: 'Host',
   },

@@ -19,9 +19,21 @@ export function ClientAppShell({ children }: { children: ReactNode }) {
   const isKingzSite = isKingzPublicPath(pathname, host)
   const isOverlayRoute = pathname === '/overlay' || pathname.startsWith('/overlay/')
   const isBroadcastRoute = pathname === '/broadcast' || pathname.startsWith('/broadcast/')
+  const isStageRoute = pathname === '/stage' || pathname.startsWith('/stage/')
 
   if (isKingzSite || isOverlayRoute || isBroadcastRoute) {
     return <>{children}</>
+  }
+
+  // OBS / venue stage must not render marketing navbar chrome.
+  // Keep feature flags + realtime auth so /stage/[gameId] venue view still works.
+  if (isStageRoute) {
+    return (
+      <FeatureFlagsProvider>
+        <SupabaseRealtimeAuth />
+        {children}
+      </FeatureFlagsProvider>
+    )
   }
 
   return (
