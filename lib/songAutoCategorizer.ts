@@ -7,6 +7,7 @@ import {
   libraryGenreToThemeGenre,
   type LibraryGenre,
 } from '@/lib/media/detect-genre'
+import { MUSICBRAINZ_USER_AGENT } from '@/lib/media/musicbrainz-enrich'
 
 export interface AutoCategoryResult {
   theme_name: string | null
@@ -16,8 +17,6 @@ export interface AutoCategoryResult {
 }
 
 const DECADE_KEYWORDS = ['50s', '60s', '70s', '80s', '90s', '2000s', '2010s', '2020s'] as const
-
-const MUSICBRAINZ_USER_AGENT = 'LyricGrid/1.0 (admin@lyricgrid.ca)'
 
 /** Strip extensions and bracketed tags like "(90s Throwback)" from filenames/titles. */
 export function cleanSongTitle(raw: string): string {

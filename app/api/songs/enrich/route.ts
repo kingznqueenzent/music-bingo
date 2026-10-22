@@ -7,16 +7,15 @@ import {
   checkMediaLibraryAccessForClient,
   mediaLibraryBlockedResponse,
 } from '@/lib/media/media-library-access-server'
-import { isUntaggedStoredGenre } from '@/lib/media/detect-genre'
 import { parseSongYear } from '@/types/song'
 import {
-  ITUNES_SLEEP_MS,
+  MUSICBRAINZ_SLEEP_MS,
   buildEnrichmentUpdate,
-  fetchItunesSongEnrichment,
+  fetchMusicBrainzSongEnrichment,
   sleep,
-  songNeedsEnrichment,
+  songNeedsYearEnrichment,
   type SongEnrichCandidate,
-} from '@/lib/media/itunes-enrich'
+} from '@/lib/media/musicbrainz-enrich'
 
 async function requireHostCookie(): Promise<boolean> {
   const jar = await cookies()
@@ -35,8 +34,9 @@ type SongRow = {
 }
 
 /**
- * Batch-enrich catalog songs missing year and/or genre via public iTunes Search API.
- * Admin cookie gate + service role. Fills gaps only — does not overwrite tagged genres.
+ * Batch-enrich catalog songs missing year via MusicBrainz recording search.
+ * Admin cookie gate + service role. Fills year gaps only — does not overwrite existing years.
+ * Respects MusicBrainz ~1 req/s rate limit.
  *
  * POST body (optional): `{ limit?: number }` — songs to process this chunk (default 25, max 50).
  * Returns progress-friendly JSON: `{ ok, processed, updated, failed, remaining }`.
@@ -71,21 +71,19 @@ export async function POST(request: NextRequest) {
     // empty body is fine
   }
 
-  // Prefer year-null first; also include untagged genres. Fetch a page then filter in-memory
-  // so we don't fight PostgREST OR quirks on null/empty genre.
-  const pageSize = Math.max(limit * 4, 100)
   const { data: rows, error: fetchError } = await supabase
     .from('songs')
     .select('id, title, artist, year, genre')
+    .is('year', null)
     .order('created_at', { ascending: false })
-    .limit(pageSize)
+    .limit(limit)
 
   if (fetchError) {
     return NextResponse.json({ error: fetchError.message }, { status: 500 })
   }
 
-  const candidates: SongEnrichCandidate[] = ((rows ?? []) as SongRow[])
-    .filter((row) => row.title?.trim() && songNeedsEnrichment(row))
+  const batch: SongEnrichCandidate[] = ((rows ?? []) as SongRow[])
+    .filter((row) => row.title?.trim() && songNeedsYearEnrichment(row))
     .map((row) => ({
       id: row.id,
       title: String(row.title).trim(),
@@ -94,10 +92,6 @@ export async function POST(request: NextRequest) {
       genre: row.genre,
     }))
 
-  const batch = candidates.slice(0, limit)
-
-  // Approximate remaining after this chunk (candidates beyond batch + any not in this page).
-  // A second count query keeps the UI progress counter honest for large catalogs.
   const { count: nullYearCount } = await supabase
     .from('songs')
     .select('id', { count: 'exact', head: true })
@@ -109,63 +103,37 @@ export async function POST(request: NextRequest) {
 
   for (let i = 0; i < batch.length; i++) {
     const song = batch[i]
-    if (i > 0) await sleep(ITUNES_SLEEP_MS)
+    if (i > 0) await sleep(MUSICBRAINZ_SLEEP_MS)
 
     processed += 1
     try {
-      const itunes = await fetchItunesSongEnrichment(song.artist, song.title)
-      if (!itunes) {
+      const mb = await fetchMusicBrainzSongEnrichment(song.artist, song.title)
+      if (!mb) {
         failed += 1
         continue
       }
 
-      const patch = buildEnrichmentUpdate(song, itunes)
+      const patch = buildEnrichmentUpdate(song, mb)
       if (!patch) {
-        // iTunes returned data but nothing usable for gaps
         failed += 1
         continue
       }
 
-      // Soft-fail genre column if migration not applied yet
       const { error: updateError } = await supabase.from('songs').update(patch).eq('id', song.id)
 
       if (updateError) {
-        if (patch.genre !== undefined && /genre|column|schema cache/i.test(updateError.message)) {
-          const yearOnly = patch.year !== undefined ? { year: patch.year } : null
-          if (yearOnly) {
-            const { error: yearError } = await supabase
-              .from('songs')
-              .update(yearOnly)
-              .eq('id', song.id)
-            if (yearError) {
-              failed += 1
-              continue
-            }
-            updated += 1
-            continue
-          }
-        }
         failed += 1
         continue
       }
 
       updated += 1
     } catch (e) {
-      console.warn('[songs/enrich] iTunes lookup failed:', song.id, e)
+      console.warn('[songs/enrich] MusicBrainz lookup failed:', song.id, e)
       failed += 1
     }
   }
 
-  // Remaining ≈ songs still needing year (primary signal) minus what we just fixed,
-  // plus any untagged-with-year that may remain in this page.
-  const stillNeedInPage = candidates.length - batch.length
-  const untaggedWithYearLeft = candidates.filter(
-    (c) => c.year != null && isUntaggedStoredGenre(c.genre) && !batch.some((b) => b.id === c.id)
-  ).length
-  const remaining = Math.max(
-    0,
-    (nullYearCount ?? 0) - updated + stillNeedInPage + untaggedWithYearLeft
-  )
+  const remaining = Math.max(0, (nullYearCount ?? 0) - updated)
 
   return NextResponse.json({
     ok: true,

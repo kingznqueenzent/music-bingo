@@ -535,8 +535,8 @@ function MediaManagerDashboardInner() {
     try {
       while (chunks < maxChunks) {
         chunks += 1
-        setEnrichProgress(`Enriching… chunk ${chunks} (${totalUpdated} updated)`)
-        showToast('success', `Enriching missing years… ${totalUpdated} updated so far`)
+        setEnrichProgress(`MusicBrainz… chunk ${chunks} (${totalUpdated} updated)`)
+        showToast('success', `Enriching years via MusicBrainz… ${totalUpdated} updated so far`)
 
         const body = await fetchJson<{
           ok?: boolean
@@ -886,14 +886,16 @@ function MediaManagerDashboardInner() {
               disabled={enriching || loading}
               onClick={() => void handleBatchEnrich()}
               className="px-3 py-1.5 rounded-lg border border-[#00FF66]/30 text-[#00FF66]/90 hover:bg-[#00FF66]/10 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
-              title="Fetch release year and genre from iTunes for tracks missing metadata"
+              title="Fetch release years from MusicBrainz for tracks missing year"
             >
               {enriching ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
                 <CalendarSearch className="w-3.5 h-3.5" />
               )}
-              {enriching ? enrichProgress ?? 'Enriching…' : 'Batch Enrich Missing Years'}
+              {enriching
+                ? enrichProgress ?? 'Enriching…'
+                : 'Batch Enrich Years via MusicBrainz'}
             </button>
             <button
               type="button"
