@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { HostDashboard } from './HostDashboard'
 import type { Game, PlaylistSong, PlayedSong } from '@/lib/supabase/types'
@@ -10,6 +11,7 @@ export default async function HostGamePage({ params }: { params: Promise<{ gameI
   let initialPlayed: PlayedSong[] = []
   let initialPlayerCount = 0
   let serverError = ''
+  let endedRedirect = false
 
   try {
     const supabase = createClient()
@@ -17,18 +19,38 @@ export default async function HostGamePage({ params }: { params: Promise<{ gameI
     if (gameError) {
       serverError = [gameError.message, gameError.details, gameError.hint].filter(Boolean).join(' ') || 'Could not load game.'
     } else if (g) {
-      initialGame = g as Game
-      if (g.playlist_id) {
-        const { data: s } = await supabase.from('playlist_songs').select('*').eq('playlist_id', g.playlist_id).order('position')
-        initialSongs = (s ?? []) as PlaylistSong[]
+      // Ended / archived games are review-only — do not open the live call console.
+      if ((g as Game).status === 'ended') {
+        endedRedirect = true
+      } else {
+        initialGame = g as Game
+        if (g.playlist_id) {
+          const { data: s } = await supabase
+            .from('playlist_songs')
+            .select('*')
+            .eq('playlist_id', g.playlist_id)
+            .order('position')
+          initialSongs = (s ?? []) as PlaylistSong[]
+        }
+        const { count } = await supabase
+          .from('cards')
+          .select('*', { count: 'exact', head: true })
+          .eq('game_id', gameId)
+        initialPlayerCount = count ?? 0
+        const { data: p } = await supabase
+          .from('played_songs')
+          .select('*')
+          .eq('game_id', gameId)
+          .order('played_at')
+        initialPlayed = (p ?? []) as PlayedSong[]
       }
-      const { count } = await supabase.from('cards').select('*', { count: 'exact', head: true }).eq('game_id', gameId)
-      initialPlayerCount = count ?? 0
-      const { data: p } = await supabase.from('played_songs').select('*').eq('game_id', gameId).order('played_at')
-      initialPlayed = (p ?? []) as PlayedSong[]
     }
   } catch (e) {
     serverError = e instanceof Error ? e.message : 'Could not load game.'
+  }
+
+  if (endedRedirect) {
+    redirect(`/host/history/${gameId}`)
   }
 
   return (

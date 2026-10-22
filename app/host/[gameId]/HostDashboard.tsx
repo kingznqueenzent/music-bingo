@@ -72,6 +72,7 @@ import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } fro
 import { LayoutGrid } from 'lucide-react'
 import { START_GAME_EMPTY_PLAYLIST_ERROR } from '@/lib/game-start'
 import { roomCodeFromGame } from '@/types/database-extras'
+import { clearHostGameSession, rememberHostGame } from '@/lib/host-session'
 
 type HostDashboardProps = {
   gameId: string
@@ -187,6 +188,12 @@ export function HostDashboard({
   const persistAutopilotRef = useRef<(next: AutopilotPersisted) => Promise<void>>(async () => {})
   const scheduleAutopilotAdvanceRef = useRef<() => void>(() => {})
   const pauseAutopilotRef = useRef<(reason: AutopilotPauseReason) => void>(() => {})
+
+  // Remember intentional open only — /host landing clears this and never auto-resumes.
+  useEffect(() => {
+    if (!gameId) return
+    rememberHostGame(gameId, displayCode || null)
+  }, [gameId, displayCode])
 
   useEffect(() => {
     if (initialGame && retryTrigger === 0) {
@@ -487,7 +494,10 @@ export function HostDashboard({
       setPlayingSongId(null)
       setCurrentSong(null)
       setEndGameConfirmOpen(false)
-      setVerifyBingoSuccess('Game ended. Players see Game Over.')
+      clearHostGameSession()
+      setVerifyBingoSuccess('Game ended. Opening archive…')
+      // Leave the live console — ended games are review-only history.
+      window.location.assign(`/host/history/${gameId}`)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e))
     } finally {

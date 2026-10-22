@@ -13,7 +13,9 @@ import {
   CopyMinus,
   Eraser,
   Music,
+  CalendarSearch,
 } from 'lucide-react'
+import { fetchJson, FetchJsonError } from '@/lib/media/fetch-json'
 import { filterCatalogSongs } from '@/lib/media/filter-catalog-songs'
 import { resolveSongStoragePath } from '@/lib/media/resolve-song-storage-path'
 import { storagePathWouldChange } from '@/lib/media/song-storage-path'
@@ -192,6 +194,8 @@ function MediaManagerDashboardInner() {
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [bulkApplyingTheme, setBulkApplyingTheme] = useState(false)
   const [bulkApplyingGenre, setBulkApplyingGenre] = useState(false)
+  const [enriching, setEnriching] = useState(false)
+  const [enrichProgress, setEnrichProgress] = useState<string | null>(null)
   const [bulkThemeId, setBulkThemeId] = useState('')
   const [bulkGenre, setBulkGenre] = useState('')
   const [bulkYear, setBulkYear] = useState('')
@@ -518,6 +522,76 @@ function MediaManagerDashboardInner() {
     }
   }, [selectedSongIds, bulkThemeId, bulkAssignTheme, setError, refetch, showToast])
 
+  const handleBatchEnrich = useCallback(async () => {
+    if (enriching) return
+    setEnriching(true)
+    setError('')
+    let totalUpdated = 0
+    let totalFailed = 0
+    let totalProcessed = 0
+    let chunks = 0
+    const maxChunks = 40
+
+    try {
+      while (chunks < maxChunks) {
+        chunks += 1
+        setEnrichProgress(`Enriching… chunk ${chunks} (${totalUpdated} updated)`)
+        showToast('success', `Enriching missing years… ${totalUpdated} updated so far`)
+
+        const body = await fetchJson<{
+          ok?: boolean
+          processed?: number
+          updated?: number
+          failed?: number
+          remaining?: number
+          error?: string
+        }>('/api/songs/enrich', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ limit: 25 }),
+        })
+
+        if (!body.ok) {
+          throw new Error(body.error ?? 'Enrichment failed')
+        }
+
+        totalProcessed += body.processed ?? 0
+        totalUpdated += body.updated ?? 0
+        totalFailed += body.failed ?? 0
+        const remaining = body.remaining ?? 0
+
+        setEnrichProgress(
+          `Processed ${totalProcessed} · updated ${totalUpdated} · failed ${totalFailed} · remaining ~${remaining}`
+        )
+        showToast(
+          'success',
+          `Enrichment: ${totalUpdated} updated, ${totalFailed} failed, ~${remaining} remaining`
+        )
+
+        if ((body.processed ?? 0) === 0 || remaining <= 0) break
+      }
+
+      await refetch()
+      showToast(
+        'success',
+        `Batch enrich done — ${totalUpdated} updated, ${totalFailed} failed (${totalProcessed} processed)`
+      )
+    } catch (e) {
+      const message =
+        e instanceof FetchJsonError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : 'Enrichment failed'
+      setError(message)
+      showToast('error', message)
+    } finally {
+      setEnriching(false)
+      setEnrichProgress(null)
+    }
+  }, [enriching, refetch, setError, showToast])
+
   const handleBulkApplyGenre = useCallback(async () => {
     const ids = [...selectedSongIds]
     const yearValue = bulkYear.trim() ? parseSongYear(bulkYear) : undefined
@@ -807,6 +881,20 @@ function MediaManagerDashboardInner() {
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={enriching || loading}
+              onClick={() => void handleBatchEnrich()}
+              className="px-3 py-1.5 rounded-lg border border-[#00FF66]/30 text-[#00FF66]/90 hover:bg-[#00FF66]/10 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              title="Fetch release year and genre from iTunes for tracks missing metadata"
+            >
+              {enriching ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <CalendarSearch className="w-3.5 h-3.5" />
+              )}
+              {enriching ? enrichProgress ?? 'Enriching…' : 'Batch Enrich Missing Years'}
+            </button>
             <button
               type="button"
               disabled={removingDupes || loading}

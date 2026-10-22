@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Loader2, Music } from 'lucide-react'
+import { ChevronRight, Loader2, Music, Archive } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { fetchHostGamesList, type HostGameListRow } from '@/lib/host-games-list'
 import type { GameStatus } from '@/lib/supabase/types'
@@ -62,16 +62,31 @@ function formatRelativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+function gameHref(game: HostGameListRow): string {
+  // Ended / archived → read-only history (no live resume).
+  if (game.status === 'ended') {
+    return `/host/history/${game.id}`
+  }
+  return `/host/${game.id}?code=${encodeURIComponent(game.code)}`
+}
+
 function GameListItem({ game }: { game: HostGameListRow }) {
-  const href = `/host/${game.id}?code=${encodeURIComponent(game.code)}`
+  const href = gameHref(game)
+  const ended = game.status === 'ended'
 
   return (
     <Link
       href={href}
       className="group flex items-center gap-3 rounded-xl border border-white/10 bg-black/20 px-3 py-3 min-h-[4.25rem] hover:border-[#00FF66]/35 hover:bg-[#00FF66]/5 transition-colors touch-manipulation"
     >
-      <div className="shrink-0 w-11 h-11 rounded-xl bg-[#00FF66]/10 border border-[#00FF66]/20 flex items-center justify-center text-[#00FF66]">
-        <Music className="w-5 h-5" aria-hidden />
+      <div
+        className={`shrink-0 w-11 h-11 rounded-xl border flex items-center justify-center ${
+          ended
+            ? 'bg-white/5 border-white/10 text-white/45'
+            : 'bg-[#00FF66]/10 border-[#00FF66]/20 text-[#00FF66]'
+        }`}
+      >
+        {ended ? <Archive className="w-5 h-5" aria-hidden /> : <Music className="w-5 h-5" aria-hidden />}
       </div>
 
       <div className="flex-1 min-w-0">
@@ -83,6 +98,7 @@ function GameListItem({ game }: { game: HostGameListRow }) {
           <span className="font-mono text-[#00FF66]/80">{game.code}</span>
           <span>{game.callCount} call{game.callCount === 1 ? '' : 's'}</span>
           <span>{formatRelativeTime(game.createdAt)}</span>
+          {ended ? <span className="text-white/35">History</span> : null}
         </div>
       </div>
 
@@ -121,6 +137,10 @@ export function HostGamesList({ hostId, className = '' }: HostGamesListProps) {
     () => rows.filter((r) => r.status !== 'ended'),
     [rows]
   )
+  const endedRows = useMemo(
+    () => rows.filter((r) => r.status === 'ended'),
+    [rows]
+  )
 
   return (
     <section
@@ -130,7 +150,9 @@ export function HostGamesList({ hostId, className = '' }: HostGamesListProps) {
       <div className="flex items-start justify-between gap-3 mb-5">
         <div>
           <h2 className="text-xl font-bold text-white">Your games</h2>
-          <p className="text-white/45 text-sm mt-1">Open a room dashboard or resume a live session.</p>
+          <p className="text-white/45 text-sm mt-1">
+            Open a live console only when you intend to host. Ended games open as read-only history.
+          </p>
         </div>
         {!loading && activeRows.length > 0 ? (
           <span className="text-xs font-semibold tabular-nums text-[#00FF66]/80 bg-[#00FF66]/10 border border-[#00FF66]/25 rounded-full px-2.5 py-1">
@@ -152,16 +174,35 @@ export function HostGamesList({ hostId, className = '' }: HostGamesListProps) {
         </div>
       ) : rows.length === 0 ? (
         <p className="text-white/40 text-sm py-8 text-center">
-          No games yet — create one below to get a room code and dashboard link.
+          No games yet — start a new game below to get a room code and dashboard link.
         </p>
       ) : (
-        <ul className="space-y-2">
-          {rows.map((game) => (
-            <li key={game.id}>
-              <GameListItem game={game} />
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-5">
+          {activeRows.length > 0 ? (
+            <ul className="space-y-2">
+              {activeRows.map((game) => (
+                <li key={game.id}>
+                  <GameListItem game={game} />
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {endedRows.length > 0 ? (
+            <div>
+              <h3 className="text-xs uppercase tracking-wider text-white/35 font-semibold mb-2">
+                Past games ({endedRows.length})
+              </h3>
+              <ul className="space-y-2">
+                {endedRows.map((game) => (
+                  <li key={game.id}>
+                    <GameListItem game={game} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       )}
     </section>
   )
