@@ -30,7 +30,7 @@ import {
 import { fetchJson, FetchJsonError } from '@/lib/media/fetch-json'
 import type { CatalogTheme, SongInsertPayload } from '../types'
 
-export const MAX_UPLOAD_FILES = 20
+export const MAX_UPLOAD_FILES = 30
 
 /** Empty string in UI = "Select Genre" / Untagged. */
 export const UPLOAD_GENRE_UNTAGGED = ''
