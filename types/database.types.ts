@@ -796,6 +796,57 @@ export type Database = {
         }
         Relationships: []
       }
+      game_players: {
+        Row: {
+          id: string
+          game_id: string
+          card_id: string
+          player_name: string
+          player_identifier: string | null
+          score: number
+          correct_taps: number
+          wrong_taps: number
+          streak_current: number
+          streak_best: number
+          bingo_bonus_awarded: boolean
+          bingo_completed_at: string | null
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          game_id: string
+          card_id: string
+          player_name?: string
+          player_identifier?: string | null
+          score?: number
+          correct_taps?: number
+          wrong_taps?: number
+          streak_current?: number
+          streak_best?: number
+          bingo_bonus_awarded?: boolean
+          bingo_completed_at?: string | null
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string | null
+          game_id?: string | null
+          card_id?: string | null
+          player_name?: string | null
+          player_identifier?: string | null
+          score?: number | null
+          correct_taps?: number | null
+          wrong_taps?: number | null
+          streak_current?: number | null
+          streak_best?: number | null
+          bingo_bonus_awarded?: boolean | null
+          bingo_completed_at?: string | null
+          updated_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       players: {
         Row: {
           id: string

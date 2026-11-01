@@ -34,6 +34,9 @@ import { playlistSongDisplayParts, playlistSongLabel } from '@/lib/media-display
 import { PlayerAudioGate } from '@/components/play/PlayerAudioGate'
 import { PlayerSongPlayback } from '@/components/play/PlayerSongPlayback'
 import { getSongMp3Url, getSongStartTime, shouldPlayYouTubeClip } from '@/lib/playlist-song-media'
+import { ArcadeScoreboard } from '@/components/scoreboard/ArcadeScoreboard'
+import { useGameScoreboard } from '@/hooks/useGameScoreboard'
+import { SCORE_BINGO_BONUS, SCORE_CORRECT_TAP, SCORE_WRONG_TAP } from '@/lib/game-scoring'
 
 const STORAGE_KEY_PREFIX = 'bingo-marks'
 
@@ -106,12 +109,23 @@ export function PlayView({
   const [leaderboardDrawerOpen, setLeaderboardDrawerOpen] = useState(false)
   const [leaderboardList, setLeaderboardList] = useState<LeaderboardEntry[]>([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
+  const [scoreboardOpen, setScoreboardOpen] = useState(false)
+  const [liveScore, setLiveScore] = useState(0)
+  const [liveAccuracy, setLiveAccuracy] = useState(100)
+  const [liveStreak, setLiveStreak] = useState(0)
   const [gameCode, setGameCode] = useState('')
   const [playedSongIds, setPlayedSongIds] = useState<Set<string>>(new Set())
   const [profileIdentifier, setProfileIdentifier] = useState('')
   const bingoSkipClickRef = useRef(false)
   const participationSentRef = useRef(false)
   const latestMarksRef = useRef<Set<string>>(new Set())
+  const scoredCorrectRef = useRef<Set<string>>(new Set())
+  const bingoBonusSentRef = useRef(false)
+  const {
+    entries: arcadeEntries,
+    loading: arcadeLoading,
+    error: arcadeError,
+  } = useGameScoreboard(gameId)
   const [envelopeSponsor, setEnvelopeSponsor] = useState<GameSponsor | null>(null)
   const [gameStatus, setGameStatus] = useState<GameStatus>('lobby')
   const [newGameOffer, setNewGameOffer] = useState<{
@@ -177,6 +191,92 @@ export function PlayView({
     },
     [persistMarks, flushBoardSync, profileIdentifier, cardId]
   )
+
+  const postTapScore = useCallback(
+    async (result: 'correct' | 'wrong') => {
+      try {
+        const res = await fetch('/api/game/score/tap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gameId,
+            cardId,
+            playerName: playerName || claimName || 'Player',
+            playerIdentifier: profileIdentifier || cardId,
+            result,
+          }),
+        })
+        const data = (await res.json()) as {
+          ok?: boolean
+          score?: number
+          accuracy?: number
+          streakCurrent?: number
+        }
+        if (data.ok) {
+          if (typeof data.score === 'number') setLiveScore(data.score)
+          if (typeof data.accuracy === 'number') setLiveAccuracy(data.accuracy)
+          if (typeof data.streakCurrent === 'number') setLiveStreak(data.streakCurrent)
+        }
+      } catch {
+        // Scoring is best-effort; board marks still persist locally.
+      }
+    },
+    [gameId, cardId, playerName, claimName, profileIdentifier]
+  )
+
+  const handleCorrectTap = useCallback(
+    (playlistSongId: string) => {
+      if (scoredCorrectRef.current.has(playlistSongId)) return
+      scoredCorrectRef.current.add(playlistSongId)
+      setLiveScore((s) => s + SCORE_CORRECT_TAP)
+      setLiveStreak((s) => s + 1)
+      void postTapScore('correct')
+    },
+    [postTapScore]
+  )
+
+  const handleWrongTap = useCallback(
+    (_playlistSongId: string) => {
+      setLiveScore((s) => Math.max(0, s + SCORE_WRONG_TAP))
+      setLiveStreak(0)
+      void postTapScore('wrong')
+    },
+    [postTapScore]
+  )
+
+  const awardBingoBonus = useCallback(async () => {
+    if (bingoBonusSentRef.current) return
+    bingoBonusSentRef.current = true
+    try {
+      const res = await fetch('/api/game/score/bingo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gameId,
+          cardId,
+          playerName: playerName || claimName || 'Player',
+          playerIdentifier: profileIdentifier || cardId,
+        }),
+      })
+      const data = (await res.json()) as {
+        ok?: boolean
+        awarded?: boolean
+        score?: number
+        accuracy?: number
+        streakCurrent?: number
+      }
+      if (data.ok) {
+        if (typeof data.score === 'number') setLiveScore(data.score)
+        else if (data.awarded) setLiveScore((s) => s + SCORE_BINGO_BONUS)
+        if (typeof data.accuracy === 'number') setLiveAccuracy(data.accuracy)
+        if (typeof data.streakCurrent === 'number') setLiveStreak(data.streakCurrent)
+      } else {
+        bingoBonusSentRef.current = false
+      }
+    } catch {
+      bingoBonusSentRef.current = false
+    }
+  }, [gameId, cardId, playerName, claimName, profileIdentifier])
 
   const sendParticipationSession = useCallback(() => {
     if (participationSentRef.current) return
@@ -690,6 +790,7 @@ export function PlayView({
             setCelebrationName(playerName)
             setCelebrationOpen(true)
             window.setTimeout(() => setCelebrationOpen(false), 14000)
+            void awardBingoBonus()
           }
         }
       )
@@ -712,6 +813,7 @@ export function PlayView({
             setCelebrationName(playerName)
             setCelebrationOpen(true)
             window.setTimeout(() => setCelebrationOpen(false), 14000)
+            void awardBingoBonus()
           }
         }
       )
@@ -726,6 +828,7 @@ export function PlayView({
             setCelebrationName(playerName)
             setCelebrationOpen(true)
             window.setTimeout(() => setCelebrationOpen(false), 14000)
+            void awardBingoBonus()
           }
         }
       )
@@ -808,7 +911,16 @@ export function PlayView({
       supabase.removeChannel(channel)
       supabase.removeChannel(gameChannel)
     }
-  }, [gameId, cardId, supabase, playerName])
+  }, [gameId, cardId, supabase, playerName, awardBingoBonus])
+
+  useEffect(() => {
+    const mine = arcadeEntries.find((e) => e.card_id === cardId)
+    if (!mine) return
+    setLiveScore(mine.score)
+    setLiveAccuracy(mine.accuracy)
+    setLiveStreak(mine.streak_current)
+    if (mine.bingo_bonus_awarded) bingoBonusSentRef.current = true
+  }, [arcadeEntries, cardId])
 
   useEffect(() => {
     const onLeave = () => {
@@ -1121,6 +1233,24 @@ export function PlayView({
         </p>
       ) : null}
 
+      <div className="mb-3 flex flex-wrap items-center justify-center gap-2 text-xs sm:text-sm">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-[#00FF66]/40 bg-[#00FF66]/10 px-3 py-1.5 font-black tabular-nums text-[#00FF66]">
+          {liveScore} pts
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-black/30 px-3 py-1.5 font-semibold tabular-nums text-white/75">
+          {liveAccuracy % 1 === 0 ? liveAccuracy.toFixed(0) : liveAccuracy.toFixed(1)}% acc
+        </span>
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-bold tabular-nums ${
+            liveStreak > 0
+              ? 'border-orange-400/50 bg-orange-500/15 text-orange-300'
+              : 'border-white/10 bg-black/20 text-white/35'
+          }`}
+        >
+          {liveStreak > 0 ? `🔥 ${liveStreak}` : 'streak 0'}
+        </span>
+      </div>
+
       <BingoCard
         size={size}
         cells={bingoCardCells}
@@ -1129,10 +1259,13 @@ export function PlayView({
         activeSongId={activeSongId}
         hideSongTitles={hideSongTitles}
         onMarkChange={handleMarkChange}
+        onCorrectTap={handleCorrectTap}
+        onWrongTap={handleWrongTap}
       />
 
       <p className="mt-4 text-white/70 text-sm text-center">
-        Tap squares when the host plays that song. Gold flash = called · Red shake = not played yet.
+        Correct dab +{SCORE_CORRECT_TAP} · Wrong tap {SCORE_WRONG_TAP} (min 0) · Verified Bingo +{SCORE_BINGO_BONUS}.
+        Gold flash = called · Red shake = not played yet.
         {hideSongTitles ? ' Titles are hidden in Blind Mode.' : ''}
       </p>
 
@@ -1350,17 +1483,65 @@ export function PlayView({
         </Link>
       </div>
 
-      <FeatureGate flag="xp_and_badges">
-        <button
-          type="button"
-          onTouchStart={(e) => e.stopPropagation()}
-          onClick={() => setLeaderboardDrawerOpen(true)}
-          className="fixed bottom-28 right-4 z-30 lg:bottom-6 lg:right-6 w-14 h-14 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-900 shadow-lg shadow-amber-500/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto transform-gpu"
-          aria-label="View leaderboard"
-        >
-          🏆
-        </button>
-      </FeatureGate>
+      <button
+        type="button"
+        onTouchStart={(e) => e.stopPropagation()}
+        onClick={() => setScoreboardOpen(true)}
+        className="fixed bottom-28 right-4 z-30 lg:bottom-6 lg:right-6 w-14 h-14 rounded-full bg-[#00FF66] hover:bg-green-300 text-[#121212] shadow-lg shadow-[#00FF66]/40 flex items-center justify-center text-2xl transition-transform hover:scale-105 touch-manipulation pointer-events-auto transform-gpu"
+        aria-label="View live scoreboard"
+      >
+        🏆
+      </button>
+
+      {scoreboardOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-black/60 md:bg-black/50 md:backdrop-blur-sm transform-gpu"
+            onClick={() => setScoreboardOpen(false)}
+            aria-hidden
+          />
+          <div
+            className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl bg-[#050806] border-t border-[#00FF66]/30 shadow-2xl max-h-[88dvh] flex flex-col transition-transform duration-300 ease-out transform-gpu pb-[env(safe-area-inset-bottom)]"
+            role="dialog"
+            aria-label="Live arcade scoreboard"
+          >
+            <div className="flex items-center justify-between p-4 border-b border-[#00FF66]/20">
+              <h2 className="text-lg font-black uppercase tracking-widest text-[#00FF66]">Live ranks</h2>
+              <button
+                type="button"
+                onTouchStart={(e) => e.stopPropagation()}
+                onClick={() => setScoreboardOpen(false)}
+                className="rounded-full p-2 text-white/50 hover:text-white hover:bg-white/10 touch-manipulation pointer-events-auto"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-4">
+              <ArcadeScoreboard
+                entries={arcadeEntries}
+                loading={arcadeLoading}
+                error={arcadeError}
+                highlightCardId={cardId}
+                variant="player"
+                maxRows={50}
+              />
+              <FeatureGate flag="xp_and_badges">
+                <button
+                  type="button"
+                  className="mt-4 w-full text-center text-sm text-amber-300/80 hover:text-amber-200 py-2"
+                  onClick={() => {
+                    setScoreboardOpen(false)
+                    setLeaderboardDrawerOpen(true)
+                  }}
+                >
+                  View all-time XP leaderboard →
+                </button>
+              </FeatureGate>
+            </div>
+          </div>
+        </>
+      )}
 
       <FeatureGate flag="xp_and_badges">
         {leaderboardDrawerOpen && (

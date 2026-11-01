@@ -28,6 +28,10 @@ export type BingoCardProps = {
   /** Evil mode — hide uncalled titles/artists as ? until the host plays the song. */
   evilMode?: boolean
   onMarkChange: (playlistSongId: string, marked: boolean) => void
+  /** Fired when the player dabs a called track (scoring +1). */
+  onCorrectTap?: (playlistSongId: string) => void
+  /** Fired when the player taps an uncalled track (scoring −1, shake). */
+  onWrongTap?: (playlistSongId: string) => void
   className?: string
 }
 
@@ -77,6 +81,8 @@ export function BingoCard({
   hideSongTitles = false,
   evilMode = false,
   onMarkChange,
+  onCorrectTap,
+  onWrongTap,
   className = '',
 }: BingoCardProps) {
   const boardSize = size
@@ -116,6 +122,7 @@ export function BingoCard({
       if (!isPlayed && !isMarked) {
         triggerHaptic('error')
         triggerFeedback(cellFeedbackKey(position, 'wrong'))
+        onWrongTap?.(cell.playlistSongId)
         return
       }
 
@@ -124,11 +131,21 @@ export function BingoCard({
       if (nextMarked && isPlayed) {
         triggerHaptic('success')
         triggerFeedback(cellFeedbackKey(position, 'mark'))
+        onCorrectTap?.(cell.playlistSongId)
       } else {
         triggerHaptic('tap')
       }
     },
-    [boardSize, freePosition, markedSongIds, onMarkChange, playedSongIds, triggerFeedback]
+    [
+      boardSize,
+      freePosition,
+      markedSongIds,
+      onCorrectTap,
+      onMarkChange,
+      onWrongTap,
+      playedSongIds,
+      triggerFeedback,
+    ]
   )
 
   return (

@@ -5,6 +5,7 @@ import { notifyHostWin, recordBingoClaimDecision } from '@/lib/game-session'
 import { recordGameHistoryWin } from '@/lib/game-history'
 import { triggerWinnerCelebration } from '@/lib/trigger-winner-celebration'
 import { normalizeWinPattern } from '@/lib/bingo-win-pattern'
+import { awardBingoBonus } from '@/lib/game-scoring'
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,6 +99,14 @@ export async function POST(request: NextRequest) {
           pattern: normalizeWinPattern(game?.mode),
         })
       }
+
+      // +10 verified Bingo bonus on live arcade scoreboard (idempotent).
+      void awardBingoBonus(supabase, {
+        gameId,
+        cardId: targetCardId,
+        playerName,
+        playerIdentifier: card?.player_identifier ?? null,
+      })
     }
 
     const r = result as { valid: boolean; error?: string; playerName?: string }

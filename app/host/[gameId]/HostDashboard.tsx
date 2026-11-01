@@ -69,6 +69,8 @@ import {
 } from '@/lib/autopilot'
 import { HostPlayerBoardPanel, hostBoardGameCode } from '@/components/host/HostPlayerBoardPanel'
 import { PlayerListPanel, type PlayerBoardStatus, playerStatusFromProgress } from '@/components/host/PlayerListPanel'
+import { ArcadeScoreboard } from '@/components/scoreboard/ArcadeScoreboard'
+import { useGameScoreboard } from '@/hooks/useGameScoreboard'
 import { LayoutGrid } from 'lucide-react'
 import { START_GAME_EMPTY_PLAYLIST_ERROR } from '@/lib/game-start'
 import { roomCodeFromGame } from '@/types/database-extras'
@@ -137,6 +139,11 @@ export function HostDashboard({
   const [lifecycleLoading, setLifecycleLoading] = useState(false)
   const [playbackPaused, setPlaybackPaused] = useState(false)
   const [playerBoards, setPlayerBoards] = useState<PlayerBoardStatus[]>([])
+  const {
+    entries: arcadeEntries,
+    loading: arcadeLoading,
+    error: arcadeError,
+  } = useGameScoreboard(gameId)
   const [winnersCircle, setWinnersCircle] = useState<{
     open: boolean
     playerName: string
@@ -1593,13 +1600,20 @@ export function HostDashboard({
               📺 Meld Overlay
             </a>
           )}
+          <Link
+            href={`/host/scoreboard/${gameId}`}
+            target="_blank"
+            className="w-full sm:w-auto text-center rounded-full border-2 border-[#00FF66]/70 bg-transparent px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 hover:border-[#00FF66] transition-all duration-300 min-h-12 inline-flex items-center justify-center touch-manipulation"
+          >
+            🏆 Live Scoreboard
+          </Link>
           <a
             href="/leaderboard"
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto text-center rounded-full border-2 border-[#00FF66]/70 bg-transparent px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-[#00FF66] hover:bg-[#00FF66]/10 hover:border-[#00FF66] transition-all duration-300 min-h-12 inline-flex items-center justify-center touch-manipulation"
+            className="w-full sm:w-auto text-center rounded-full border border-amber-500/50 bg-transparent px-6 py-3.5 sm:py-4 text-base sm:text-lg font-semibold text-amber-200/90 hover:bg-amber-500/10 transition-all duration-300 min-h-12 inline-flex items-center justify-center touch-manipulation"
           >
-            🏆 View Leaderboard
+            All-Time XP
           </a>
           <button
             type="button"
@@ -1910,7 +1924,17 @@ export function HostDashboard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PlayerListPanel players={playerBoards} />
+        <div className="space-y-4">
+          <ArcadeScoreboard
+            entries={arcadeEntries}
+            loading={arcadeLoading}
+            error={arcadeError}
+            variant="host"
+            title="ARCADE SCOREBOARD"
+            maxRows={30}
+          />
+          <PlayerListPanel players={playerBoards} />
+        </div>
         <div className="space-y-4">
           <ShoutoutConsole gameId={gameId} supabase={supabase} />
           <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">

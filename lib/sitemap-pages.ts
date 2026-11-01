@@ -105,6 +105,13 @@ export const SITEMAP_PAGES: SitemapPageEntry[] = [
     section: 'Host',
   },
   {
+    href: '/host/scoreboard',
+    label: 'Live Arcade Scoreboard',
+    description: 'Per-game live ranks by score, accuracy, streak, and bingo speed (/host/scoreboard/[gameId]).',
+    icon: Trophy,
+    section: 'Host',
+  },
+  {
     href: '/leaderboard',
     label: 'Leaderboard',
     description: 'Wins, XP, and seasonal rankings. Official URL: /Leaderboard.',
