@@ -796,6 +796,7 @@ export type Database = {
         }
         Relationships: []
       }
+      /** Live per-game scoring. Accuracy is derived in-app from correct_taps/wrong_taps. */
       game_players: {
         Row: {
           id: string
