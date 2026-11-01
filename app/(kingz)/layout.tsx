@@ -9,10 +9,8 @@ import '@/styles/kingz.css'
 
 const playfair = Playfair_Display({
   subsets: ['latin'],
-  weight: ['400', '600', '700'],
   variable: '--font-kingz-playfair',
   display: 'swap',
-  preload: true,
 })
 
 const lato = Lato({
@@ -20,7 +18,6 @@ const lato = Lato({
   weight: ['400', '700'],
   variable: '--font-kingz-lato',
   display: 'swap',
-  preload: true,
 })
 
 const siteUrl = (siteConfig.siteUrl as string).replace(/\/$/, '') || 'https://kingznqueenzent.ca'

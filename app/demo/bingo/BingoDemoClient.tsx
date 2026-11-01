@@ -209,7 +209,7 @@ export function BingoDemoClient() {
             </p>
           </aside>
 
-          <div ref={gridRef} className="order-1 lg:order-2 w-full max-w-md mx-auto">
+          <div ref={gridRef} className="order-1 lg:order-2 w-full max-w-[min(100%,42rem)] mx-auto">
             {evilMode ? (
               <p className="mb-3 text-center text-xs uppercase tracking-widest text-brand-neon/80 font-semibold">
                 Evil Mode — uncalled titles hidden
@@ -223,6 +223,7 @@ export function BingoDemoClient() {
               activeSongId={activeSongId}
               evilMode={evilMode}
               onMarkChange={handleMarkChange}
+              enableZoom
             />
             <p className="mt-4 text-white/55 text-sm text-center leading-relaxed">
               Tap squares after the host calls them. Gold flash = correct mark · Red shake = not played

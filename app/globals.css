@@ -629,21 +629,70 @@ input[type="button"],
   animation: admin-menu-in 0.2s ease-out forwards;
 }
 
-/* Bingo / stage song titles — fluid type that stays readable on narrow Android viewports */
+/* Bingo card — fluid layout + typography for 4×4 / 5×5 on phone + desktop */
+.bingo-card-zoom {
+  max-width: min(100%, 42rem);
+}
+
+.bingo-card-shell {
+  container-type: inline-size;
+  container-name: bingo-card;
+  width: 100%;
+  max-width: min(100%, 42rem);
+  padding: clamp(0.4rem, 1.6cqi, 1rem);
+}
+
 .bingo-grid {
   container-type: inline-size;
   container-name: bingo-grid;
+  width: 100%;
+}
+
+.bingo-card-shell[data-grid-size='4'] {
+  --bingo-cols: 4;
+}
+
+.bingo-card-shell[data-grid-size='5'] {
+  --bingo-cols: 5;
 }
 
 .bingo-cell {
   container-type: size;
   min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1 / 1;
+  width: 100%;
+  height: auto;
+  /* Floor so small phones still get tappable tiles; grow with board width. */
+  min-height: clamp(3.4rem, calc((100cqi - 1.1rem) / var(--bingo-cols, 5)), 10.5rem);
+  padding: clamp(0.22rem, 1.5cqi, 0.5rem);
+}
+
+.bingo-cell-content {
+  gap: clamp(0.1rem, 0.8cqi, 0.28rem);
+  padding-inline: clamp(0.05rem, 0.6cqi, 0.2rem);
+}
+
+.bingo-cell-art {
+  width: clamp(0.9rem, 8cqi, 1.35rem);
+  height: clamp(0.9rem, 8cqi, 1.35rem);
+}
+
+.bingo-free-star {
+  font-size: clamp(1.1rem, 8cqi, 2rem);
+}
+
+.bingo-dab-stamp {
+  width: clamp(0.9rem, 7cqi, 1.25rem);
+  height: clamp(0.9rem, 7cqi, 1.25rem);
+  font-size: clamp(0.55rem, 4cqi, 0.7rem);
 }
 
 .bingo-cell-title {
-  font-size: clamp(0.55rem, 0.35rem + 2.8cqi, 0.95rem);
-  line-height: 1.2;
+  font-size: clamp(0.62rem, 0.42rem + 3.1cqi, 1.05rem);
+  line-height: 1.18;
   font-weight: 600;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
   word-break: break-word;
   hyphens: auto;
@@ -656,9 +705,16 @@ input[type="button"],
   max-width: 100%;
 }
 
+.bingo-card-shell[data-grid-size='4'] .bingo-cell-title {
+  font-size: clamp(0.72rem, 0.48rem + 3.4cqi, 1.2rem);
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  line-height: 1.2;
+}
+
 .bingo-cell-artist {
-  font-size: clamp(0.48rem, 0.3rem + 1.8cqi, 0.72rem);
-  line-height: 1.15;
+  font-size: clamp(0.52rem, 0.34rem + 2cqi, 0.8rem);
+  line-height: 1.2;
   font-weight: 500;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -671,11 +727,23 @@ input[type="button"],
   max-width: 100%;
 }
 
+.bingo-card-shell[data-grid-size='4'] .bingo-cell-artist {
+  font-size: clamp(0.58rem, 0.38rem + 2.2cqi, 0.88rem);
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 @container bingo-grid (max-width: 22rem) {
   .bingo-cell-title {
     -webkit-line-clamp: 4;
     line-clamp: 4;
-    font-size: clamp(0.52rem, 0.3rem + 3.2cqi, 0.8rem);
+    font-size: clamp(0.58rem, 0.34rem + 3.6cqi, 0.9rem);
+  }
+}
+
+@container bingo-card (min-width: 28rem) {
+  .bingo-cell-title {
+    font-size: clamp(0.78rem, 0.5rem + 2.2cqi, 1.15rem);
   }
 }
 

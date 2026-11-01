@@ -48,13 +48,13 @@ export const metadata: Metadata = {
   },
 };
 
-/** Device-width viewport + manipulation touch model reduces legacy tap delay on mobile. */
+/** Allow pinch-to-zoom on bingo cards / mobile while keeping a sensible max scale. */
 export const viewport: Viewport = {
   themeColor: '#121212',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
 };
 

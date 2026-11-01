@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getFreeCenterPosition } from '@/lib/bingo-win-pattern'
 import { splitSongDisplayParts } from '@/lib/media-display'
 import { triggerHaptic } from '@/lib/haptic-feedback'
+import { BingoCardZoom } from '@/components/bingo/BingoCardZoom'
 
 export type BingoCardCell = {
   id: string
@@ -32,6 +33,8 @@ export type BingoCardProps = {
   onCorrectTap?: (playlistSongId: string) => void
   /** Fired when the player taps an uncalled track (scoring −1, shake). */
   onWrongTap?: (playlistSongId: string) => void
+  /** Wrap card in pinch/trackpad zoom with floating controls (player default). */
+  enableZoom?: boolean
   className?: string
 }
 
@@ -72,6 +75,11 @@ function resolveCellDisplayParts(
   return base
 }
 
+function isPinching(): boolean {
+  if (typeof document === 'undefined') return false
+  return document.documentElement.dataset.bingoPinching === '1'
+}
+
 export function BingoCard({
   size = 5,
   cells,
@@ -83,9 +91,10 @@ export function BingoCard({
   onMarkChange,
   onCorrectTap,
   onWrongTap,
+  enableZoom = true,
   className = '',
 }: BingoCardProps) {
-  const boardSize = size
+  const boardSize = size === 4 ? 4 : 5
   const freePosition = getFreeCenterPosition(boardSize)
   const cellMap = new Map(cells.map((c) => [c.position, c]))
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -110,6 +119,8 @@ export function BingoCard({
 
   const handleCellTap = useCallback(
     (cell: BingoCardCell | null, row: number, col: number) => {
+      if (isPinching()) return
+
       const position = row * boardSize + col
       const isFree = freePosition !== null && position === freePosition
 
@@ -148,12 +159,13 @@ export function BingoCard({
     ]
   )
 
-  return (
+  const card = (
     <div
-      className={`bingo-card-shell mx-auto w-full max-w-md bg-brand-surface rounded-2xl p-2 sm:p-4 border border-brand-neon/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu ${className}`}
+      className={`bingo-card-shell mx-auto w-full bg-brand-surface rounded-2xl border border-brand-neon/25 shadow-[0_0_24px_rgba(0,255,102,0.08)] transform-gpu ${className}`}
+      data-grid-size={boardSize}
     >
       <div
-        className="bingo-grid grid gap-1"
+        className="bingo-grid grid gap-[clamp(0.2rem,0.8cqi,0.45rem)]"
         style={{ gridTemplateColumns: `repeat(${boardSize}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: boardSize }, (_, row) =>
@@ -174,11 +186,11 @@ export function BingoCard({
               return (
                 <div
                   key={`free-${position}`}
-                  className="bingo-cell relative aspect-square rounded-xl flex flex-col items-center justify-center p-1 sm:p-2 text-center border bg-brand-neon/10 border-brand-neon/40 min-h-11 sm:min-h-[4.5rem] shadow-[inset_0_0_20px_rgba(0,255,102,0.12)] animate-pulse-glow"
+                  className="bingo-cell relative rounded-xl flex flex-col items-center justify-center text-center border bg-brand-neon/10 border-brand-neon/40 shadow-[inset_0_0_20px_rgba(0,255,102,0.12)] animate-pulse-glow"
                   aria-label="Free space"
                 >
                   <span
-                    className="text-lg sm:text-2xl leading-none text-brand-neon drop-shadow-[0_0_8px_rgba(0,255,102,0.75)]"
+                    className="bingo-free-star leading-none text-brand-neon drop-shadow-[0_0_8px_rgba(0,255,102,0.75)]"
                     aria-hidden
                   >
                     ⭐
@@ -191,10 +203,12 @@ export function BingoCard({
               return (
                 <div
                   key={`empty-${position}`}
-                  className="bingo-cell aspect-square rounded-xl flex flex-col items-center justify-center p-1 border border-white/5 bg-white/[0.02] text-white/20 min-h-11 sm:min-h-[4.5rem]"
+                  className="bingo-cell rounded-xl flex flex-col items-center justify-center border border-white/5 bg-white/[0.02] text-white/20"
                   aria-hidden
                 >
-                  <span className="text-[10px] sm:text-xs font-medium uppercase tracking-wider">—</span>
+                  <span className="text-[clamp(0.6rem,2.5cqi,0.85rem)] font-medium uppercase tracking-wider">
+                    —
+                  </span>
                 </div>
               )
             }
@@ -224,25 +238,41 @@ export function BingoCard({
                 title={parts.full}
                 onPointerDown={(e) => {
                   if (e.pointerType !== 'touch') return
-                  e.preventDefault()
+                  if (isPinching()) return
+                  // Defer to pointerup-equivalent via short delay so two-finger pinch can start.
                   skipClickRef.current = true
-                  handleCellTap(cell, row, col)
-                  window.setTimeout(() => {
-                    skipClickRef.current = false
-                  }, 600)
+                  const pointerId = e.pointerId
+                  const startX = e.clientX
+                  const startY = e.clientY
+                  const target = e.currentTarget
+                  const onUp = (ev: PointerEvent) => {
+                    if (ev.pointerId !== pointerId) return
+                    target.removeEventListener('pointerup', onUp)
+                    target.removeEventListener('pointercancel', onUp)
+                    window.setTimeout(() => {
+                      skipClickRef.current = false
+                    }, 400)
+                    if (isPinching()) return
+                    const moved = Math.hypot(ev.clientX - startX, ev.clientY - startY)
+                    if (moved > 14) return
+                    handleCellTap(cell, row, col)
+                  }
+                  target.addEventListener('pointerup', onUp)
+                  target.addEventListener('pointercancel', onUp)
                 }}
                 onClick={() => {
                   if (skipClickRef.current) {
                     skipClickRef.current = false
                     return
                   }
+                  if (isPinching()) return
                   handleCellTap(cell, row, col)
                 }}
                 className={`
-                  bingo-cell relative aspect-square rounded-xl flex flex-col items-stretch justify-center
-                  p-1 sm:p-1.5 text-center border transition-[transform,colors,box-shadow] duration-150
-                  cursor-pointer touch-manipulation min-h-[3.25rem] sm:min-h-[4.5rem]
-                  select-none active:scale-[0.92] transform-gpu will-change-transform
+                  bingo-cell relative rounded-xl flex flex-col items-stretch justify-center
+                  text-center border transition-[transform,colors,box-shadow] duration-150
+                  cursor-pointer touch-manipulation
+                  select-none active:scale-[0.96] transform-gpu will-change-transform
                   ${markAnim ? 'animate-bingo-mark animate-bingo-gold bingo-cell--just-dabbed' : ''}
                   ${wrongAnim ? 'animate-bingo-wrong' : ''}
                   ${isActive ? 'bingo-cell-called-glow' : ''}
@@ -252,7 +282,7 @@ export function BingoCard({
               >
                 {isCalledMarked && !isFree ? (
                   <span
-                    className="bingo-dab-stamp absolute top-0.5 right-0.5 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full bg-brand-neon text-brand-dark text-[9px] sm:text-[10px] font-black leading-none shadow-[0_0_8px_rgba(0,255,102,0.65)] pointer-events-none"
+                    className="bingo-dab-stamp absolute top-0.5 right-0.5 flex items-center justify-center rounded-full bg-brand-neon text-brand-dark font-black leading-none shadow-[0_0_8px_rgba(0,255,102,0.65)] pointer-events-none"
                     aria-hidden
                   >
                     ✓
@@ -264,13 +294,13 @@ export function BingoCard({
                     aria-hidden
                   />
                 ) : null}
-                <div className="flex flex-col items-center justify-center flex-1 min-h-0 w-full gap-0.5 overflow-hidden px-0.5">
+                <div className="bingo-cell-content flex flex-col items-center justify-center flex-1 min-h-0 w-full overflow-hidden">
                   {showAlbumArt ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={cell.albumArtUrl!}
                       alt=""
-                      className="hidden sm:block w-5 h-5 rounded object-cover shrink-0 pointer-events-none opacity-90"
+                      className="bingo-cell-art hidden sm:block rounded object-cover shrink-0 pointer-events-none opacity-90"
                     />
                   ) : null}
                   <span
@@ -281,7 +311,7 @@ export function BingoCard({
                     {parts.title}
                   </span>
                   {parts.artist ? (
-                    <span className="bingo-cell-artist pointer-events-none w-full min-w-0 text-white/40">
+                    <span className="bingo-cell-artist pointer-events-none w-full min-w-0 text-white/45">
                       {parts.artist}
                     </span>
                   ) : null}
@@ -293,4 +323,7 @@ export function BingoCard({
       </div>
     </div>
   )
+
+  if (!enableZoom) return card
+  return <BingoCardZoom className="mx-auto w-full max-w-[min(100%,42rem)]">{card}</BingoCardZoom>
 }

@@ -1263,9 +1263,10 @@ export function PlayView({
         onWrongTap={handleWrongTap}
       />
 
-      <p className="mt-4 text-white/70 text-sm text-center">
-        Correct dab +{SCORE_CORRECT_TAP} · Wrong tap {SCORE_WRONG_TAP} (min 0) · Verified Bingo +{SCORE_BINGO_BONUS}.
-        Gold flash = called · Red shake = not played yet.
+      <p className="mt-4 text-white/70 text-sm text-center max-w-xl mx-auto">
+        Correct dab +{SCORE_CORRECT_TAP} · Wrong tap {SCORE_WRONG_TAP} (min 0) · Verified Bingo +
+        {SCORE_BINGO_BONUS}. Pinch or use +/− to zoom the card · Gold flash = called · Red shake = not
+        played yet.
         {hideSongTitles ? ' Titles are hidden in Blind Mode.' : ''}
       </p>
 
